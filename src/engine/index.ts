@@ -24,7 +24,8 @@ export interface DocumentOptions {
 
 export const noRates: RateProvider = { get: () => null };
 
-const LABEL_RE = /^(\s*)([\p{L}][\p{L}\p{N}_ '’.-]*?)\s*:\s*(.*)$/u;
+// a label's colon is followed by a space or ends the line ("Price: $10"); "5:30pm" and "3:4" are not labels
+const LABEL_RE = /^(\s*)([\p{L}][\p{L}\p{N}_ '’.-]*?)\s*:(?:\s+|$)(.*)$/u;
 const ASSIGN_RE = /^(\s*)([\p{L}_][\p{L}\p{N}_]*)\s*=(?!=)\s*(.*)$/u;
 
 function highlight(text: string, label: { start: number; end: number } | null, variables: Set<string>, comments: { start: number; end: number }[]): HighlightSpan[] {
@@ -107,7 +108,8 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
 
   const { clean: cleanRaw, comments } = stripQuotes(body);
   // a sentence-ending period/question mark is punctuation, not part of the expression ("1000 + 10%.")
-  const { text: clean, places: roundTo } = extractRounding(cleanRaw.replace(/[.?!]+\s*$/, ''));
+  // ("5!" is a factorial, so "!" only counts as punctuation after a letter or space)
+  const { text: clean, places: roundTo } = extractRounding(cleanRaw.replace(/[.?]+\s*$/, '').replace(/(?<=[\p{L}\s])!+\s*$/u, ''));
   const commentRanges = comments.map((c) => ({ start: c.start + bodyOffset, end: c.end + bodyOffset }));
   let labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
   const spans = () => highlight(rawText, labelRange, variables, commentRanges);
@@ -126,6 +128,10 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   } catch (e) {
     if (e instanceof CalcError) firstError = e;
     else firstError = new CalcError(String((e as Error).message ?? e));
+  }
+  // the expression parsed but needed data (a rate, a currency target): report that, never re-read it as prose
+  if (!value && firstError?.kind === 'data') {
+    return { ok: false, display: '', note: firstError.hint ? `${firstError.message} · ${firstError.hint}` : firstError.message, isText: false, label: labelKey, spans: spans() };
   }
   // 1b. implicit definition: "rahul Rs 100", "rent 15000", "coffee $4.5" → name = value (context from visible lines)
   if (!value && !label) {

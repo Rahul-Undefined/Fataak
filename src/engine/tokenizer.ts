@@ -1,7 +1,7 @@
 import type { Token } from './types';
 import { CURRENCY_SYMBOLS } from './currency';
 
-const OPS = ['**', '+', '-', '−', '*', '×', '/', '÷', '^', '=', ':', ',', '@'];
+const OPS = ['**', '+', '-', '−', '*', '×', '/', '÷', '^', '=', ':', ',', '@', '!'];
 
 /**
  * Splits a single line into tokens with positions. Words are kept whole;

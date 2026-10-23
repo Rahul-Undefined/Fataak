@@ -27,6 +27,8 @@ export const UNITS: UnitDef[] = [
   u('yd', 'length', '0.9144', 'yd', ['yd', 'yard', 'yards']),
   u('mile', 'length', '1609.344', 'mi', ['mi', 'mile', 'miles']),
   u('nmi', 'length', 1852, 'nmi', ['nmi', 'nautical mile', 'nautical miles']),
+  u('ly', 'length', '9460730472580800', 'ly', ['ly', 'light year', 'light years', 'lightyear', 'lightyears']),
+  u('au', 'length', '149597870700', 'AU', ['astronomical unit', 'astronomical units']),
   // mass (base: kilogram)
   u('mg', 'mass', '0.000001', 'mg', ['mg', 'milligram', 'milligrams']),
   u('g', 'mass', '0.001', 'g', ['g', 'gram', 'grams', 'gm', 'gms']),
@@ -50,7 +52,7 @@ export const UNITS: UnitDef[] = [
   // temperature (special handling)
   u('c', 'temperature', 1, '°C', ['c', '°c', 'celsius', 'centigrade', 'degc', 'deg c']),
   u('f', 'temperature', 1, '°F', ['f', '°f', 'fahrenheit', 'degf', 'deg f']),
-  u('k', 'temperature', 1, 'K', ['kelvin']),
+  u('k', 'temperature', 1, 'K', ['kelvin', 'k']),
   // time (base: second)
   u('ms', 'time', '0.001', 'ms', ['ms', 'millisecond', 'milliseconds']),
   u('s', 'time', 1, 's', ['s', 'sec', 'secs', 'second', 'seconds']),

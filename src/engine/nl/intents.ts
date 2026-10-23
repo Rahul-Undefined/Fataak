@@ -37,10 +37,10 @@ const TIME_UNITS = new Set(['years', 'months', 'weeks', 'days', 'hours', 'minute
 const CONNECTORS = new Set(['of', 'on', 'in', 'to', 'from', 'for', 'at', 'by', 'and', 'with', 'what', 'after', 'before', 'between', 'is', 'than', 'then', 'now', 'time', ',', 'another', 'that', 'start', 'each', 'equally', 'people', 'compute']);
 const VERBS = new Set([
   'increase', 'decrease', 'add', 'remove', 'inclusive', 'without', 'gst', 'discount', 'profit', 'loss', 'cost', 'sell', 'margin', 'markup', 'emi', 'loan', 'interest', 'simple', 'compound', 'convert', 'change',
-  'revenue', 'expenses', 'double', 'triple', 'times', 'divide', 'minus', 'plus', 'total', 'sum', 'base', 'parts', 'reset',
+  'revenue', 'expenses', 'double', 'triple', 'divide', 'total', 'sum', 'base', 'parts', 'reset', 'ratio', 'average', 'median', 'max', 'min', 'flat', 'reverse', 'age', 'born', 'leap', 'weekday', 'weekdays', 'weekends',
 ]);
 const SCALE_WORDS = new Set(['k', 'thousand', 'hazaar', 'hazar', 'hajar', 'lakh', 'lakhs', 'lac', 'lacs', 'crore', 'crores', 'cr', 'koti', 'lokkho', 'million', 'mn', 'billion', 'bn', 'hundred']);
-const SEQUENCE_SPLIT = new Set([',', 'then', 'and', 'that']);
+const SEQUENCE_SPLIT = new Set([',', 'then', 'and', 'that', 'after']);
 /** words that mean "do something to the amount": a sentence with none of them and "X P%" is a plain percent-of */
 const OPERATION_WORDS = new Set(['increase', 'decrease', 'add', 'remove', 'discount', 'off', 'on', 'gst', 'profit', 'loss', 'margin', 'markup', 'emi', 'loan', 'interest', 'change', 'minus', 'plus', 'times', 'divide', 'double', 'triple', 'to', '+', '-', '*', '/', '^']);
 
@@ -83,10 +83,18 @@ function numberAt(p: Parsed, i: number, ctx: EvalContext): { q: Quantity; used: 
   const used = new Set<number>([i]);
   const parts = [p.words[i]];
   let j = i + 1;
+  let gotCurrency = false;
+  let gotUnit = false;
   for (;;) {
     if (j >= p.words.length) break;
-    if (SCALE_WORDS.has(p.words[j]) || isCurrencyWord(p.words[j]) || (isUnitWord(p.words[j]) && !TIME_UNITS.has(p.words[j]))) {
-      parts.push(p.words[j]);
+    const w = p.words[j];
+    // a second currency or unit word is a conversion target ("100 dollar rupee", "5 km miles"), not part of the amount
+    const cur = isCurrencyWord(w) && !gotCurrency;
+    const unit = isUnitWord(w) && !TIME_UNITS.has(w) && !gotUnit && !gotCurrency;
+    if (SCALE_WORDS.has(w) || cur || unit) {
+      if (cur) gotCurrency = true;
+      if (unit) gotUnit = true;
+      parts.push(w);
       used.add(j);
       j++;
       continue;
@@ -120,8 +128,9 @@ const ARITH_OPS = ['+', '-', '*', '/', '^', 'x', 'times', 'plus', 'minus'];
 
 /** words that can take part in a base expression: numbers, variables, units, currencies, scales, operators */
 function expressionWords(p: Parsed, used: Set<number>, ctx: EvalContext, keepPercents = false): string[] {
+  // time units are part of an expression ("5 km + 2 hours" must fail loudly) unless an intent consumed them as a tenure
   const rest = p.words.filter(
-    (w, i) => !used.has(i) && !VERBS.has(w) && (!CONNECTORS.has(w) || w === 'of' || w === 'on') && (keepPercents || (!PCT_RE.test(w) && w !== '%')) && !TIME_UNITS.has(w),
+    (w, i) => !used.has(i) && !VERBS.has(w) && (!CONNECTORS.has(w) || w === 'of' || w === 'on') && (keepPercents || (!PCT_RE.test(w) && w !== '%')) && (keepPercents || !TIME_UNITS.has(w)),
   );
   const keep = rest.filter(
     (w) => NUM_RE.test(w) || PCT_RE.test(w) || /^[(),.]*[\d₹$€£¥৳]/.test(w) || OPERATOR_WORDS.has(w) || ctx.variables.has(w) || SCALE_WORDS.has(w) || isUnitWord(w) || isCurrencyWord(w) || !!currencyBySymbol(w),
@@ -178,6 +187,14 @@ function isNameWord(w: string, ctx: EvalContext): boolean {
   if (VERBS.has(w) || CONNECTORS.has(w) || KEYWORDS.has(w) || CANON_KEYWORDS.has(w) || SOURCE_WORDS.has(w)) return false;
   if (isUnitWord(w) || isCurrencyWord(w) || SCALE_WORDS.has(w) || TIME_UNITS.has(w)) return false;
   return true;
+}
+
+/** the currency named after the last "in"/"to" ("… in inr"), if any */
+function targetCurrency(p: Parsed): string | undefined {
+  for (let i = p.words.length - 1; i > 0; i--) {
+    if ((p.words[i - 1] === 'in' || p.words[i - 1] === 'to') && isCurrencyWord(p.words[i])) return findCurrency(p.words[i])!.code;
+  }
+  return undefined;
 }
 
 function requirePrevious(ctx: EvalContext, what: string): Quantity {
@@ -266,7 +283,7 @@ function gstClause(p: Parsed, ctx: EvalContext, c: Clause): Clause {
   return c;
 }
 
-function analyseClause(raw: RawClause, ctx: EvalContext): Clause {
+function analyseClause(raw: RawClause, ctx: EvalContext, sentenceHasDiscount = false): Clause {
   const words = raw.words;
   const p = analyse(words, []);
   p.isStartLike = p.has('start');
@@ -277,6 +294,16 @@ function analyseClause(raw: RawClause, ctx: EvalContext): Clause {
   if (gstPct !== undefined) {
     const gp: Parsed = { ...p, pcts: [gstPct, ...p.pcts.filter((i) => i !== gstPct)] };
     return gstClause(gp, ctx, c);
+  }
+  // "markup 25% on 400" / "margin 20% on 500" as a step: the selling price is the value
+  if ((p.has('markup') || p.has('margin')) && p.pcts.length === 1 && p.nums.length >= 1) {
+    const pct = pctAt(p, p.pcts[0]);
+    const { q: cost } = numberAt(p, p.nums[0], ctx);
+    const price = p.has('margin') ? fin.priceFromMargin(cost.value, pct) : fin.priceFromMarkup(cost.value, pct);
+    if (price.isNaN()) throw new CalcError('margin must be below 100%');
+    c.value = moneyOrNumber(price, cost);
+    c.explicitKind = true;
+    return c;
   }
   // "5 items cost 24.75 each", "3 pcs @ 120": quantity × unit price is a value
   if ((p.has('each') || p.has('items')) && p.nums.length >= 2 && p.pcts.length === 0) {
@@ -291,7 +318,8 @@ function analyseClause(raw: RawClause, ctx: EvalContext): Clause {
   // strong verbs first; a bare "on" only counts as "add" when nothing else says otherwise ("10% off on 1000" is a discount)
   const strongInc = Math.max(p.lastIdx('increase'), p.lastIdx('add'), p.lastIdx('plus'), p.lastIdx('+'), p.lastIdx('with'));
   const dec = Math.max(p.lastIdx('decrease'), p.lastIdx('remove'), p.lastIdx('minus'), p.lastIdx('-'), p.lastIdx('discount'), p.lastIdx('off'), p.lastIdx('without'), p.lastIdx('less'));
-  const inc = strongInc >= 0 ? strongInc : dec < 0 && p.has('on') ? p.lastIdx('on') : -1;
+  // "successive discounts of 10% and 20% on 1000": the "on" names the base, it is not an addition
+  const inc = strongInc >= 0 ? strongInc : dec < 0 && !sentenceHasDiscount && p.has('on') ? p.lastIdx('on') : -1;
   const mul = Math.max(p.lastIdx('times'), p.lastIdx('*'), p.lastIdx('x'));
   const div = Math.max(p.lastIdx('divide'), p.lastIdx('/'));
   const factor = p.has('double') ? 2 : p.has('triple') ? 3 : 0;
@@ -403,16 +431,22 @@ export interface IntentResult extends Quantity {
  * "Rahul ko 150, Rohit ko 250, total kitna", "20% off then 10% off on 1000", "1000 including 18% GST, then 10% discount".
  */
 function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
-  const markers = p.has('then') || p.has('that') || p.has('start') || p.has('another');
+  // a question about one amount and one percentage ("what becomes 3910 after a 15% increase?") is never a chain
+  if (p.has('what') && p.nums.length === 1 && p.pcts.length === 1) return null;
+  // "1500 ka 20% discount ke baad 18% gst": a discount and a tax in one sentence are always two steps
+  const taxAndDiscount = p.has('discount') && p.has('gst') && p.pcts.length >= 2;
+  const markers = p.has('then') || p.has('that') || p.has('start') || p.has('another') || taxAndDiscount;
   if (!markers && !p.has(',') && !p.has('and')) return null;
-  // specialised vocabulary (EMI, revenue, margin…) is handled by its own intent; GST and "N items at P each" may take part in a chain
-  const gate = ['emi', 'interest', 'revenue', 'expenses', 'margin', 'markup', 'sell', 'loan', 'parts', 'people', 'equally', 'weekdays', 'weekends'];
+  // specialised vocabulary (EMI, revenue…) is handled by its own intent; GST, markup/margin and "N items at P each" may take part in a chain
+  const gate = ['emi', 'interest', 'revenue', 'expenses', 'sell', 'loan', 'parts', 'people', 'equally', 'weekdays', 'weekends', 'ratio', 'average', 'median'];
+  if (!markers) gate.push('margin', 'markup');
   if (!p.has('each') && !p.has('items')) gate.push('cost');
   if (gate.some((w) => p.has(w))) return null;
   // dates ("days between 1 jan and 5 jan") belong to the date intent
   const dateToks = tokenize(p.words.filter((w) => w !== ',').join(' ')).filter((t) => t.type !== 'space');
   for (let i = 0; i < dateToks.length; i++) if (tryParseDate(dateToks, i, ctx.now(), ctx.zone)?.q.kind === 'date') return null;
-  const clauses = splitClauses(p.words).map((w) => analyseClause(w, ctx));
+  const sentenceHasDiscount = p.has('discount') || p.has('off');
+  const clauses = splitClauses(p.words).map((w) => analyseClause(w, ctx, sentenceHasDiscount));
   const numeric = clauses.filter((c) => c.p.nums.length || c.p.pcts.length);
   if (!markers && numeric.length < 2) return null;
   // "20% then 10% discount on 1000": a bare percentage takes its meaning from the nearest clause that states one
@@ -431,10 +465,15 @@ function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
   const named = values.filter((c) => c.name);
   const gstRate = clauses.find((c) => c.gstRate)?.gstRate;
 
-  // named amounts with a total: "rahul 150, rohit 250, total?"
+  // named amounts with a total: "rahul 150, rohit 250, total?" (converted when a currency is named: "… in inr")
   if (wantsTotal && values.length >= 2 && ops.length === 0) {
-    let acc: Quantity = values[0].value!;
-    for (const c of values.slice(1)) acc = applyOp(acc, { kind: 'add', amount: c.value!, label: '' }, ctx);
+    const target = targetCurrency(p);
+    const first = target && values[0].value!.kind === 'money' ? convertMoney(values[0].value!, target, ctx) : values[0].value!;
+    let acc: Quantity = { ...first, note: undefined };
+    for (const c of values.slice(1)) {
+      const v = target && c.value!.kind === 'money' ? convertMoney(c.value!, target, ctx) : c.value!;
+      acc = applyOp(acc, { kind: 'add', amount: v, label: '' }, ctx);
+    }
     const defines: Record<string, Quantity> = {};
     for (const c of named) defines[c.name!] = c.value!;
     return { ...acc, note: values.map((c) => `${c.name ? c.name + ' ' : ''}${formatQuantity(c.value!)}`).join(' + '), defines: Object.keys(defines).length ? defines : undefined };
@@ -443,10 +482,19 @@ function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
     if (gstRate && values.length === 1) return null; // plain GST question, let intentGst answer it
     return null;
   }
-  // starting value: an explicit "starting at", else the first clause that carries a value, else the running result above
-  const startClause = clauses.find((c) => c.isStart && c.value) ?? values[0];
+  // starting value: an explicit "starting at"; else the value clauses before the first operation (several
+  // line items add up to a subtotal: "2 items at 500, 3 items at 200, 18% gst"); else the running result above
+  const explicitStart = clauses.find((c) => c.isStart && c.value);
+  const firstOpAt = clauses.findIndex((c) => c.ops.length);
+  const leadingValues = explicitStart ? [explicitStart] : clauses.slice(0, firstOpAt < 0 ? clauses.length : firstOpAt).filter((c) => c.value);
   let start: Quantity;
-  if (startClause) start = startClause.value!;
+  let subtotalNote = '';
+  if (leadingValues.length >= 2) {
+    start = { ...leadingValues[0].value!, note: undefined };
+    for (const c of leadingValues.slice(1)) start = applyOp(start, { kind: 'add', amount: c.value!, label: '' }, ctx);
+    subtotalNote = `subtotal ${formatQuantity(start)} (${leadingValues.map((c) => formatQuantity(c.value!)).join(' + ')}) · `;
+  } else if (leadingValues.length === 1) start = leadingValues[0].value!;
+  else if (values.length) start = values[0].value!;
   else if (p.has('that') || p.has('prev')) start = requirePrevious(ctx, 'that');
   else throw new CalcError('starting amount?', 'e.g. … starting at 50000');
   let acc: Quantity = start;
@@ -461,9 +509,11 @@ function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
     }
   }
   const delta = acc.value.minus(start.value);
-  let note = trail.join(' → ');
-  const onlyPercentOf = clauses.every((c) => c.ops.every((op) => op.kind === 'pctOf'));
-  if (!onlyPercentOf && !delta.isZero() && !start.value.isZero() && acc.kind === start.kind) {
+  let note = subtotalNote + trail.join(' → ');
+  const allOps = clauses.flatMap((c) => c.ops);
+  const onlyPercentOf = allOps.every((op) => op.kind === 'pctOf');
+  const trivial = allOps.length === 1 && (allOps[0].kind === 'add' || allOps[0].kind === 'sub' || allOps[0].kind === 'mul' || allOps[0].kind === 'div');
+  if (!onlyPercentOf && !trivial && !delta.isZero() && !start.value.isZero() && acc.kind === start.kind) {
     const pct = fin.pct2(delta.div(start.value).mul(100));
     note += ` · ${delta.isNegative() ? '−' : '+'}${formatQuantity(moneyOrNumber(delta.abs(), start))} (${formatNumber(pct.abs())}%)`;
   }
@@ -549,6 +599,12 @@ function intentTimezone(raw: string, ctx: EvalContext): Quantity | null {
   if (hasOffset && (wordList.includes('ago') || wordList.includes('before'))) offsetSeconds = -offsetSeconds;
   const wantsNow = !time && (wordList.includes('time') || wordList.includes('now') || hasOffset);
   if (zones.length === 0) return null;
+  // "3pm IST to XYZ": a time, one zone, and an unknown word after "to"/"in" → say the place is unknown
+  if (time && zones.length === 1) {
+    const toIdx = Math.max(wordList.lastIndexOf('to'), wordList.lastIndexOf('in'));
+    const after = toIdx >= 0 ? wordList.slice(toIdx + 1).filter((w) => /^[\p{L}]+$/u.test(w) && w !== 'time') : [];
+    if (toIdx > zones[0].end - 1 && after.length) throw new CalcError(`unknown place or zone "${after.join(' ')}"`, 'try a city (New York) or an abbreviation (EST, CET)');
+  }
   if (!time && !wantsNow) return null;
   if (!time) {
     const base = ctx.now().plus({ seconds: offsetSeconds });
@@ -593,39 +649,126 @@ function intentTimezone(raw: string, ctx: EvalContext): Quantity | null {
   return tzResultQuantity(conv);
 }
 
+function countWeekdays(a: DateTime, b: DateTime): { weekdays: number; weekends: number } {
+  let weekdays = 0;
+  let weekends = 0;
+  for (let d = a; d <= b; d = d.plus({ days: 1 })) {
+    if (d.weekday <= 5) weekdays++;
+    else weekends++;
+  }
+  return { weekdays, weekends };
+}
+
+function weekdayResult(p: Parsed, a: DateTime, b: DateTime, span: string): Quantity {
+  const c = countWeekdays(a, b);
+  const n = p.has('weekends') ? c.weekends : c.weekdays;
+  const what = p.has('weekends') ? 'weekend days' : 'weekdays';
+  return { kind: 'number', value: new Decimal(n), display: `${formatNumber(new Decimal(n))} ${what}`, note: `${span} inclusive · Mon–Fri${p.has('weekends') ? ' excluded' : ''}` };
+}
+
+/** "hours between 9am and 5:30pm", "9am to 5pm minus 30 min break", "sokal 10 ta theke bikel 5 ta koto ghonta" */
+function intentTimeSpan(p: Parsed, ctx: EvalContext): Quantity | null {
+  const w = p.words.filter((x) => x !== ',');
+  const toks = tokenize(w.join(' ')).filter((t) => t.type !== 'space');
+  const times: DateTime[] = [];
+  for (let i = 0; i < toks.length; ) {
+    const r = tryParseDate(toks, i, ctx.now(), ctx.zone);
+    if (r && r.q.kind === 'time') {
+      times.push(r.q.date!);
+      i += r.consumed;
+    } else i++;
+  }
+  if (times.length !== 2) return null;
+  if (!(p.has('to') || p.has('between') || p.has('from') || p.has('and') || p.has('-'))) return null;
+  let [start, end] = times;
+  // "10 baje se 5 baje tak": an end before the start on a 12-hour clock means the afternoon
+  if (end <= start && end.plus({ hours: 12 }) > start && end.hour < 12) end = end.plus({ hours: 12 });
+  if (end <= start) end = end.plus({ days: 1 });
+  let minutes = end.diff(start, 'minutes').minutes;
+  // "minus 30 min break"
+  const breakIdx = Math.max(p.idx('minus'), p.idx('-'), p.idx('remove'), p.idx('decrease'));
+  if (breakIdx >= 0) {
+    for (let i = breakIdx + 1; i + 1 < w.length; i++) {
+      if (NUM_RE.test(w[i]) && findUnit(w[i + 1])?.dim === 'time') {
+        minutes -= parseFloat(w[i]) * findUnit(w[i + 1])!.factor.toNumber() / 60;
+        break;
+      }
+    }
+  }
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes - h * 60);
+  const display = m === 0 ? `${h} hours` : `${h} hours ${m} minutes`;
+  return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display, note: `${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}` };
+}
+
 function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
   const w = p.words.filter((x) => x !== ',');
   const text = w.join(' ');
   const toks = tokenize(text).filter((t) => t.type !== 'space');
-  const dates: { q: Quantity; start: number; end: number }[] = [];
+  const dates: { q: Quantity; start: number; end: number; monthOnly: boolean }[] = [];
   for (let i = 0; i < toks.length; ) {
     const r = tryParseDate(toks, i, ctx.now(), ctx.zone);
     if (r && r.q.kind === 'date') {
-      dates.push({ q: r.q, start: i, end: i + r.consumed });
+      const monthOnly = r.consumed === 2 && toks[i].type === 'word' && toks[i + 1]?.type === 'number' && toks[i + 1].value.length === 4;
+      dates.push({ q: r.q, start: i, end: i + r.consumed, monthOnly });
       i += r.consumed;
     } else i++;
   }
+  // "is 2028 a leap year", "2028 leap year?"
+  if (p.has('leap')) {
+    const yearWord = w.find((x) => /^\d{4}$/.test(x));
+    const year = yearWord ? parseInt(yearWord, 10) : dates[0]?.q.date!.year;
+    if (!year) throw new CalcError('which year?', 'e.g. is 2028 a leap year');
+    const leap = DateTime.fromObject({ year }).isInLeapYear;
+    return { kind: 'number', value: new Decimal(leap ? 366 : 365), display: leap ? `${year}: leap year` : `${year}: not a leap year`, note: `${leap ? 366 : 365} days` };
+  }
   if (dates.length === 0) return null;
+  // "age if born 15 aug 1990", "how old … born on …"
+  if (p.has('age') || p.has('born')) {
+    const born = dates[0].q.date!.startOf('day');
+    const today = ctx.now().startOf('day');
+    if (born > today) throw new CalcError('birth date is in the future');
+    const diff = today.diff(born, ['years', 'months', 'days']);
+    const years = Math.floor(diff.years);
+    return { kind: 'unit', value: new Decimal(years), unit: 'year', display: `${years} years`, note: `${years} years ${Math.floor(diff.months)} months ${Math.floor(diff.days)} days · born ${born.toFormat('d LLL yyyy')}` };
+  }
   if (dates.length >= 2) {
+    // "today + tomorrow" is not a difference
+    if (p.has('+')) return null;
     const a = dates[0].q.date!.startOf('day');
     const b = dates[1].q.date!.startOf('day');
     const span = `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}`;
-    if (p.has('weekdays') || p.has('weekends')) {
-      // count calendar days in [a, b] (inclusive: "from … through …", "… inclusive")
-      let weekdays = 0;
-      let weekends = 0;
-      for (let d = a; d <= b; d = d.plus({ days: 1 })) {
-        if (d.weekday <= 5) weekdays++;
-        else weekends++;
-      }
-      const n = p.has('weekends') ? weekends : weekdays;
-      const what = p.has('weekends') ? 'weekend days' : 'weekdays';
-      return { kind: 'number', value: new Decimal(n), display: `${formatNumber(new Decimal(n))} ${what}`, note: `${span} inclusive · Mon–Fri${p.has('weekends') ? ' excluded' : ''}` };
-    }
+    if (p.has('weekdays') || p.has('weekends')) return weekdayResult(p, a, b, span);
     const inclusive = p.has('inclusive');
+    if (p.has('weeks')) {
+      const days = b.diff(a, 'days').days + (inclusive ? 1 : 0);
+      return { kind: 'unit', value: new Decimal(days).div(7), unit: 'week', display: `${formatNumber(new Decimal(days).div(7), { maxDecimals: 2 })} weeks`, note: `${span} · ${days} days` };
+    }
+    if (p.has('months')) {
+      const months = b.diff(a, 'months').months;
+      return { kind: 'unit', value: new Decimal(months), unit: 'month', display: `${formatNumber(new Decimal(months), { maxDecimals: 2 })} months`, note: span };
+    }
     const days = b.diff(a, 'days').days + (inclusive ? 1 : 0);
     return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${span}${inclusive ? ' inclusive' : ''}` };
   }
+  // a month on its own: "days in feb 2028", "weekdays in march 2026"
+  if (dates[0].monthOnly) {
+    const first = dates[0].q.date!.startOf('month');
+    const last = first.endOf('month').startOf('day');
+    const span = `${first.toFormat('d LLL yyyy')} → ${last.toFormat('d LLL yyyy')}`;
+    if (p.has('weekdays') || p.has('weekends')) return weekdayResult(p, first, last, span);
+    // "february 2028 ka last day" / "march er prothom din" before a plain day count
+    if ((p.has('last') || p.has('end')) && (p.has('day') || p.has('days'))) return { kind: 'date', value: new Decimal(last.toMillis()), date: last, display: last.toFormat('ccc, d LLL yyyy') };
+    if ((p.has('first') || p.has('start')) && (p.has('day') || p.has('days'))) return { kind: 'date', value: new Decimal(first.toMillis()), date: first, display: first.toFormat('ccc, d LLL yyyy') };
+    if (p.has('days') || p.has('day')) return { kind: 'unit', value: new Decimal(first.daysInMonth!), unit: 'day', note: first.toFormat('LLLL yyyy') };
+  }
+  // "what day is 15 aug 2026", "aaj ka din kya hai"
+  if (p.has('weekday')) {
+    const d = dates[0].q.date!;
+    return { ...dates[0].q, display: d.toFormat('cccc, d LLL yyyy') };
+  }
+  // a bare date phrase ("agle somvar", "pichla saal", "next friday") is simply that date
+  if (dates[0].start === 0 && dates[0].end === toks.length) return { ...dates[0].q, display: dates[0].q.date!.toFormat('ccc, d LLL yyyy') };
   let amount: Decimal | null = null;
   let unit: string | null = null;
   for (let i = 0; i < w.length; i++) {
@@ -638,11 +781,14 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
   if (amount === null || !unit) {
     const d = dates[0].q.date!;
     if (dates[0].q.display) return dates[0].q;
-    // "days until 25 dec 2026", "25 dec tak kitne din", "how many days to 1 jan 2027" → from today
-    if ((p.has('days') || p.has('day')) && (p.has('to') || p.has('between') || p.has('what')) && !dates[0].q.display) {
+    // "days until 25 dec 2026", "25 dec tak kitne din", "how many days to 1 jan 2027" → from today;
+    // "days since 1 jan 2026" / "days from 1 jan 2026" → up to today
+    if ((p.has('days') || p.has('day')) && (p.has('to') || p.has('between') || p.has('what') || p.has('from')) && !dates[0].q.display) {
       const today = ctx.now().startOf('day');
-      const days = d.startOf('day').diff(today, 'days').days;
-      return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${today.toFormat('d LLL yyyy')} → ${d.toFormat('d LLL yyyy')}` };
+      const since = p.has('from') && !p.has('to') && dates[0].q.date!.startOf('day') < today;
+      const [a, b] = since ? [d.startOf('day'), today] : [today, d.startOf('day')];
+      const days = b.diff(a, 'days').days;
+      return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
     }
     // Hindi/Bengali order: "february 2028 ka last day", "march er sesh din"
     if ((p.has('last') || p.has('end')) && (p.has('day') || p.has('days'))) {
@@ -666,27 +812,43 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
 }
 
 function intentEmi(p: Parsed, ctx: EvalContext): Quantity | null {
-  if (!p.has('emi') && !(p.has('loan') && p.pcts.length > 0)) return null;
+  if (!p.has('emi') && !(p.has('loan') && p.pcts.length > 0) && !(p.has('flat') && p.pcts.length > 0)) return null;
   const used = new Set<number>();
   const months = tenureMonths(p, used);
   if (p.pcts.length === 0) throw new CalcError('rate?', 'e.g. emi 5 lakh at 9% for 5 years');
   if (months === null) throw new CalcError('tenure?', 'add years or months: … for 5 years');
+  if (Math.round(months) < 1) throw new CalcError('tenure must be at least 1 month');
   const rate = pctAt(p, p.pcts[0]);
   used.add(p.pcts[0]);
   const principalIdx = p.nums.find((i) => !used.has(i));
   if (principalIdx === undefined) throw new CalcError('loan amount?', 'e.g. emi 5 lakh at 9% for 5 years');
   const { q: principal } = numberAt(p, principalIdx, ctx);
-  const r = fin.emi(principal.value, rate, Math.round(months));
+  const n = Math.round(months);
+  // flat-rate loans charge interest on the whole principal for the whole term; EMI is reducing-balance
+  const flat = p.has('flat');
+  const r = flat ? fin.flatRateLoan(principal.value, rate, n) : fin.emi(principal.value, rate, n);
+  const method = flat ? 'flat rate' : 'reducing balance';
   const emiQ = moneyOrNumber(r.emi, principal);
+  const totalQ = moneyOrNumber(r.totalPayment, principal);
+  const interestQ = moneyOrNumber(r.totalInterest, principal);
+  // answer what is asked: total interest, total payment, or the instalment
+  if (p.has('interest')) return { ...interestQ, note: `total interest · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · total ${formatQuantity(totalQ)}` };
+  if (p.has('total')) return { ...totalQ, note: `total payment · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · interest ${formatQuantity(interestQ)}` };
   return {
     ...emiQ,
     display: `${formatQuantity(emiQ)}/month`,
-    note: `${Math.round(months)} months · total ${formatQuantity(moneyOrNumber(r.totalPayment, principal))} · interest ${formatQuantity(moneyOrNumber(r.totalInterest, principal))}`,
+    note: `${method} · ${n} months · total ${formatQuantity(totalQ)} · interest ${formatQuantity(interestQ)}`,
   };
 }
 
 function intentInterest(p: Parsed, ctx: EvalContext): Quantity | null {
-  if (!p.has('interest') && !p.has('compound') && !p.has('simple')) return null;
+  if (!p.has('interest') && !p.has('compound') && !p.has('simple')) {
+    // "10000 at 8% for 3 years, amount?" — the method is not stated: ask rather than pick one
+    if (p.has('at') && p.pcts.length === 1 && p.nums.length >= 1 && tenureMonths(p, new Set()) !== null && !p.has('emi') && !p.has('loan') && !p.has('gst') && !p.has('discount')) {
+      throw new CalcError('simple or compound interest?', 'e.g. … at 8% simple interest for 3 years');
+    }
+    return null;
+  }
   const used = new Set<number>();
   const months = tenureMonths(p, used);
   if (p.pcts.length === 0) throw new CalcError('rate?', 'e.g. interest on 10000 at 5% for 2 years');
@@ -726,15 +888,78 @@ function intentInterest(p: Parsed, ctx: EvalContext): Quantity | null {
 }
 
 /** "50000 divided equally among 3 people", "50000 ke 3 bhag karo", "50000 ko 3 logon mein divide karo" */
+/** "average of 10, 20, 30", "median of 3, 9, 4", "max of 4 and 9", "sum of 1, 2, 3" */
+function intentList(p: Parsed, ctx: EvalContext): Quantity | null {
+  const fnWord = ['average', 'median', 'max', 'min', 'sum', 'total'].find((f) => p.has(f));
+  if (!fnWord || p.nums.length < 2 || p.pcts.length) return null;
+  // everything else must be separators or connectors: a list, nothing more
+  const other = p.words.filter((x, i) => !p.nums.includes(i) && !['average', 'median', 'max', 'min', 'sum', 'total', 'of', ',', 'and', 'what', 'between', 'the', 'these', 'numbers', 'values'].includes(x) && !isCurrencyWord(x) && !isUnitWord(x) && !SCALE_WORDS.has(x));
+  if (other.length) return null;
+  const items = p.nums.map((i) => numberAt(p, i, ctx).q);
+  const sorted = items.slice().sort((x, y) => x.value.cmp(y.value));
+  const like = items[0];
+  const sum = items.reduce((s, q) => s.plus(q.value), new Decimal(0));
+  const n = items.length;
+  const list = items.map((q) => formatQuantity(q)).join(', ');
+  switch (fnWord) {
+    case 'average':
+      return { ...moneyOrNumber(sum.div(n), like), note: `average of ${list}` };
+    case 'median': {
+      const mid = Math.floor(n / 2);
+      const m = n % 2 ? sorted[mid].value : sorted[mid - 1].value.plus(sorted[mid].value).div(2);
+      return { ...moneyOrNumber(m, like), note: `median of ${list}` };
+    }
+    case 'max':
+      return { ...moneyOrNumber(sorted[n - 1].value, like), note: `max of ${list}` };
+    case 'min':
+      return { ...moneyOrNumber(sorted[0].value, like), note: `min of ${list}` };
+    default:
+      return { ...moneyOrNumber(sum, like), note: `sum of ${list}` };
+  }
+}
+
+/** "divide 700 in the ratio 3:4", "3:4 ratio of 700", "700 ko 3:4 me baanto" → shares */
+function intentRatio(p: Parsed, ctx: EvalContext): Quantity | null {
+  if (!p.has('ratio') && !p.has('divide')) return null;
+  const raw = p.words.join(' ');
+  const m = /(\d+(?:\.\d+)?)\s*:\s*(\d+(?:\.\d+)?)(?:\s*:\s*(\d+(?:\.\d+)?))?/.exec(raw);
+  if (!m) return null;
+  const parts = [m[1], m[2], m[3]].filter(Boolean).map((x) => new Decimal(x!));
+  const sum = parts.reduce((s, x) => s.plus(x), new Decimal(0));
+  if (sum.isZero()) throw new CalcError('ratio parts add up to 0');
+  // the total is the number that is not part of the ratio
+  const ratioTokens = new Set(parts.map((x) => x.toString()));
+  const totalIdx = p.nums.find((i) => !ratioTokens.has(p.words[i].replace(/[^\d.]/g, '')) || p.words[i - 1] === 'of' || p.words[i + 1] === 'of');
+  if (totalIdx === undefined) throw new CalcError('total to divide?', 'e.g. divide 700 in ratio 3:4');
+  const { q: total } = numberAt(p, totalIdx, ctx);
+  const shares = parts.map((x) => moneyOrNumber(total.value.mul(x).div(sum), total));
+  return { ...total, display: shares.map((s) => formatQuantity(s)).join(' / '), note: `${formatQuantity(total)} in ratio ${parts.map((x) => x.toString()).join(':')}` };
+}
+
 /** "3 items at ₹120 each", "5 pcs @ 24.75 each" → quantity × unit price */
 function intentQuantity(p: Parsed, ctx: EvalContext): Quantity | null {
-  if (!(p.has('each') || p.has('items')) || p.nums.length !== 2 || p.pcts.length) return null;
+  if (!(p.has('each') || p.has('items')) || p.nums.length !== 2 || p.pcts.length > 1) return null;
   if (p.has('divide') || p.has('parts') || p.has('equally') || p.has('people')) return null;
   const countIdx = p.nums.find((i) => p.words[i + 1] === 'items' || p.words[i - 1] === 'items') ?? p.nums[0];
   const priceIdx = p.nums.find((i) => i !== countIdx)!;
   const count = new Decimal(p.words[countIdx].replace(/[^\d.]/g, ''));
   const { q: price } = numberAt(p, priceIdx, ctx);
-  return { ...moneyOrNumber(price.value.mul(count), price), note: `${formatNumber(count)} × ${formatQuantity(price)}` };
+  const subtotal = moneyOrNumber(price.value.mul(count), price);
+  const note = `${formatNumber(count)} × ${formatQuantity(price)}`;
+  if (p.pcts.length === 1) {
+    // "3 items at 250 each with 5% gst" / "… 10% discount"
+    const pct = pctAt(p, p.pcts[0]);
+    if (p.has('gst')) {
+      const r = fin.gstAdd(subtotal.value, pct);
+      return { ...moneyOrNumber(r.total, subtotal), note: `${note} = ${formatQuantity(subtotal)} · GST ${formatQuantity(moneyOrNumber(r.tax, subtotal))} @ ${formatNumber(pct)}%` };
+    }
+    if (p.has('discount') || p.has('off')) {
+      const r = fin.discount(subtotal.value, pct);
+      return { ...moneyOrNumber(r.final, subtotal), note: `${note} = ${formatQuantity(subtotal)} · discount ${formatQuantity(moneyOrNumber(r.saved, subtotal))} @ ${formatNumber(pct)}%` };
+    }
+    return null;
+  }
+  return { ...subtotal, note };
 }
 
 function intentDivide(p: Parsed, ctx: EvalContext): Quantity | null {
@@ -753,7 +978,16 @@ function intentDivide(p: Parsed, ctx: EvalContext): Quantity | null {
   const amountIdx = p.nums.find((i) => i !== countIdx) ?? p.nums[0];
   if (countIdx < 0) countIdx = p.nums.find((i) => i !== amountIdx) ?? -1;
   if (countIdx < 0) return null;
-  const { q: amount } = numberAt(p, amountIdx, ctx);
+  let { q: amount } = numberAt(p, amountIdx, ctx);
+  // "bill 1200 + 15% tip split 4 ways": the amount is the whole expression before splitting
+  if (p.pcts.length === 1) {
+    const pct = pctAt(p, p.pcts[0]);
+    const hasOp = p.words.some((w) => ['+', '-', 'add', 'remove', 'decrease', 'discount', 'off', 'with', 'inclusive'].includes(w));
+    if (hasOp) {
+      const minus = p.words.some((w) => ['-', 'remove', 'decrease', 'discount', 'off'].includes(w));
+      amount = moneyOrNumber(amount.value.mul(new Decimal(100).plus(pct.mul(minus ? -1 : 1))).div(100), amount);
+    }
+  }
   const count = new Decimal(p.words[countIdx].replace(/[^\d.]/g, ''));
   if (count.isZero()) throw new CalcError('division by zero', 'the number of parts is 0');
   const exact = amount.value.div(count);
@@ -801,6 +1035,15 @@ function intentBusiness(p: Parsed, ctx: EvalContext): Quantity | null {
   const expIdx = expMarker >= 0 ? numberNear(p, expMarker, used) : undefined;
   if (expIdx !== undefined) {
     expenses = numberAt(p, expIdx, ctx).q;
+    used.add(expIdx);
+    // several expense lines ("cogs 600 opex 200") add up
+    for (const m of p.words.map((w, i) => (w === 'expenses' ? i : -1)).filter((i) => i >= 0 && i !== expMarker)) {
+      const extra = numberNear(p, m, used);
+      if (extra !== undefined) {
+        used.add(extra);
+        expenses = moneyOrNumber(expenses.value.plus(numberAt(p, extra, ctx).q.value), expenses);
+      }
+    }
     profit = fin.money2(revenue.value.minus(expenses.value));
   } else if (expMarker >= 0 && p.has('profit') && numberNear(p, p.idx('profit'), used) !== undefined) {
     // "revenue 12 lakh, profit 1.8 lakh, expenses?" → the expenses are what is asked
@@ -830,15 +1073,27 @@ function intentProfitLoss(p: Parsed, ctx: EvalContext): Quantity | null {
   const hasSell = p.has('sell');
   const hasPL = p.has('profit') || p.has('loss');
   if (!hasCost && !hasSell && !hasPL) return null;
+  // "cost" on its own ("5 items cost 24.75 each") is a price, not a trade: never pair it with a guessed selling price
+  if (!hasSell && !hasPL) return null;
   if (p.has('margin') || p.has('markup')) return null;
   const used = new Set<number>();
-  if (hasPL && p.pcts.length === 1 && p.nums.length === 1 && !(hasCost && hasSell)) {
+  if (hasPL && p.pcts.length === 1 && p.nums.length === 1) {
     const pct = pctAt(p, p.pcts[0]);
-    const { q: base } = numberAt(p, p.nums[0], ctx);
+    const { q: given } = numberAt(p, p.nums[0], ctx);
     const sign = p.has('loss') ? -1 : 1;
-    const price = fin.money2(base.value.mul(new Decimal(100).plus(pct.mul(sign))).div(100));
-    const q = moneyOrNumber(price, base);
-    return { ...q, note: `${p.has('loss') ? 'loss' : 'profit'} ${formatQuantity(moneyOrNumber(price.minus(base.value).abs(), base))} on cost ${formatQuantity(base)}` };
+    // which side is the given number? next to "sell" (or "sold at") → the cost is asked; else the selling price is asked
+    const sellIdx = p.idx('sell');
+    const givenIsSell = hasSell && (!hasCost || Math.abs(sellIdx - p.nums[0]) < Math.abs(p.idx('cost') - p.nums[0]));
+    if (givenIsSell) {
+      const factor = new Decimal(100).plus(pct.mul(sign));
+      if (factor.lte(0)) throw new CalcError('loss must be below 100%');
+      const cost = given.value.div(factor).mul(100);
+      const shown = moneyOrNumber(fin.money2(cost), given);
+      return { ...moneyOrNumber(cost, given), display: formatQuantity(shown), note: `cost price · ${p.has('loss') ? 'loss' : 'profit'} ${formatQuantity(moneyOrNumber(given.value.minus(cost).abs().toDecimalPlaces(2), given))} on sale at ${formatQuantity(given)}` };
+    }
+    const price = fin.money2(given.value.mul(new Decimal(100).plus(pct.mul(sign))).div(100));
+    const q = moneyOrNumber(price, given);
+    return { ...q, note: `${p.has('loss') ? 'loss' : 'profit'} ${formatQuantity(moneyOrNumber(price.minus(given.value).abs(), given))} on cost ${formatQuantity(given)}` };
   }
   if (p.nums.length < 2) {
     if (hasPL && p.nums.length === 1) throw new CalcError('selling price?', 'e.g. bought at 500 sold at 600');
@@ -900,24 +1155,31 @@ function intentMarginMarkup(p: Parsed, ctx: EvalContext): Quantity | null {
 
 function intentGst(p: Parsed, ctx: EvalContext): Quantity | null {
   if (!p.has('gst')) return null;
+  // "3 items at 250 each with 5% gst" is a quantity line (handled by intentQuantity)
+  if ((p.has('each') || p.has('items')) && p.nums.length >= 2) return null;
   if (p.pcts.length === 0) throw new CalcError('GST rate?', 'e.g. 25000 + 18% GST (rates: 5, 12, 18, 28, 40)');
-  const rate = pctAt(p, p.pcts[0]);
-  const used = new Set<number>([p.pcts[0]]);
+  // every percentage next to a tax word is a tax on the same base: "5% GST + 2% cess", "9% CGST + 9% SGST"
+  const taxIdx = p.words.map((w, i) => (w === 'gst' ? i : -1)).filter((i) => i >= 0);
+  const taxPcts = p.pcts.filter((i) => taxIdx.some((t) => Math.abs(t - i) <= 2));
+  const ratePcts = taxPcts.length ? taxPcts : [p.pcts[0]];
+  const rate = ratePcts.reduce((s, i) => s.plus(pctAt(p, i)), new Decimal(0));
+  const rateText = ratePcts.length > 1 ? `${ratePcts.map((i) => formatNumber(pctAt(p, i)) + '%').join(' + ')} = ${formatNumber(rate)}%` : `${formatNumber(rate)}%`;
+  const used = new Set<number>(ratePcts);
   const base = remainingBase(p, used, ctx);
   const gstIdx = p.idx('gst');
   const addMode = p.has('add') || p.has('with') || p.has('on') || p.has('increase') || p.has('+') || p.has('plus');
   // "1000 me 18% GST hai / ache" — the amount already contains GST
   const containsGst = p.nums.length >= 1 && p.nums[0] < gstIdx && p.words.slice(p.nums[0], gstIdx).includes('in') && !addMode;
-  const reverse = p.has('remove') || p.has('inclusive') || p.has('without') || p.has('-') || p.has('base') || p.has('minus') || containsGst || (p.has('from') && !addMode);
+  const reverse = p.has('remove') || p.has('reverse') || p.has('inclusive') || p.has('without') || p.has('-') || p.has('base') || p.has('minus') || containsGst || (p.has('from') && !addMode);
   if (reverse) {
     const r = fin.gstRemove(base.value, rate);
     // the stored value keeps full precision (later "10% of that" uses it); the display is the rounded money amount
     const exact = base.value.div(new Decimal(1).plus(rate.div(100)));
-    return { ...moneyOrNumber(exact, base), display: formatQuantity(moneyOrNumber(r.base, base)), note: `before GST · GST ${formatQuantity(moneyOrNumber(r.tax, base))} · total ${formatQuantity(base)} @ ${formatNumber(rate)}%` };
+    return { ...moneyOrNumber(exact, base), display: formatQuantity(moneyOrNumber(r.base, base)), note: `before GST · GST ${formatQuantity(moneyOrNumber(r.tax, base))} · total ${formatQuantity(base)} @ ${rateText}` };
   }
   const r = fin.gstAdd(base.value, rate);
-  if (addMode) return { ...moneyOrNumber(r.total, base), note: `incl. GST ${formatQuantity(moneyOrNumber(r.tax, base))} @ ${formatNumber(rate)}%` };
-  return { ...moneyOrNumber(r.tax, base), note: `GST @ ${formatNumber(rate)}% · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
+  if (addMode) return { ...moneyOrNumber(r.total, base), note: `incl. GST ${formatQuantity(moneyOrNumber(r.tax, base))} @ ${rateText}` };
+  return { ...moneyOrNumber(r.tax, base), note: `GST @ ${rateText} · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
 }
 
 function intentDiscount(p: Parsed, ctx: EvalContext): Quantity | null {
@@ -954,8 +1216,9 @@ function intentDiscount(p: Parsed, ctx: EvalContext): Quantity | null {
 }
 
 function intentIncreaseDecrease(p: Parsed, ctx: EvalContext): Quantity | null {
-  const incIdx = Math.max(p.lastIdx('increase'), p.lastIdx('add'), p.lastIdx('plus'));
-  const decIdx = Math.max(p.lastIdx('decrease'), p.lastIdx('remove'), p.lastIdx('minus'));
+  // "plus"/"minus" are infix operators for the parser ("10 squared minus 5 squared"), not instructions
+  const incIdx = Math.max(p.lastIdx('increase'), p.lastIdx('add'));
+  const decIdx = Math.max(p.lastIdx('decrease'), p.lastIdx('remove'));
   if (incIdx < 0 && decIdx < 0) return null;
   // when both appear ("18% nikal ke total me add kar") the last verb is the instruction
   const sign = decIdx > incIdx ? -1 : 1;
@@ -985,9 +1248,12 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
   const w = p.words;
   const wi = p.idx('what');
   const bare = w.indexOf('%');
+  // "20% of what is 30", "10 is 20% of what (number)": the percentage, "of"/"on"/"off" and "what" sit together.
+  // "5000 ka 18% kitna" (X of P% what) and "2500 taka 5% koto" (X P% what) are plain percent-of questions instead.
   const numberAfterWhat = wi >= 0 && p.nums.some((i) => i > wi);
-  const adjacentWhat = numberAfterWhat && p.pcts.length === 1 && (w[p.pcts[0] + 1] === 'what' || (['of', 'on', 'off'].includes(w[p.pcts[0] + 1]) && w[p.pcts[0] + 2] === 'what'));
-  if (adjacentWhat && wi >= 0 && p.nums.length === 1) {
+  const adjacentWhat =
+    p.pcts.length === 1 && p.nums.length === 1 && ((w[p.pcts[0] + 1] === 'what' && numberAfterWhat) || (['of', 'on', 'off'].includes(w[p.pcts[0] + 1]) && w[p.pcts[0] + 2] === 'what'));
+  if (adjacentWhat && wi >= 0 && p.nums.length === 1 && !p.has('than')) {
     const pct = pctAt(p, p.pcts[0]);
     const { q: x } = numberAt(p, p.nums[0], ctx);
     const mode = w[p.pcts[0] + 1];
@@ -1006,12 +1272,33 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
     const word = pct.isNegative() ? 'decrease' : 'increase';
     return { kind: 'percent', value: pct.abs(), display: `${formatNumber(pct.abs())}% ${word}`, note: `${formatQuantity(a)} → ${formatQuantity(moneyOrNumber(b, a))}` };
   }
-  const changeWords = p.has('change') || p.has('increase') || p.has('decrease') || p.has('growth') || p.has('difference');
-  if (p.nums.length === 2 && (bare >= 0 || (wi >= 0 && (changeWords || p.has('of'))) || (changeWords && p.has('from') && p.has('to')))) {
+  // percentage points: "20% + 5 points", "5 points more than 20%" → plain addition of the two percentages
+  if (p.has('points') && p.pcts.length === 2) {
+    const [x, y] = [pctAt(p, p.pcts[0]), pctAt(p, p.pcts[1])];
+    const pointsIdx = p.idx('points');
+    const delta = Math.abs(pointsIdx - p.pcts[0]) <= 1 ? x : y;
+    const base = delta === x ? y : x;
+    const sign = p.has('decrease') || p.has('-') || p.has('remove') ? -1 : 1;
+    const v = base.plus(delta.mul(sign));
+    return { kind: 'percent', value: v, note: `${formatNumber(base)}% ${sign < 0 ? '−' : '+'} ${formatNumber(delta)} percentage points` };
+  }
+  // "percentage difference between 40 and 50" is symmetric (relative to the mean), unlike an increase
+  if (p.has('difference') && p.nums.length === 2 && (bare >= 0 || wi >= 0 || p.has('%'))) {
     const { q: a } = numberAt(p, p.nums[0], ctx);
     const { q: b } = numberAt(p, p.nums[1], ctx);
+    const pct = fin.percentDifference(a.value, b.value);
+    if (pct.isNaN()) throw new CalcError('division by zero', 'both values are 0');
+    const inc = a.value.isZero() ? null : fin.percentChange(a.value, b.value);
+    return { kind: 'percent', value: pct, display: `${formatNumber(pct)}% difference`, note: `relative to the average of ${formatQuantity(a)} and ${formatQuantity(b)}${inc ? ` · ${formatQuantity(a)} → ${formatQuantity(b)} is a ${formatNumber(inc.abs())}% ${inc.isNegative() ? 'decrease' : 'increase'}` : ''}` };
+  }
+  const changeWords = p.has('change') || p.has('increase') || p.has('decrease') || p.has('growth');
+  if (p.nums.length === 2 && (bare >= 0 || (wi >= 0 && (changeWords || p.has('of'))) || (changeWords && p.has('from') && p.has('to')))) {
+    let { q: a } = numberAt(p, p.nums[0], ctx);
+    let { q: b } = numberAt(p, p.nums[1], ctx);
+    // "40 is what % more than 32": the base is the number after "than"
+    if (p.has('than') && p.idx('than') < p.nums[1] && p.idx('than') > p.nums[0]) [a, b] = [b, a];
     const av = a.kind === 'money' && b.kind === 'money' && a.currency !== b.currency ? convertMoney(a, b.currency!, ctx).value : a.value;
-    if (changeWords || p.has('from') || p.has('to')) {
+    if (changeWords || p.has('from') || p.has('to') || p.has('than')) {
       if (av.isZero()) throw new CalcError('division by zero', 'the starting value is 0');
       const pct = fin.percentChange(av, b.value);
       const word = pct.isNegative() ? 'decrease' : 'increase';
@@ -1026,6 +1313,13 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
     }
     if (whole.isZero()) throw new CalcError('division by zero');
     return { kind: 'percent', value: fin.pct2(part.div(whole).mul(100)) };
+  }
+  // "reverse 18% on 1180" → the amount before an 18% increase: 1180 / 1.18
+  if (p.has('reverse') && p.nums.length === 1 && p.pcts.length === 1 && !p.has('gst')) {
+    const pct = pctAt(p, p.pcts[0]);
+    const { q: x } = numberAt(p, p.nums[0], ctx);
+    const original = x.value.div(new Decimal(100).plus(pct)).mul(100);
+    return { ...moneyOrNumber(original, x), display: formatQuantity(moneyOrNumber(original.toDecimalPlaces(2, Decimal.ROUND_HALF_UP), x)), note: `${formatQuantity(x)} ÷ (1 + ${formatNumber(pct)}%)` };
   }
   // reverse percentage: "840 is 12% less than what original amount" → 840 / 0.88; "750 is 20% more than what number" → 750 / 1.2;
   // "what original amount becomes 3910 after a 15% increase" → 3910 / 1.15
@@ -1069,7 +1363,7 @@ export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
   if (words.length === 0) return null;
   const p = analyse(words, notes);
   const order: ((p: Parsed, ctx: EvalContext) => IntentResult | Quantity | null)[] = [
-    intentEmi, intentInterest, intentBusiness, intentAllocate, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
+    intentEmi, intentInterest, intentBusiness, intentAllocate, intentRatio, intentList, intentTimeSpan, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
   ];
   for (const intent of order) {
     const r = intent(p, ctx);
@@ -1095,8 +1389,10 @@ export function expressionFallback(raw: string, ctx: EvalContext): string | null
   if (ops(words) !== ops(keep)) return null;
   // keep conversion words between operands ("100 dollar in rupee")
   const withConv = words.filter((w) => keep.includes(w) || w === 'in' || w === 'to' || w === 'of' || w === 'off' || w === 'on' || w === 'prev' || w === 'that').map((w) => (w === 'that' ? 'prev' : w));
-  while (withConv.length && ['of', 'on', 'in', 'to', 'off'].includes(withConv[withConv.length - 1])) withConv.pop();
-  while (withConv.length && ['of', 'on', 'in', 'to', 'off'].includes(withConv[0])) withConv.shift();
+  // "10% of", "of 10%", "100 usd in": a dangling connector means the sentence is unfinished — say so instead of trimming it away
+  if (withConv.length && ['of', 'on', 'in', 'to', 'off'].includes(withConv[withConv.length - 1])) return null;
+  if (withConv.length && ['of', 'on', 'to', 'off'].includes(withConv[0])) return null;
+  while (withConv.length && withConv[0] === 'in') withConv.shift();
   if (withConv.length === 0) return null;
   return withConv.join(' ');
 }

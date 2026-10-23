@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine, finance, multilingual, time zones, history, app behaviour
+npm test           # vitest: 552 tests — unit, parser, paraphrase (EN/Hinglish/Bengalish), property, integration, regression, negative
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -102,6 +102,14 @@ remaining other expenses` → each share (and `rent`, `food`… become names); `
 then subtract 35% of 240` → 36; `weekdays from 1 January 2027 through 31 January 2027` → 21 weekdays; `4 items at
 1250 each, a 10% discount before GST, and 18% GST` → 5,310 with each step labelled; `Salary 68000, increase by 7%,
 then deduct 10%` → 65,484. A sentence-ending period is ignored.
+
+**From the reliability audit.** `-2 ^ 2` → −4 and `10 - 2 - 3` → 5 (standard precedence), `5!` → 120,
+`average of 10, 20, 30`, `median of 3, 9, 4`, `max(1, 5, 3)`, `divide 900 in ratio 1:2:3` → 150 / 300 / 450,
+`12 ka 3 guna` and `3 lakh ka 2 guna` → 36 / 600,000, `aaj ke 45 din baad` and `today 3 weeks later` shift the date,
+`age if born 15 aug 1990`, `is 2028 a leap year`, `what day is 25 dec 2026`, `10 am to 5:30 pm minus 30 min break`
+→ hours, `flat rate loan 100000 at 10% for 2 years` (flat vs reducing-balance EMI), `-273.15 c in k` → 0 K.
+`5 items cost 24.75 each add 12% tax` is a price, never a profit/loss guess; `cost 500 sold 600` still is one.
+Unknown words (`asdf`, `constructor`), `10 % 5 %`, `1e309` and a dangling `5 +` show a hint, never a number.
 
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.

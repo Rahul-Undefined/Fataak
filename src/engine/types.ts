@@ -124,6 +124,8 @@ export class CalcError extends Error {
   constructor(
     message: string,
     public hint?: string,
+    /** 'data': the expression parsed fine but needed data (a rate, a conversion target) — never retry it as prose */
+    public kind: 'parse' | 'data' = 'parse',
   ) {
     super(message);
   }

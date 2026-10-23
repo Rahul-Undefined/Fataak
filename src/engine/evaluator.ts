@@ -44,10 +44,10 @@ export function convertMoney(q: Quantity, to: string, ctx: EvalContext, date?: s
   if (from === to) return { ...q, note: `same currency · ${histDate}` };
   const quote = ctx.rates.get(from, to, histDate, { cachedOnly: !!ctx.cachedOnly });
   if (!quote) {
-    if (ctx.cachedOnly) throw new CalcError(`rate unavailable offline`, `no cached ${from}→${to} rate`);
+    if (ctx.cachedOnly) throw new CalcError(`rate unavailable offline`, `no cached ${from}→${to} rate`, 'data');
     ctx.rates.request?.(from, to, histDate);
-    if (histDate) throw new CalcError(`no ${from}→${to} rate for ${histDate}`, 'fetching… (ECB history, needs internet)');
-    throw new CalcError(`no rate for ${from}→${to}`, 'fetching… (needs internet)');
+    if (histDate) throw new CalcError(`no ${from}→${to} rate for ${histDate}`, 'fetching… (ECB history, needs internet)', 'data');
+    throw new CalcError(`no rate for ${from}→${to}`, 'fetching… (needs internet)', 'data');
   }
   const rate = new Decimal(quote.rate);
   const rateText = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to}`;
@@ -134,7 +134,7 @@ export function add(a: Quantity, b: Quantity, ctx: EvalContext, sign: 1 | -1 = 1
     if (a.kind === 'money' && b.kind === 'money') {
       if (a.currency !== b.currency) {
         // never mix currencies silently: the line must say which currency the answer is in ("… in USD")
-        if (!ctx.allowMixedCurrency) throw new CalcError(`mixed currencies ${a.currency}/${b.currency}`, `add "in ${a.currency}" to convert`);
+        if (!ctx.allowMixedCurrency) throw new CalcError(`mixed currencies ${a.currency}/${b.currency}`, `add "in ${a.currency}" to convert`, 'data');
         const conv = convertMoney(b, a.currency!, ctx);
         return withNote(money(a.value.plus(conv.value.mul(sign)), a.currency!), conv.note);
       }
@@ -203,7 +203,9 @@ export function div(a: Quantity, b: Quantity): Quantity {
     if (ua.dim === ub.dim) return num(a.value.div(convertUnit(b.value, ub, ua)));
     if (ua.dim === 'length' && ub.dim === 'time') {
       const mps = a.value.mul(ua.factor).div(b.value.mul(ub.factor));
+      // the speed unit follows the inputs: m/s for metres per second, km/h for km per hour, mph for miles
       if (ua.id === 'mile') return unitQ(convertUnit(mps, unitById('mps')!, unitById('mph')!), 'mph');
+      if (ub.id === 's' || ua.id === 'm' || ua.id === 'cm' || ua.id === 'mm') return unitQ(mps, 'mps');
       return unitQ(convertUnit(mps, unitById('mps')!, unitById('kmh')!), 'kmh');
     }
     if (ua.dim === 'length' && ub.dim === 'speed') {
@@ -281,6 +283,9 @@ function toRadians(q: Quantity): number {
   return toNumber(q, 'trig');
 }
 
+/** list functions add same-currency/unit values only; mixing is refused as in a normal sum */
+const ctxForList: EvalContext = { variables: new Map(), previous: [], block: [], rates: { get: () => null }, now: () => DateTime.now(), zone: 'UTC' };
+
 function callFn(fn: string, args: Quantity[]): Quantity {
   const a = args[0];
   const keep = (v: Decimal | number): Quantity => ({ ...a, value: new Decimal(v), note: undefined, display: undefined });
@@ -339,6 +344,22 @@ function callFn(fn: string, args: Quantity[]): Quantity {
       for (let i = 2; i <= n; i++) r = r.mul(i);
       return num(r);
     }
+    case 'sumlist': {
+      let acc: Quantity = { ...args[0], note: undefined, display: undefined };
+      for (const x of args.slice(1)) acc = add(acc, x, ctxForList, 1);
+      return acc;
+    }
+    case 'avglist': {
+      let acc: Quantity = { ...args[0], note: undefined, display: undefined };
+      for (const x of args.slice(1)) acc = add(acc, x, ctxForList, 1);
+      return { ...acc, value: acc.value.div(args.length) };
+    }
+    case 'median': {
+      const sorted = args.slice().sort((x, y) => x.value.cmp(y.value));
+      const mid = Math.floor(sorted.length / 2);
+      const m = sorted.length % 2 ? sorted[mid].value : sorted[mid - 1].value.plus(sorted[mid].value).div(2);
+      return { ...sorted[0], value: m, note: undefined, display: undefined };
+    }
     case 'min':
     case 'max': {
       let best = args[0];
@@ -359,7 +380,8 @@ function aggregate(name: 'sum' | 'avg' | 'prev' | 'count', ctx: EvalContext): Qu
     const cleared = (ctx.contextStart ?? 0) > 0 && ctx.previous.length >= (ctx.contextStart ?? 0);
     throw new CalcError('previous result?', cleared ? 'context was cleared; no result since then' : 'no result above this line');
   }
-  const items = ctx.block.filter((q) => q.kind !== 'date' && q.kind !== 'time');
+  // a percentage line ("tax: 18%") is a rate, not an amount: it never takes part in the block sum
+  const items = ctx.block.filter((q) => q.kind !== 'date' && q.kind !== 'time' && q.kind !== 'percent');
   if (name === 'count') return num(items.length);
   if (items.length === 0) throw new CalcError('nothing to sum', 'lines above this one are summed');
   let acc: Quantity = { ...items[0], note: undefined, display: undefined };

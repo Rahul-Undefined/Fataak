@@ -114,6 +114,8 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
           const res = edge === 'end' ? base.endOf('month').startOf('day') : base;
           return { q: { ...dateQuantity(res), display: res.toFormat('ccc, d LLL yyyy') }, consumed: j - i + consumed };
         }
+        // "last day" / "first day" with nothing it belongs to ("february 2028 ka last day") is not a date on its own
+        if (isWord(tokens[i + 1], 'day') || isWord(tokens[i + 1], 'days')) return null;
       }
     }
     if (w === 'next' || w === 'last' || w === 'this') {
@@ -125,7 +127,7 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
           const d = w === 'last' ? prevWeekday(today, wd) : w === 'this' ? nextWeekday(today, wd, false) : nextWeekday(today, wd, true);
           return { q: dateQuantity(d), consumed: 2 };
         }
-        const units: Record<string, 'weeks' | 'months' | 'years' | 'days'> = { week: 'weeks', month: 'months', year: 'years', day: 'days' };
+        const units: Record<string, 'weeks' | 'months' | 'years' | 'days'> = { week: 'weeks', weeks: 'weeks', month: 'months', months: 'months', year: 'years', years: 'years', day: 'days', days: 'days' };
         if (own(units, v)) {
           const n = w === 'last' ? -1 : w === 'this' ? 0 : 1;
           let d = today.plus({ [units[v]]: n });
@@ -165,13 +167,27 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
 
   if (isNum(t0)) {
     const t1 = tokens[i + 1];
-    // "10 days ago" / "2 weeks ago" / "3 months ago"
-    if (isWord(t1) && isWord(tokens[i + 2], 'ago')) {
+    // "10 days ago" / "2 weeks before" (Hindi "2 din pehle") / "3 months later" ("3 mahine baad")
+    const t2 = tokens[i + 2];
+    if (isWord(t1) && isWord(t2) && ['ago', 'before', 'after', 'later', 'from'].includes(t2.value)) {
       const units: Record<string, 'days' | 'weeks' | 'months' | 'years'> = {
         day: 'days', days: 'days', week: 'weeks', weeks: 'weeks', month: 'months', months: 'months', year: 'years', years: 'years',
       };
-      const u = units[t1.value];
-      if (u) return { q: dateQuantity(today.minus({ [u]: parseFloat(t0.value) })), consumed: 3 };
+      const u = own(units, t1.value) ? units[t1.value] : undefined;
+      // "3 days from now" / "3 days from today" (the "today"/"now" word is consumed too)
+      const fromNow = t2.value === 'from' && (isWord(tokens[i + 3], 'now') || isWord(tokens[i + 3], 'today'));
+      // "today from 45 days after" (aaj se 45 din baad) and "45 days after today" anchor on a date: leave that to the date intent
+      const t3 = tokens[i + 3];
+      const anchorAfter = isWord(t3) && (['today', 'tomorrow', 'yesterday', 'now', 'next', 'last', 'this'].includes(t3.value) || own(WEEKDAYS, t3.value) || own(MONTHS, t3.value));
+      // "today 45 days after" (aaj ke 45 din baad): the offset shifts the date before it rather than forming a second date
+      const DAY_WORDS = ['today', 'tomorrow', 'yesterday', 'now'];
+      const anchorBefore = (isWord(tokens[i - 1]) && DAY_WORDS.includes(tokens[i - 1].value)) || (isWord(tokens[i - 1], 'of') && isWord(tokens[i - 2]) && DAY_WORDS.includes(tokens[i - 2].value));
+      const anchored = isWord(tokens[i - 1], 'from') || isWord(tokens[i - 1], 'to') || isOp(tokens[i - 1], '+') || isOp(tokens[i - 1], '-') || anchorBefore || (anchorAfter && t2.value !== 'from');
+      if (u && !anchored && (t2.value !== 'from' || fromNow)) {
+        const back = t2.value === 'ago' || t2.value === 'before';
+        const d = back ? today.minus({ [u]: parseFloat(t0.value) }) : today.plus({ [u]: parseFloat(t0.value) });
+        return { q: dateQuantity(d), consumed: fromNow ? 4 : 3 };
+      }
     }
     // 14 aug 2026 / 14 aug
     if (isWord(t1) && own(MONTHS, t1.value) && t0.value.length <= 2) {
@@ -186,8 +202,9 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       if (d.isValid) return { q: dateQuantity(d), consumed: j - i };
       return null;
     }
-    // 2026-08-14 / 2026/08/14
-    if (t0.value.length === 4 && (isOp(t1, '-') || isOp(t1, '/')) && isNum(tokens[i + 2]) && isOp(tokens[i + 3], t1.value) && isNum(tokens[i + 4])) {
+    // 2026-08-14 / 2026/08/14 — written without spaces ("10 - 2 - 3" is arithmetic)
+    const tight = (n: number) => tokens.slice(i, i + n).every((t, k) => k === 0 || tokens[i + k - 1].end === t.start);
+    if (t0.value.length === 4 && (isOp(t1, '-') || isOp(t1, '/')) && isNum(tokens[i + 2]) && isOp(tokens[i + 3], t1.value) && isNum(tokens[i + 4]) && tight(5)) {
       const d = DateTime.fromObject(
         { year: parseInt(t0.value, 10), month: parseInt(tokens[i + 2].value, 10), day: parseInt(tokens[i + 4].value, 10) },
         { zone },
@@ -196,7 +213,7 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       return null;
     }
     // 14/08/2026, 14-08-2026, 14/8/26 (day first)
-    if (t0.value.length <= 2 && (isOp(t1, '/') || isOp(t1, '-')) && isNum(tokens[i + 2]) && tokens[i + 2].value.length <= 2 && isOp(tokens[i + 3], t1.value) && isNum(tokens[i + 4])) {
+    if (t0.value.length <= 2 && (isOp(t1, '/') || isOp(t1, '-')) && isNum(tokens[i + 2]) && tokens[i + 2].value.length <= 2 && isOp(tokens[i + 3], t1.value) && isNum(tokens[i + 4]) && (tokens[i + 4].value.length === 4 || tokens[i + 4].value.length === 2) && tight(5)) {
       let year = parseInt(tokens[i + 4].value, 10);
       if (tokens[i + 4].value.length === 2) year += 2000;
       const d = DateTime.fromObject({ year, month: parseInt(tokens[i + 2].value, 10), day: parseInt(t0.value, 10) }, { zone });
@@ -225,14 +242,19 @@ export function tryParseTime(tokens: Token[], i: number, now: DateTime, zone: st
     }
   }
   let meridiem: 'am' | 'pm' | null = null;
+  let oclock = false;
   const tw = tokens[j];
   if (isWord(tw) && ['am', 'pm', 'a.m.', 'p.m.'].includes(tw.value)) {
     meridiem = tw.value.startsWith('a') ? 'am' : 'pm';
     j++;
   } else if (isWord(tw) && (tw.value === 'hrs' || tw.value === 'hours') && hasColon) {
     j++;
+  } else if (isWord(tw) && ["o'clock", 'oclock', 'baje', 'ta', 'tay', 'bajey'].includes(tw.value)) {
+    // "10 o'clock" / "10 baje" / "5 ta": hour as given (24-hour if ≥ 13); a span intent may lift the end past noon
+    oclock = true;
+    j++;
   }
-  if (!hasColon && !meridiem) return null;
+  if (!hasColon && !meridiem && !oclock) return null;
   if (hour > 23 || minute > 59 || second > 59) return null;
   if (meridiem) {
     if (hour > 12) return null;

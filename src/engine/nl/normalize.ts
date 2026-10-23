@@ -33,7 +33,7 @@ const PHRASES: [string, string][] = [
   ['ghati', 'decrease'], ['ghat gaya', 'decrease'], ['komlo', 'decrease'], ['komeche', 'decrease'], ['komechhe', 'decrease'],
   ['aakhri', 'last'], ['akhri', 'last'], ['antim', 'last'], ['shesh', 'last'], ['sesh', 'last'], ['pehla', 'first'], ['prothom', 'first'],
   ['increased', 'increase'], ['increases', 'increase'], ['increment', 'increase'], ['incremented', 'increase'], ['hike', 'increase'], ['hiked', 'increase'], ['raise', 'increase'], ['raised', 'increase'],
-  ['boost', 'increase'], ['grow', 'increase'], ['grows', 'increase'], ['growth', 'increase'], ['appreciate', 'increase'], ['appreciation', 'increase'], ['more', 'increase'], ['zyada', 'increase'], ['jyada', 'increase'],
+  ['boost', 'increase'], ['growth', 'increase'], ['appreciate', 'increase'], ['appreciation', 'increase'], ['more', 'increase'], ['zyada', 'increase'], ['jyada', 'increase'],
   ['beshi', 'increase'], ['bodhi', 'increase'], ['briddhi', 'increase'], ['vriddhi', 'increase'], ['brhiddhi', 'increase'],
   // --- decrease ---
   ['kam karo', 'decrease'], ['kam kar do', 'decrease'], ['kam kardo', 'decrease'], ['kam kro', 'decrease'], ['kam kar', 'decrease'], ['ghata do', 'decrease'], ['ghatado', 'decrease'], ['down by', 'decrease'], ['less by', 'decrease'],
@@ -50,7 +50,7 @@ const PHRASES: [string, string][] = [
   ['nikal do', 'remove'], ['nikaal do', 'remove'], ['hata do', 'remove'], ['hatado', 'remove'], ['bad do', 'remove'], ['baad do', 'remove'], ['bad karo', 'remove'], ['baad karo', 'remove'], ['bad diye', 'remove'],
   ['bad dao', 'remove'], ['bad dile', 'remove'], ['bad diyе', 'remove'], ['minus karo', 'remove'], ['minus koro', 'remove'], ['minus kar', 'remove'], ['ghatiye', 'remove'], ['chara', 'without'], ['chhara', 'without'],
   ['nikalo', 'remove'], ['nikaalo', 'remove'], ['nikal', 'remove'], ['nikaal', 'remove'], ['hatao', 'remove'], ['hataao', 'remove'], ['hatake', 'remove'], ['hatakar', 'remove'], ['hata', 'remove'], ['remove', 'remove'],
-  ['removed', 'remove'], ['removing', 'remove'], ['exclude', 'remove'], ['excluding', 'remove'], ['excl', 'remove'], ['reverse', 'remove'], ['reversed', 'remove'], ['back out', 'remove'], ['backout', 'remove'], ['alada koro', 'remove'],
+  ['removed', 'remove'], ['removing', 'remove'], ['exclude', 'remove'], ['excluding', 'remove'], ['excl', 'remove'], ['back out', 'remove'], ['backout', 'remove'], ['alada koro', 'remove'],
   ['inclusive', 'inclusive'], ['incl', 'inclusive'], ['including', 'inclusive'], ['included', 'inclusive'], ['includes', 'inclusive'], ['samet', 'inclusive'], ['sameth', 'inclusive'], ['sahit', 'inclusive'],
   ['soho', 'inclusive'], ['shoho', 'inclusive'], ['sah', 'inclusive'], ['sahith', 'inclusive'], ['dhore', 'inclusive'],
   ['ke sath', 'with'], ['ke saath', 'with'], ['ke sath me', 'with'], ['er sathe', 'with'], ['er shathe', 'with'], ['sathe', 'with'], ['shathe', 'with'], ['saath', 'with'], ['sath', 'with'],
@@ -102,7 +102,7 @@ const PHRASES: [string, string][] = [
   ['me se', 'from'], ['mein se', 'from'], ['theke', 'from'], ['se', 'from'], ['thake', 'from'], ['thike', 'from'], ['thekey', 'from'], ['since', 'from'],
   ['tak', 'to'], ['takk', 'to'], ['porjonto', 'to'], ['porjonta', 'to'], ['till', 'to'], ['until', 'to'], ['upto', 'to'], ['up to', 'to'], ['tok', 'to'],
   ['between', 'between'], ['beech', 'between'], ['ke beech', 'between'], ['majhe', 'between'],
-  ['kitne baje', 'time'], ['kitna baje', 'time'], ['kota baje', 'time'], ['koto baje', 'time'], ['kotota baje', 'time'], ['baje', 'time'], ['samay', 'time'], ['somoy', 'time'], ["o'clock", 'time'], ['oclock', 'time'],
+  ['kitne baje', 'time'], ['kitna baje', 'time'], ['kota baje', 'time'], ['koto baje', 'time'], ['kotota baje', 'time'], ['samay', 'time'], ['somoy', 'time'], ["o'clock", 'time'], ['oclock', 'time'],
   ['ekhon', 'now'], ['abhi', 'now'], ['right now', 'now'], ['currently', 'now'], ['current', 'now'],
   // --- convert ---
   ['convert karo', 'convert'], ['convert kar do', 'convert'], ['convert koro', 'convert'], ['convert kore', 'convert'], ['badlo', 'convert'], ['badal do', 'convert'], ['bodlao', 'convert'], ['bodle', 'convert'],
@@ -139,7 +139,7 @@ const PHRASES: [string, string][] = [
   ['people', 'people'], ['persons', 'people'], ['person', 'people'], ['logon', 'people'], ['logo', 'people'], ['jon', 'people'], ['joner', 'people'], ['janer', 'people'], ['lok', 'people'], ['loker', 'people'], ['bande', 'people'], ['bando', 'people'], ['members', 'people'], ['friends', 'people'], ['ways', 'people'],
   ['per person', 'each'], ['per head', 'each'], ['har ek', 'each'], ['har ek ko', 'each'], ['prottek', 'each'], ['protyek', 'each'], ['each', 'each'], ['apiece', 'each'],
   ['per item', 'each'], ['per piece', 'each'], ['per unit', 'each'], ['per pc', 'each'], ['per nos', 'each'], ['ek ka', 'each'], ['ekta', 'each'], ['ektar', 'each'], ['prati', 'each'], ['proti', 'each'],
-  ['items', 'items'], ['item', 'items'], ['pieces', 'items'], ['piece', 'items'], ['pcs', 'items'], ['nos', 'items'], ['units', 'items'], ['quantity', 'items'], ['qty', 'items'], ['tukda', 'items'], ['tukde', 'items'], ['ta', 'items'], ['gulo', 'items'],
+  ['items', 'items'], ['item', 'items'], ['pieces', 'items'], ['piece', 'items'], ['pcs', 'items'], ['nos', 'items'], ['units', 'items'], ['quantity', 'items'], ['qty', 'items'], ['tukda', 'items'], ['tukde', 'items'], ['gulo', 'items'],
   // --- "with that" chaining (Bengali/Hindi) ---
   ['tar sathe', 'that with'], ['tar shathe', 'that with'], ['tar sange', 'that with'], ['or sathe', 'that with'], ['etar sathe', 'that with'], ['setar sathe', 'that with'], ['uske saath', 'that with'], ['usme', 'that'], ['isme', 'that'],
   // --- interest: interest earned vs amount received ---
@@ -148,10 +148,25 @@ const PHRASES: [string, string][] = [
   // --- math words ---
   ['square root of', 'sqrt'], ['square root', 'sqrt'], ['sqrt of', 'sqrt'], ['vargmool', 'sqrt'], ['vargmul', 'sqrt'], ['borgomul', 'sqrt'], ['cube root of', 'cbrt'], ['cube root', 'cbrt'], ['squared', '^ 2'], ['cubed', '^ 3'],
   ['to the power of', '^'], ['to the power', '^'], ['raised to', '^'], ['ki power', '^'], ['ka square', '^ 2'], ['ka cube', '^ 3'], ['ka varg', '^ 2'], ['er borgo', '^ 2'], ['er ghon', '^ 3'],
+  // --- audit additions: accounting lines, interest shorthands, loan types, growth, reverse, points ---
+  ['cost of goods sold', 'expenses'], ['cost of goods', 'expenses'], ['cogs', 'expenses'], ['opex', 'expenses'], ['operating expenses', 'expenses'], ['operating expense', 'expenses'], ['overheads', 'expenses'], ['overhead', 'expenses'],
+  ['operating cost', 'expenses'], ['operating costs', 'expenses'], ['cgst', 'gst'], ['sgst', 'gst'], ['igst', 'gst'], ['utgst', 'gst'], ['discounts', 'discount'], ['successive', 'then'], ['consecutive', 'then'],
+  ['simple interest', 'simple interest'], ['si', 'simple interest'], ['ci', 'compound interest'], ['flat rate', 'flat'], ['flat interest', 'flat'], ['flat', 'flat'], ['reducing balance', 'emi'], ['diminishing', 'emi'],
+  ['grows', 'compound total'], ['grow', 'compound total'], ['growing', 'compound total'], ['appreciates', 'compound total'], ['compounded annually', 'compound yearly'], ['per annum compounded', 'compound yearly'],
+  ['reverse', 'reverse'], ['reversed', 'reverse'], ['undo', 'reverse'], ['percentage points', 'points'], ['percent points', 'points'], ['pp', 'points'], ['tip', 'add'], ['tips', 'add'], ['service charge', 'add'],
+  ['badhotri', 'increase'], ['badhottari', 'increase'], ['izafa', 'increase'], ['baddhi', 'increase'],
+  // --- weekday names (Hindi / Bengali) and date questions ---
+  ['somvar', 'monday'], ['somwar', 'monday'], ['sombar', 'monday'], ['mangalvar', 'tuesday'], ['mangalwar', 'tuesday'], ['mongolbar', 'tuesday'], ['budhvar', 'wednesday'], ['budhwar', 'wednesday'], ['budhbar', 'wednesday'],
+  ['guruvar', 'thursday'], ['guruwar', 'thursday'], ['brihaspativar', 'thursday'], ['brihoshpotibar', 'thursday'], ['shukravar', 'friday'], ['shukrawar', 'friday'], ['shukrobar', 'friday'], ['shanivar', 'saturday'], ['shaniwar', 'saturday'],
+  ['shonibar', 'saturday'], ['ravivar', 'sunday'], ['raviwar', 'sunday'], ['itvar', 'sunday'], ['robibar', 'sunday'], ['robbar', 'sunday'],
+  ['what day', 'weekday'], ['which day', 'weekday'], ['kaunsa din', 'weekday'], ['konsa din', 'weekday'], ['kya din', 'weekday'], ['din kya hai', 'weekday'], ['ka din kya', 'weekday'], ['ki bar', 'weekday'], ['kon bar', 'weekday'], ['ki baar', 'weekday'], ['kon baar', 'weekday'],
+  ['leap year', 'leap'], ['leap', 'leap'], ['how old', 'age'], ['age', 'age'], ['umar', 'age'], ['umr', 'age'], ['boyosh', 'age'], ['boyos', 'age'], ['born on', 'born'], ['born', 'born'], ['janma', 'born'], ['jonmo', 'born'], ['paida hua', 'born'], ['paida', 'born'],
+  ['morning', 'am'], ['subah', 'am'], ['sokal', 'am'], ['sokale', 'am'], ['savere', 'am'], ['afternoon', 'pm'], ['dopahar', 'pm'], ['dupur', 'pm'], ['dupure', 'pm'], ['evening', 'pm'], ['sham', 'pm'], ['shaam', 'pm'], ['bikel', 'pm'], ['bikele', 'pm'], ['sondhe', 'pm'], ['night', 'pm'], ['raat', 'pm'], ['rat', 'pm'],
+  ['ratio', 'ratio'], ['anupat', 'ratio'], ['onupat', 'ratio'], ['average', 'average'], ['avg', 'average'], ['mean', 'average'], ['ausat', 'average'], ['gor', 'average'], ['median', 'median'], ['maximum', 'max'], ['highest', 'max'], ['largest', 'max'], ['minimum', 'min'], ['lowest', 'min'], ['smallest', 'min'],
   // --- allocation / weekdays / outcomes ---
   ['allocate', 'divide'], ['allocated', 'divide'], ['allocation', 'divide'], ['distribute', 'divide'], ['distributed', 'divide'], ['break up', 'divide'], ['breakup', 'divide'], ['split into', 'divide in'], ['split up', 'divide'],
   ['remaining', 'remaining'], ['remainder', 'remaining'], ['rest', 'remaining'], ['balance', 'remaining'], ['baki', 'remaining'], ['baaki', 'remaining'], ['bacha', 'remaining'], ['bacha hua', 'remaining'], ['bache', 'remaining'], ['baki ta', 'remaining'], ['leftover', 'remaining'],
-  ['weekdays', 'weekdays'], ['weekday', 'weekdays'], ['working days', 'weekdays'], ['business days', 'weekdays'], ['work days', 'weekdays'], ['kaam ke din', 'weekdays'], ['kajer din', 'weekdays'], ['weekends', 'weekends'], ['weekend', 'weekends'], ['weekend days', 'weekends'],
+  ['weekdays', 'weekdays'], ['working days', 'weekdays'], ['business days', 'weekdays'], ['work days', 'weekdays'], ['kaam ke din', 'weekdays'], ['kajer din', 'weekdays'], ['weekends', 'weekends'], ['weekend', 'weekends'], ['weekend days', 'weekends'],
   ['through', 'to'], ['thru', 'to'], ['up to and including', 'to inclusive'], ['including both', 'inclusive'], ['dono din milake', 'inclusive'],
   ['becomes', 'after'], ['become', 'after'], ['became', 'after'], ['ban jata hai', 'after'], ['ban jata', 'after'], ['ho jata hai', 'after'], ['ho jata', 'after'], ['hoye jay', 'after'], ['hoye jai', 'after'], ['results in', 'after'], ['gives', 'after'], ['yields', 'after'], ['ends up at', 'after'],
   // --- reverse percentage ("840 is 12% less than what") ---
@@ -192,7 +207,7 @@ export const CANON_KEYWORDS = new Set<string>([
   'increase', 'decrease', 'add', 'remove', 'inclusive', 'gst', 'discount', 'profit', 'loss', 'cost', 'sell', 'margin', 'markup', 'emi', 'loan', 'interest', 'simple', 'compound',
   'convert', 'change', 'what', 'after', 'before', 'between', 'with', 'without', 'yearly', 'monthly', 'quarterly', 'half-yearly', 'daily', 'time', 'now', 'today', 'tomorrow', 'yesterday', 'next', 'last', 'from', 'to', 'in', 'of', 'on', 'at', 'for',
   'revenue', 'expenses', 'prev', 'that', 'then', 'another', 'start', 'double', 'triple', 'times', 'divide', 'minus', 'plus', 'total', 'sum', 'parts', 'equally', 'people', 'each', 'reset', 'items', 'than', 'sqrt', 'cbrt',
-  'remaining', 'weekdays', 'weekends',
+  'remaining', 'weekdays', 'weekends', 'weekday', 'leap', 'age', 'born', 'ratio', 'average', 'median', 'max', 'min', 'flat', 'reverse', 'points',
 ]);
 
 /** every source word/phrase the normaliser knows (for syntax highlighting of Hinglish/Bengalish verbs) */
@@ -219,7 +234,7 @@ const NUMBER_WORDS: Record<string, number> = {
   pandrah: 15, ponero: 15, bees: 20, bish: 20, kuri: 20, tees: 30, trish: 30, chalis: 40, chollish: 40, pachas: 50, ponchash: 50, saath: 60, shat: 60, sattar: 70, sottor: 70, assi: 80, ashi: 80, nabbe: 90, nobboi: 90,
 };
 /** weak number words: only numeric next to another number/scale word, a currency, a unit or a percent (they collide with other words: do = "do", char = "four"/"discount", sat = Saturday) */
-const WEAK_NUMBER_WORDS: Record<string, number> = { do: 2, char: 4, chaar: 4, sat: 7, che: 6, nou: 9 };
+const WEAK_NUMBER_WORDS: Record<string, number> = { do: 2, char: 4, chaar: 4, sat: 7, che: 6, nou: 9, sawa: 1.25, sava: 1.25, dedh: 1.5, derh: 1.5, dhai: 2.5, dhaai: 2.5, arai: 2.5, aarai: 2.5, adha: 0.5, aadha: 0.5, ardhek: 0.5 };
 const SCALE_NUMBERS: Record<string, number> = {
   hundred: 100, hundreds: 100, sau: 100, sho: 100, so: 100, thousand: 1000, thousands: 1000, hazaar: 1000, hazar: 1000, hajar: 1000, lakh: 100000, lakhs: 100000, lac: 100000, lacs: 100000, lokkho: 100000,
   million: 1000000, millions: 1000000, crore: 10000000, crores: 10000000, koti: 10000000, billion: 1000000000, billions: 1000000000,
@@ -252,7 +267,11 @@ export function composeNumberWords(words: string[]): string[] {
     const run: string[] = [];
     while (j < words.length && isNumberWord(words[j], words[j + 1], words[j - 1])) {
       const numeral = NUMERAL_RE.test(words[j]);
-      if (numeral && run.length > 0 && !(own(SCALE_NUMBERS, words[j - 1]))) break;
+      const prevIsScale = run.length > 0 && own(SCALE_NUMBERS, words[j - 1]);
+      const prevIsNumeral = run.length > 0 && NUMERAL_RE.test(words[j - 1]);
+      // "50000 three ways": a numeral and a spelled number only join through a scale word ("1 lakh 20 hazaar")
+      if (numeral && run.length > 0 && !prevIsScale) break;
+      if (!numeral && !own(SCALE_NUMBERS, words[j]) && prevIsNumeral) break;
       if (!numeral) hasWord = true;
       run.push(words[j]);
       j++;
@@ -312,6 +331,15 @@ export function normalize(text: string): Normalized {
   // Hindi/Bengali order for roots: "50 ka vargmool" / "27 er ghonmul" → sqrt 50 / cbrt 27
   s = s.replace(/(\d+(?:\.\d+)?)\s+(?:ka|ki|ke|er|r)\s+(?:vargmool|vargmul|borgomul|borgomool|square root|sqrt)\b/g, 'sqrt $1');
   s = s.replace(/(\d+(?:\.\d+)?)\s+(?:ka|ki|ke|er|r)\s+(?:ghanmool|ghanmul|ghonmul|cube root|cbrt)\b/g, 'cbrt $1');
+  // "sokal 10 ta" → 10 am, "bikel 5 ta" → 5 pm, "raat 9 baje" → 9 pm (the period word moves after the hour)
+  s = s.replace(/\b(morning|subah|sokal|sokale|savere)\s+(\d{1,2})(?::(\d{2}))?\s*(ta|tay|baje|bajey)?\b/g, (_m, _p, h: string, mm: string | undefined) => `${h}${mm ? ':' + mm : ''}am`);
+  s = s.replace(/\b(afternoon|dopahar|dupur|dupure|evening|sham|shaam|bikel|bikele|sondhe|night|raat|rat)\s+(\d{1,2})(?::(\d{2}))?\s*(ta|tay|baje|bajey)?\b/g, (_m, _p, h: string, mm: string | undefined) => `${h}${mm ? ':' + mm : ''}pm`);
+  // Hindi/Bengali multiplication order: "12 ka 3 guna" / "12 er 3 gun" → 12 * 3
+  // (a scale word may follow either number: "3 lakh ka 2 guna" → 3 lakh * 2)
+  const SCALED = String.raw`(\d+(?:\.\d+)?(?:\s+(?:thousand|hazaar|hazar|hajar|lakh|lakhs|lac|lacs|lokkho|crore|crores|cr|koti|million|millions|billion|billions|k|m|bn))?)`;
+  s = s.replace(new RegExp(SCALED + String.raw`\s+(?:ka|ki|ke|er|r)\s+` + SCALED + String.raw`\s+(?:guna|gun|times)\b`, 'g'), '$1 * $2');
+  // "5 percentage points" → a percent value flagged as points
+  s = s.replace(/\b(\d+(?:\.\d+)?)\s*(percentage points|percent points|pp)\b/g, '$1% points');
   // "5% nikalo" / "5 percent ber koro" after a percentage means "work it out", not "remove it"
   s = s.replace(/(\d+(?:\.\d+)?)\s*(%|percent|pratishat)\s+(nikalo|nikaalo|nikal do|nikal|nikaal|ber koro|ber kore|bar koro)\b/g, '$1% compute');
   for (const [from, to] of PHRASE_LIST) {

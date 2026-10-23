@@ -73,8 +73,24 @@ export function emi(principal: Decimal, annualRatePct: Decimal, months: number):
     e = principal.mul(r).mul(f).div(f.minus(ONE));
   }
   const emiR = money2(e);
-  const totalPayment = money2(emiR.mul(months));
+  // what is actually paid: the rounded instalment × months; a 0% loan repays exactly the principal
+  const totalPayment = r.isZero() ? money2(principal) : money2(emiR.mul(months));
   return { emi: emiR, totalPayment, totalInterest: money2(totalPayment.minus(principal)) };
+}
+
+/** Flat-rate loan: interest on the full principal for the whole term, repaid in equal instalments. */
+export function flatRateLoan(principal: Decimal, annualRatePct: Decimal, months: number): { emi: Decimal; totalPayment: Decimal; totalInterest: Decimal } {
+  if (months <= 0) return { emi: new Decimal(NaN), totalPayment: new Decimal(NaN), totalInterest: new Decimal(NaN) };
+  const totalInterest = money2(principal.mul(annualRatePct).div(HUNDRED).mul(months).div(12));
+  const totalPayment = money2(principal.plus(totalInterest));
+  return { emi: money2(totalPayment.div(months)), totalPayment, totalInterest };
+}
+
+/** symmetric percentage difference: |a − b| relative to the mean of a and b */
+export function percentDifference(a: Decimal, b: Decimal): Decimal {
+  const mean = a.plus(b).div(2);
+  if (mean.isZero()) return new Decimal(NaN);
+  return pct2(a.minus(b).abs().div(mean.abs()).mul(HUNDRED));
 }
 
 export function simpleInterest(principal: Decimal, ratePct: Decimal, years: Decimal): { interest: Decimal; total: Decimal } {

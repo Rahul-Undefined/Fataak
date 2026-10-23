@@ -89,7 +89,7 @@ export function formatQuantity(q: Quantity): string {
         const plural = u.symbol;
         return `${n} ${q.value.abs().eq(1) ? singular : plural}`;
       }
-      if (u?.dim === 'temperature') return `${n}${sym}`;
+      if (u?.dim === 'temperature') return u.id === 'k' ? `${n} K` : `${n}${sym}`;
       return `${n} ${sym}`;
     }
     case 'date':

@@ -307,7 +307,8 @@ class Parser {
   private unary(): Node {
     if (this.isOp('-')) {
       this.next();
-      return { t: 'neg', e: this.unary() };
+      // unary minus binds looser than ^ : -2 ^ 2 = -(2 ^ 2) = -4
+      return { t: 'neg', e: this.power() };
     }
     if (this.isOp('+')) {
       this.next();
@@ -316,15 +317,32 @@ class Parser {
     return this.postfix(this.primary());
   }
 
+  /** a postfix operand followed by an optional right-associative exponent chain */
+  private power(): Node {
+    let base = this.postfix(this.primary());
+    if (this.isOp('^')) {
+      this.next();
+      const exp = this.unary();
+      base = { t: 'bin', op: '^', l: base, r: exp };
+    }
+    return base;
+  }
+
   private postfix(node: Node): Node {
     for (;;) {
       const t = this.peek();
       if (!t) break;
       if (t.type === 'percent') {
+        if (node.t === 'percent') this.fail('double %');
         this.next();
         node = { t: 'percent', e: node };
         // Numi: "prev - 5% discount" — only a trailing 'discount' is decoration
         if (this.isWord('discount') && (this.peek(1) === undefined || this.peek(1)!.value === ')')) this.next();
+        continue;
+      }
+      if (t.type === 'op' && t.value === '!') {
+        this.next();
+        node = { t: 'call', fn: 'fact', args: [node] };
         continue;
       }
       if (t.type === 'word') {
@@ -343,7 +361,12 @@ class Parser {
           // "1 meter 20 cm" / "2 hours 30 minutes": a number + compatible unit directly after → add
           const nt = this.peek();
           if (nt && nt.type === 'number') {
-            const u2 = this.matchUnit(1);
+            // "5 ft 10 in in cm": a bare "in" after a length means inches when another "in"/"to" or the end follows
+            let u2 = this.matchUnit(1);
+            if (!u2 && unitById(u.unit)!.dim === 'length' && this.peek(1)?.value === 'in') {
+              const after = this.peek(2);
+              if (!after || (after.type === 'word' && CONV_WORDS.has(after.value))) u2 = { unit: 'inch', width: 1 };
+            }
             if (u2 && unitById(u2.unit)!.dim === unitById(u.unit)!.dim) {
               this.next();
               this.i += u2.width;
@@ -445,6 +468,20 @@ class Parser {
         this.i += d.consumed;
         return { t: 'lit', q: d.q };
       }
+      // "avg(10, 20, 30)", "sum(1, 2, 3)", "median(3, 9, 4)": an explicit list is a function call, not the block aggregate
+      if ((own(AGG_WORDS, w) || w === 'median') && this.peek(1)?.type === 'paren' && this.peek(1)!.value === '(') {
+        this.next();
+        this.next();
+        const args: Node[] = [this.expr(0)];
+        while (this.isOp(',')) {
+          this.next();
+          args.push(this.expr(0));
+        }
+        if (!(this.peek()?.type === 'paren' && this.peek()!.value === ')')) this.fail('missing )');
+        this.next();
+        const fn = w === 'median' ? 'median' : AGG_WORDS[w] === 'sum' ? 'sumlist' : AGG_WORDS[w] === 'avg' ? 'avglist' : w;
+        return { t: 'call', fn, args };
+      }
       if (own(AGG_WORDS, w)) {
         this.next();
         return { t: 'agg', name: AGG_WORDS[w] };
@@ -473,17 +510,14 @@ class Parser {
         const e = this.unaryNoCurrency();
         return { t: 'money', e, code: c.code };
       }
-      if (w === 'half') {
+      // "half 90", "double 45", "triple x": a factor applied to the operand that follows; alone, the plain number
+      const factors: Record<string, string> = { half: '0.5', quarter: '0.25', double: '2', twice: '2', triple: '3', thrice: '3' };
+      if (own(factors, w)) {
         this.next();
-        return { t: 'num', v: new Decimal('0.5') };
-      }
-      if (w === 'quarter') {
-        this.next();
-        return { t: 'num', v: new Decimal('0.25') };
-      }
-      if (w === 'double' || w === 'twice') {
-        this.next();
-        return { t: 'num', v: new Decimal(2) };
+        const nx = this.peek();
+        const operandFollows = !!nx && (nx.type === 'number' || nx.type === 'currency' || (nx.type === 'paren' && nx.value === '(') || (nx.type === 'word' && (this.opts.variables.has(nx.value) || nx.value === 'prev' || nx.value === 'that')));
+        if (operandFollows) return { t: 'bin', op: '*', l: { t: 'num', v: new Decimal(factors[w]) }, r: this.unary() };
+        return { t: 'num', v: new Decimal(factors[w]) };
       }
       if (w === 'what') this.fail('what?', 'try: 20% of what is 30');
       if (KEYWORDS.has(w)) this.fail(`unexpected "${t.text}"`);
