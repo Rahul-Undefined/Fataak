@@ -1,5 +1,5 @@
 /**
- * Reliability benchmark: 802 cases with independently computed answers (hand-worked or Python decimal),
+ * Reliability benchmark: 892 cases with independently computed answers (hand-worked or Python decimal),
  * never taken from the engine. NOW = Fri 23 Oct 2026 10:00 IST; test rates USD base (INR 84, EUR 0.92,
  * GBP 0.78, JPY 150, AED 3.67, SGD 1.34; historical 13 Oct 2026 INR 80).
  *
@@ -15,7 +15,7 @@ const GROUP: Record<string, 'core' | 'intent' | 'nl' | 'negative'> = {
   arithmetic: 'core', arithmetic2: 'core',
   percent: 'intent', percent2: 'intent', gst_tax: 'intent', gst2: 'intent', discount_profit: 'intent', profit2: 'intent', interest_emi: 'intent', interest2: 'intent',
   units: 'intent', units2: 'intent', dates: 'intent', dates2: 'intent', times: 'intent', times2: 'intent', currency: 'intent', currency2: 'intent', variables: 'intent', context2: 'intent',
-  hinglish: 'nl', hinglish2: 'nl', nonsense: 'negative',
+  hinglish: 'nl', hinglish2: 'nl', nonsense: 'negative', data3: 'intent', facts3: 'intent', everyday3: 'nl',
 };
 const M: Record<string, Case[]> = {
   arithmetic: [
@@ -165,7 +165,7 @@ const M: Record<string, Case[]> = {
     ['floor(7.9)', '7'], ['ceil(7.1)', '8'], ['10!', '3,628,800'], ['7 / 2 * 2', '7'], ['2 + 3 * 4 ^ 2 / 8', '8'], ['(1 + 2) ^ (2 + 1)', '27'], ['1000 / 3 rounded to 2 dp', '333.33'],
     ['99999999999999999999 + 1', '100,000,000,000,000,000,000'], ['1/3 * 3', '1'], ['0.1 + 0.7', '0.8'], ['5 + 5 please', '10'], ['5 + 5 = ?', '10'], ['5 + 5 =', '10'], ['2 + 2 = 5', 'ERR'],
     ['x = 5 = 6', 'ERR'], ['5 apples', 'ERR'], ['apples 5', '5'], ['0 ^ 0', '1'], ['0 ^ -1', 'ERR'], ['sqrt(-4)', 'ERR'], ['log(-1)', 'ERR'], ['10 ÷ 0', 'ERR'], ['5 mod 0', 'ERR'], ['hello 5 + 5', '10'],
-    ['1 lakh crore', '1,000,000,000,000'], ['3 dozen', 'ERR'], ['1..2', 'ERR'], ['%%', 'ERR'], ['null', 'ERR'], ['Infinity', 'ERR'], ['1/0 + 1', 'ERR'], ['(-8) ^ (1/3)', 'ERR'],
+    ['1 lakh crore', '1,000,000,000,000'], ['3 dozen', '36'], ['1..2', 'ERR'], ['%%', 'ERR'], ['null', 'ERR'], ['Infinity', 'ERR'], ['1/0 + 1', 'ERR'], ['(-8) ^ (1/3)', 'ERR'],
   ],
   percent2: [
     ['20% of 30% of 50% of 10000', '300'], ['1000 increased by 10% then decreased by 10%', '990'], ['what percent is 15 of 60', '25%'], ['15 is what percent more than 12', '25% increase'],
@@ -201,7 +201,7 @@ const M: Record<string, Case[]> = {
     ['3 km + 500 m in km', '3.5 km'], ['72 km/h in m/s', '20 m/s'], ['1 m/s in km/h', '3.6 km/h'], ['15 litres in gallons', '3.96 gal'], ['250 ml * 4', '1,000 ml'], ['250 ml * 4 in l', '1 l'],
     ['2 hours 30 minutes in minutes', '150 min'], ['3600 seconds in hours', '1 h'], ['1 week in hours', '168 h'], ['36.6 c in f', '97.88°F'], ['-40 c in f', '-40°F'], ['300 k in c', '26.85°C'],
     ['5 kg * 2', '10 kg'], ['10 kg / 4', '2.5 kg'], ['1400 km / 70 km/h', '20 h'], ['mera weight 70 kg hai, pounds me kitna', '154.32 lb'], ['meri height 5 feet 8 inch hai, cm me', '172.72 cm'],
-    ['180 cm in ft and in', '5 ft 10.87 in'], ['1 kg in lb and oz', '2 lb 3.27 oz'], ['10 mbps in kbps', 'ERR'], ['5 kg + 3 litres', 'ERR'], ['100 c in k', '373.15 K'], ['0 f in c', '-17.78°C'],
+    ['180 cm in ft and in', '5 ft 10.87 in'], ['1 kg in lb and oz', '2 lb 3.27 oz'], ['10 mbps in kbps', '10,000 kbps'], ['5 kg + 3 litres', 'ERR'], ['100 c in k', '373.15 K'], ['0 f in c', '-17.78°C'],
     ['1 mile in km, m and ft', '1.61 km · 1,609.34 m · 5,280 ft'], ['25 mm in cm', '2.5 cm'], ['1.75 m in cm', '175 cm'], ['half a kilometre in metres', '500 m'],
   ],
   dates2: [
@@ -224,7 +224,7 @@ const M: Record<string, Case[]> = {
     ['100 usd in inr and eur', '₹8,400 · €92'], ['1 lakh inr in usd in eur', '€1,095.24'], ['$100 * 1.18 in inr', '₹9,912'], ['(100 usd + 50 usd) in inr', '₹12,600'], ['100 usd in inr - 10%', '₹7,560'],
     ['10% of 100 usd in inr', '₹840'], ['100 usd to inr using historical rate for 13 october 2026', '₹8,000'], ['1 usd in inr on 1 jan 1990', 'ERR'], ['100 inr in inr', '₹100'], ['0 usd in inr', '₹0'],
     ['-50 usd in inr', '-₹4,200'], ['1,000,000 usd in inr', '₹8,40,00,000'], ['5 euro + 5 dollars in rupees', '₹876.52'], ['rupaye 1200 ka 15 pratishat', '₹180'], ['usd', 'ERR'], ['100 usd in', 'ERR'],
-    ['in inr', 'ERR'], ['₹', 'ERR'], ['$5 + ₹5', 'ERR'], ['$5 + ₹5 in inr', '₹425'], ['2 crore rupees in usd', '$238,095.24'], ['500 usd per month in inr per year', 'ERR'],
+    ['in inr', 'ERR'], ['₹', 'ERR'], ['$5 + ₹5', 'ERR'], ['$5 + ₹5 in inr', '₹425'], ['2 crore rupees in usd', '$238,095.24'], ['500 usd per month in inr per year', '₹5,04,000'],
   ],
   context2: [
     [['a = 10', 'b = 20', 'c = a + b', 'c * 2'], '60'], [['x = 5', 'x = x + 1', 'x'], '6'], [['salary = 50000', 'tax = 10% of salary', 'salary - tax'], '45,000'], [['price: $20', 'qty: 5', 'price * qty in inr'], '₹8,400'],
@@ -240,6 +240,33 @@ const M: Record<string, Case[]> = {
     ['5 lakh ka 8% byaj ek saal', '40,000'], ['1200 rupaye me 18% gst included, base kitna', '₹1,016.95'], ['25 ka 4 guna', '100'], ['100 ka 25 pratishat', '25'], ['200 me se 50 ghatao', '150'],
     ['80 ko 2 se guna karo', '160'], ['150 ko 3 se bhag do', '50'], ['kal subah 10 baje', '10 AM'], ['aaj ka din', 'Fri, 23 Oct 2026'], ['agle saal ki yahi tarikh', 'ERR'],
     ['1500 ka 20% discount ke baad gst 18%', '1,416'], ['mujhe 500 ka 15% batao', '75'], ['sabse pehle 1000 me 10% jodo phir 100 ghatao', '1,000'], ['kitna hoga 45 ka 30 percent', '13.5'],
+  ],
+  data3: [
+    ['download time for a 4.7 GB movie at 25 Mbps', '25 min 4 s'], ['4.7 gb movie 25 mbps me kitne time me download hoga', '25 min 4 s'], ['upload 500 mb at 20 mbps', '3 min 20 s'],
+    ['1 tb backup at 100 mbps in hours', '22.22 h'], ['1 tb / 4 gb', '250'], ['512 gb - 128 gb', '384 GB'], ['256 gb * 4', '1,024 GB'], ['1.5 tb + 500 gb in tb', '2 TB'], ['10% of 1 tb', '100 GB'],
+    ['1 tb ka 20%', '200 GB'], ['how many mb in 1 gb', '1,000 MB'], ['1 pb in gb', '1,000,000 GB'], ['2 gbps in mb/s', '250 MB/s'], ['50 mbps * 30 minutes', '11.25 GB'], ['3 gb at 0 mbps', 'ERR'],
+    ['1 gb in', 'ERR'], ['mbps', 'ERR'], ['5 mbps + 10 gb', 'ERR'], ['1 gb + 1 hour', 'ERR'], ['100 gb at 5 mbps in days', '1.85 days'], ['internet speed 2 gb in 2 minutes', '16.67 MB/s'],
+  ],
+  facts3: [
+    ['distance to moon in km', '384,400 km'], ['moon distance / 2', '192,200 km'], ['speed of light in km/h', '1,079,252,848.8 km/h'], ['speed of sound in km/h', '1,234.8 km/h'],
+    ['earth circumference / 24', '1,669.79 km'], ['height of everest in km', '8.85 km'], ['burj khalifa height * 2', '1,656 m'], ['nile length in miles', '4,132.12 mi'],
+    ['distance from sun to earth / speed of light in minutes', '8.32 min'], ['suraj se dharti kitni door hai', '149,597,870.7 km'], ['chand ka vajan', '7.342e+22 kg'], ['everest ki unchai feet me', '29,031.69 ft'],
+    ['ganga kitni lambi hai', '2,525 km'], ['india ka area', '3,287,263 km²'], ['how big is the atlantic ocean', '106,460,000 km²'], ['how far is jupiter from the sun', '778,479,000 km'],
+    ['how hot is the sun', '5,500°C'], ['what is the freezing point of water', '100°C'], ['distance', 'ERR'], ['speed of lightning', 'ERR'], ['weight of 5 apples', 'ERR'], ['mars', 'ERR'],
+    ['distance between delhi and jaipur', '235.3 km'], ['kolkata to chennai distance in miles', '844.07 mi'], ['how far is london from delhi', '6,711.3 km'], ['statue of unity', '182 m'],
+    ['2 * speed of sound in km/h', '2,469.6 km/h'], ['earth to moon distance at 100 km/h', '160 days 4 h'],
+  ],
+  everyday3: [
+    ['bmi for 70 kg and 1.75 m', '22.86'], ['bmi 70 kg 175 cm', '22.86'], ['mera weight 70 kg height 5 ft 9 in, bmi', '22.79'], ['bmi 85 kg 180 cm', '26.23'],
+    ['mileage 600 km in 40 litres', '15 km/l'], ['40 litres me 600 km, mileage', '15 km/l'], ['fuel for 600 km at 15 km/l', '40 l'], ['15 km/l * 40 l', '600 km'], ['petrol needed for 1200 km at 18 kmpl', '66.67 l'],
+    ['6 lakh per year in month', '50,000'], ['50000 per month yearly', '600,000'], ['salary 45000 monthly, annual', '540,000'], ['12 lakh per annum monthly', '100,000'],
+    ['cgpa 8.2 to percentage', '77.9%'], ['9.4 cgpa in percent', '89.3%'], ['3 dozen', '36'], ['3 dozen * 6', '216'], ['half dozen', '6'],
+    ['time to travel 450 km at 60 km/h', '7.5 h'], ['450 km at 60 km/h', '7.5 h'], ['distance in 2.5 hours at 80 km/h', '200 km'], ['speed for 300 km in 4 hours', '75 km/h'],
+    ['time difference between india and london', '4 h 30 min'], ['time difference between ist and est', '10 h 30 min'], ['ist se pst kitna peeche hai', '13 h 30 min'],
+    ['bill 2380, split among 3 people', '793.33 each'], ['tip 15% on 1240 split 4 ways', '356.5 each'], ['5 lakh in millions', '0.5 million'], ['2.5 crore in lakhs', '250 lakh'],
+    ['1 million in lakhs', '10 lakh'], ['age in days if born 1 jan 2000', '9,792 days'], ['percentage of 45 out of 60', '75%'], ['9pm to 5am', '8 hours'],
+    ['7 am ist to pst', '5:30 PM PST'], ['1200 per day monthly', '36,000'], ['interest on 1 lakh at 7% for 90 days simple', '1,726.03'], ['si 1 lakh 7% 90 days', '1,726.03'],
+    ['what is 2 power 10 minus 24', '1,000'], ['average of 85, 90, 78 and 92', '86.25'], ['rounded to 1 dp 2 / 3', '0.7'], ['10 crore / 7', '14,285,714.2857'],
   ],
 };
 

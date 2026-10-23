@@ -7,6 +7,13 @@ export interface Settings {
   tray: boolean;
   closeToTray: boolean;
   alwaysOnTop: boolean;
+  /** desktop widget: pinned in place, no taskbar entry, cannot be moved, minimised or closed from the UI */
+  widgetMode: boolean;
+  theme: 'dark' | 'light';
+  /** the first-run tutorial has been watched or skipped */
+  tutorialSeen: boolean;
+  /** optional URL of a JSON file { "version": "x.y.z", "url": "…" } used by "Check for updates" */
+  updateUrl: string;
 }
 
 /** Fn is handled by laptop firmware and never reaches Windows, so Fn+Space cannot be registered; Alt+Space is the closest launcher-style key. */
@@ -15,6 +22,10 @@ export const DEFAULT_SETTINGS: Settings = {
   tray: true,
   closeToTray: true,
   alwaysOnTop: false,
+  widgetMode: false,
+  theme: 'dark',
+  tutorialSeen: false,
+  updateUrl: '',
 };
 
 export interface RateTable {
@@ -35,9 +46,30 @@ export interface SettingsResult {
   hotkeyError?: string;
 }
 
+export interface AppInfo {
+  version: string;
+  /** ISO date of the build */
+  buildDate: string;
+  platform: string;
+  /** true when running packaged (not from source) */
+  packaged: boolean;
+}
+
+export interface UpdateCheck {
+  current: string;
+  latest?: string;
+  url?: string;
+  /** "up to date", "update available", or why the check could not run */
+  status: string;
+}
+
 export interface FataakApi {
   platform: string;
   version: string;
+  app: {
+    info(): Promise<AppInfo>;
+    checkUpdate(): Promise<UpdateCheck>;
+  };
   history: {
     load(): Promise<HistoryLine[]>;
     save(lines: HistoryLine[]): Promise<void>;

@@ -90,6 +90,15 @@ export function formatQuantity(q: Quantity): string {
         return `${n} ${q.value.abs().eq(1) ? singular : plural}`;
       }
       if (u?.dim === 'temperature') return u.id === 'k' ? `${n} K` : `${n}${sym}`;
+      // "0.1 TB" reads better as "100 GB"
+      if (u?.dim === 'data' && q.value.abs().lt(1) && !q.value.isZero()) {
+        const ladder = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
+        const at = ladder.indexOf(u.id);
+        if (at > 0) {
+          const next = unitById(ladder[at - 1])!;
+          return formatQuantity({ ...q, value: q.value.mul(u.factor).div(next.factor), unit: next.id, display: undefined });
+        }
+      }
       return `${n} ${sym}`;
     }
     case 'date':

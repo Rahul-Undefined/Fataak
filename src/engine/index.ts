@@ -10,6 +10,7 @@ import { isUnitWord } from './units';
 import { isCurrencyWord, findCurrency } from './currency';
 import { formatNumber } from './format';
 import { isZoneWord } from './timezone';
+import { factPhrases, lookupFact } from './facts';
 
 export * from './types';
 export { formatQuantity } from './format';
@@ -140,6 +141,34 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   // the expression parsed but needed data (a rate, a currency target): report that, never re-read it as prose
   if (!value && firstError?.kind === 'data') {
     return { ok: false, display: '', note: firstError.hint ? `${firstError.message} · ${firstError.hint}` : firstError.message, isText: false, label: labelKey, spans: spans() };
+  }
+  // 1a. a reference fact, optionally converted: "distance to moon", "height of everest in feet"
+  if (!value && !/\d/.test(clean)) {
+    const m = /^(.*?)\s+(?:in|to|into|me|mein)\s+([\p{L}][\p{L}/² ]{0,20})$/u.exec(clean.trim()) ?? /^(.*?)\s+([\p{L}][\p{L}/²]{0,20})\s+(?:me|mein)$/u.exec(clean.trim());
+    const direct = lookupFact(clean);
+    const target = !direct && m && isUnitWord(m[2].trim().toLowerCase()) ? m[2].trim().toLowerCase() : null;
+    const fact = direct ?? (target ? lookupFact(m![1]) : null);
+    if (fact) {
+      try {
+        const q = fact.q;
+        const v = target && q.kind === 'unit' ? evaluate(parseTokens(tokenize(`${q.value.toString()} ${q.unit} in ${target}`), parseOpts), ctx) : q;
+        value = { ...v, note: q.note };
+      } catch (e) {
+        if (e instanceof CalcError) firstError = e;
+      }
+    }
+  }
+  // 1a. reference facts inside an expression: "distance to moon / speed of light", "2 * earth radius in miles"
+  if (!value && /[+\-*/^]|\b(?:in|to|as)\b/.test(clean)) {
+    const sub = substituteFacts(clean);
+    if (sub) {
+      try {
+        const v = evaluate(parseTokens(tokenize(sub.text), parseOpts), ctx);
+        value = { ...v, note: v.note ? `${sub.notes.join(' · ')} · ${v.note}` : sub.notes.join(' · ') };
+      } catch (e) {
+        if (e instanceof CalcError) firstError = e;
+      }
+    }
   }
   // 1b. implicit definition: "rahul Rs 100", "rent 15000", "coffee $4.5" → name = value (context from visible lines)
   if (!value && !label) {
@@ -277,6 +306,25 @@ function tryMultiStatement(rawText: string, ctx: EvalContext, variables: Set<str
   const display = results.length ? results.map((q) => formatQuantity(q)).join(' · ') : formatQuantity(value);
   const note = notes.length ? notes.join(' · ') : results.length ? undefined : lineNames.map((n) => `${n} ${formatQuantity(local.get(n)!)}`).join(' · ');
   return { ok: true, value, display, note, isText: false, defines, spans: spans() };
+}
+
+let FACT_PHRASES: ReturnType<typeof factPhrases> | null = null;
+/** replace fact phrases (two words or more) with their values; null when none is present */
+function substituteFacts(text: string): { text: string; notes: string[] } | null {
+  FACT_PHRASES ??= factPhrases().filter((p) => p.phrase.includes(' '));
+  let out = text.toLowerCase();
+  const notes: string[] = [];
+  for (const { phrase, fact } of FACT_PHRASES) {
+    const re = new RegExp(`(?<![\\p{L}\\d])${phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}\\d])`, 'u');
+    if (!re.test(out)) continue;
+    const literal = fact.unit ? `${fact.value} ${fact.unit}` : fact.value;
+    out = out.replace(re, literal);
+    notes.push(`${phrase} = ${formatQuantity(fact.unit ? { kind: 'unit', value: new Decimal(fact.value), unit: fact.unit } : { kind: 'number', value: new Decimal(fact.value) })}`);
+    if (notes.length >= 4) break;
+  }
+  // "earth to moon distance at 100 km/h": the speed phrasing the normaliser would have rewritten
+  out = out.replace(/(\d[\d.,]*\s*(?:km|m|miles|mi))\s+at\s+(\d[\d.,]*\s*(?:km\/h|kmph|mph|m\/s|km\/s))/g, '$1 / $2');
+  return notes.length ? { text: out, notes } : null;
 }
 
 /** the currency word/code that ends a conversion phrase ("… in USD", "… to rupees"), if any */

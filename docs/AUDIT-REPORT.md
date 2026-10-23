@@ -125,3 +125,19 @@ acres is 18,817.88 m² with the international acre (not 18,819.7).
 **Known limitations.** "bought at 500" alone echoes 500 (a definition-like line, as in Numi); "apples 5"
 defines `apples`; `10 % 3` is percent-of; two durations added print in minutes; durations across two
 zones need both clock times; public holidays are unknown; dates are read day-first.
+
+## Version 0.2 (24 Oct 2026)
+
+Engine: data units up to zettabytes plus bits, bandwidth (bps … Gbps, kB/s … GB/s) with data ÷ rate, data ÷ time and
+rate × time; fuel economy (km/l, mpg); km/s; a facts table (astronomy, oceans, mountains, rivers, countries, landmarks,
+physical constants; great-circle distances between 100 cities) usable as questions and inside expressions; BMI;
+per-period conversions; CGPA; dozens; scale display (`in lakhs`, `in millions`); time-zone gaps; travel time from
+distance and speed; age in days. Round three of adversarial questions (90 cases, written before the features) went
+from 50 to 90 passing; the benchmark now holds 892 cases and the whole suite 1,515 tests, all passing.
+
+App: own visual design (dark and light), double-click working panel, labelled bottom-bar toggles, animated first-run
+tutorial (replayable from Help), version and build date with an optional update-URL check, saved window position,
+desktop widget mode (pinned, no taskbar entry, not movable, minimisable or closable until switched off; the window is
+not placed behind desktop icons, which Windows does not allow without native code). Widget mode and the update check
+were implemented in the main process and type-checked but not exercised at runtime in this session, because the
+installed FATAAK instance holds the single-instance lock.

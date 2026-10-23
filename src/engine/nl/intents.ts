@@ -28,6 +28,8 @@ import { tokenize } from '../tokenizer';
 import { tryParseDate } from '../dates';
 import { isCurrencyWord, currencyBySymbol, findCurrency } from '../currency';
 import { isUnitWord, findUnit } from '../units';
+import { lookupFact } from '../facts';
+import { div as divQ, mul as mulQ } from '../evaluator';
 import { KEYWORDS } from '../parser';
 import { CANON_KEYWORDS, SOURCE_WORDS } from './normalize';
 
@@ -135,7 +137,7 @@ const EXPR_PUNCT = new Set(['+', '-', '*', '/', '^', '(', ')', ',', 'of', 'in', 
  */
 export function pureExpression(words: string[], ctx: EvalContext): string | null {
   const ws = words.slice();
-  while (ws.length && (ws[0] === 'what' || ws[0] === 'compute' || ws[0] === 'is')) ws.shift();
+  while (ws.length && (ws[0] === 'what' || ws[0] === 'compute' || ws[0] === 'is' || ws[0] === 'time')) ws.shift();
   const out: string[] = [];
   let operands = 0;
   let operators = 0;
@@ -854,6 +856,18 @@ function intentTimezone(raw: string, ctx: EvalContext): Quantity | null {
     const after = toIdx >= 0 ? wordList.slice(toIdx + 1).filter((w) => /^[\p{L}]+$/u.test(w) && w !== 'time') : [];
     if (toIdx > zones[0].end - 1 && after.length) throw new CalcError(`unknown place or zone "${after.join(' ')}"`, 'try a city (New York) or an abbreviation (EST, CET)');
   }
+  // "time difference between india and london", "ist se pst kitna peeche hai": the gap between two zones now
+  if (zones.length >= 2 && !time && zones[0].ref.zone !== zones[1].ref.zone && !wordList.some((w) => PCT_RE.test(w)) && (wordList.includes('difference') || wordList.includes('behind') || wordList.includes('ahead'))) {
+    const now = ctx.now();
+    const offA = now.setZone(zones[0].ref.zone).offset;
+    const offB = now.setZone(zones[1].ref.zone).offset;
+    const diff = Math.abs(offA - offB);
+    const h = Math.floor(diff / 60);
+    const m = diff % 60;
+    const ahead = offA > offB ? zones[0].ref.label : zones[1].ref.label;
+    const behind = offA > offB ? zones[1].ref.label : zones[0].ref.label;
+    return { kind: 'unit', value: new Decimal(diff).div(60), unit: 'h', display: m ? `${h} h ${m} min` : `${h} h`, note: diff === 0 ? 'same time' : `${ahead} is ahead of ${behind} right now` };
+  }
   if (!time && !wantsNow) return null;
   if (!time) {
     const base = ctx.now().plus({ seconds: offsetSeconds });
@@ -1024,6 +1038,8 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
     const today = (refEntry ? refEntry.q.date! : ctx.now()).startOf('day');
     if (born > today) throw new CalcError('birth date is in the future');
     const diff = today.diff(born, ['years', 'months', 'days']);
+    if (p.has('days') || p.has('day')) return { kind: 'unit', value: new Decimal(Math.floor(today.diff(born, 'days').days)), unit: 'day', note: `born ${born.toFormat('d LLL yyyy')}` };
+    if (p.has('months')) return { kind: 'unit', value: new Decimal(Math.floor(today.diff(born, 'months').months)), unit: 'month', note: `born ${born.toFormat('d LLL yyyy')}` };
     const years = Math.floor(diff.years);
     return { kind: 'unit', value: new Decimal(years), unit: 'year', display: `${years} years`, note: `${years} years ${Math.floor(diff.months)} months ${Math.floor(diff.days)} days · born ${born.toFormat('d LLL yyyy')}` };
   }
@@ -1763,7 +1779,8 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
     const ofIdx = p.idx('of');
     let part = av;
     let whole = b.value;
-    if (ofIdx >= 0 && ofIdx < p.nums[0]) {
+    const ofBetween = p.words.slice(p.nums[0] + 1, p.nums[1]).includes('of');
+    if (!ofBetween && ofIdx >= 0 && ofIdx < p.nums[0]) {
       part = b.value;
       whole = av;
     }
@@ -1913,6 +1930,88 @@ function intentBalance(p: Parsed, ctx: EvalContext): Quantity | null {
   return { ...acc, note: `${trail.join(' ')} = ${formatQuantity(acc)}` };
 }
 
+/** "bmi 70 kg 175 cm", "bmi for 70 kg and 1.75 m", "70 kg, 5 ft 9 in, bmi" */
+function intentBmi(p: Parsed, ctx: EvalContext): Quantity | null {
+  if (!p.has('bmi')) return null;
+  let mass: Quantity | null = null;
+  const heightWords: string[] = [];
+  for (const i of p.nums) {
+    const word = p.words[i + 1] === 'in' ? 'inch' : (p.words[i + 1] ?? '');
+    const u = findUnit(word);
+    if (!u) continue;
+    if (u.dim === 'mass' && !mass) mass = evalWords([p.words[i], word], ctx);
+    else if (u.dim === 'length') heightWords.push(p.words[i], word);
+  }
+  if (!mass || !heightWords.length) throw new CalcError('weight and height?', 'e.g. bmi 70 kg 175 cm');
+  const height = evalWords(heightWords, ctx);
+  const kg = evalWords([`${mass.value.toString()} ${mass.unit}`, 'in', 'kg'], ctx).value;
+  const m = evalWords([`${height.value.toString()} ${height.unit}`, 'in', 'm'], ctx).value;
+  if (m.lte(0)) throw new CalcError('height must be positive');
+  const bmi = kg.div(m.pow(2)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const band = bmi.lt('18.5') ? 'underweight' : bmi.lt(25) ? 'normal' : bmi.lt(30) ? 'overweight' : 'obese';
+  return { kind: 'number', value: bmi, note: `BMI = kg ÷ m² · ${formatQuantity(mass)} / (${formatNumber(m, { maxDecimals: 3 })} m)² · ${band} (WHO)` };
+}
+
+const PERIOD_PER_YEAR: Record<string, number> = { yearly: 1, quarterly: 4, monthly: 12, weekly: 52, daily: 365 };
+const PERIOD_FROM_UNIT: Record<string, string> = { years: 'yearly', months: 'monthly', weeks: 'weekly', days: 'daily' };
+/** "6 lakh per year in month", "50000 per month yearly", "1200 per day monthly" */
+function intentPeriod(p: Parsed, ctx: EvalContext): Quantity | null {
+  if (p.nums.length !== 1 || p.pcts.length) return null;
+  const periods = p.words.map((w, i) => (own(PERIOD_PER_YEAR, w) ? w : own(PERIOD_FROM_UNIT, w) && (p.words[i - 1] === 'in' || p.words[i - 1] === 'to' || p.words[i - 1] === 'per') ? PERIOD_FROM_UNIT[w] : null)).filter((x): x is string => !!x);
+  if (periods.length !== 2 || periods[0] === periods[1]) return null;
+  const [from, to] = periods;
+  const { q } = numberAt(p, p.nums[0], ctx);
+  // months have 30 days and 4 weeks here; years 12 months, 52 weeks, 365 days
+  const factor = from === 'daily' && to === 'monthly' ? 30 : from === 'monthly' && to === 'daily' ? 1 / 30 : from === 'weekly' && to === 'monthly' ? 4 : from === 'monthly' && to === 'weekly' ? 0.25 : PERIOD_PER_YEAR[from] / PERIOD_PER_YEAR[to];
+  let out = moneyOrNumber(q.value.mul(factor), q);
+  // "500 usd per month in inr per year": convert as well when a currency is named
+  const target = targetCurrency(p);
+  if (target && out.kind === 'money' && out.currency !== target) out = convertMoney(out, target, ctx);
+  return { ...out, note: `${formatQuantity(q)} ${from} → ${to} (× ${formatNumber(new Decimal(factor), { maxDecimals: 4 })})` };
+}
+
+/** "2 GB at 50 Mbps", "how long to download 1.5 GB on 100 mbps", "2 GB in 10 seconds speed", "data in 1 hour at 10 mbps" */
+function intentDataRate(p: Parsed, ctx: EvalContext): Quantity | null {
+  if (p.pcts.length || p.nums.length < 2) return null;
+  const unitAt = (i: number) => {
+    const one = p.words[i + 1];
+    const two = `${p.words[i + 1]} ${p.words[i + 2]}`;
+    const three = `${p.words[i + 1]} ${p.words[i + 2]} ${p.words[i + 3]}`;
+    return findUnit(three) ? { u: findUnit(three)!, text: three } : findUnit(two) ? { u: findUnit(two)!, text: two } : one && findUnit(one) ? { u: findUnit(one)!, text: one } : null;
+  };
+  const q = (i: number, text: string) => evalWords([p.words[i], text], ctx);
+  const pick = (dim: string) => {
+    for (const i of p.nums) {
+      const u = unitAt(i);
+      if (u && u.u.dim === dim) return { i, text: u.text };
+    }
+    return null;
+  };
+  const data = pick('data');
+  const rate = pick('bandwidth');
+  const time = pick('time');
+  if (data && rate) {
+    const r = divQ(q(data.i, data.text), q(rate.i, rate.text));
+    const note = `${formatQuantity(q(data.i, data.text))} ÷ ${formatQuantity(q(rate.i, rate.text))}`;
+    // "… in hours": the duration in the unit asked for
+    const last = p.words.length - 1;
+    const tail = p.words[last];
+    if ((p.words[last - 1] === 'in' || p.words[last - 1] === 'to') && findUnit(tail)?.dim === 'time' && !p.nums.includes(last - 1)) {
+      return { ...evalWords([`${r.value.toString()} s`, 'in', tail], ctx), note };
+    }
+    return { ...r, note };
+  }
+  if (rate && time) {
+    const r = mulQ(q(rate.i, rate.text), q(time.i, time.text));
+    return { ...r, note: `${formatQuantity(q(rate.i, rate.text))} × ${formatQuantity(q(time.i, time.text))}` };
+  }
+  if (data && time) {
+    const r = divQ(q(data.i, data.text), q(time.i, time.text));
+    return { ...r, note: `${formatQuantity(q(data.i, data.text))} ÷ ${formatQuantity(q(time.i, time.text))}` };
+  }
+  return null;
+}
+
 /** "7.85 kilometres to metres, miles and feet" / "5 hours 42 minutes in total minutes and decimal hours" */
 function intentConvertMulti(p: Parsed, ctx: EvalContext): Quantity | null {
   if (p.nums.length === 0 || p.pcts.length) return null;
@@ -1963,6 +2062,9 @@ function intentConvertMulti(p: Parsed, ctx: EvalContext): Quantity | null {
 }
 
 export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
+  // "distance from earth to moon", "everest ki height", "speed of light": reference facts (before zones: "great wall of china")
+  const fact = lookupFact(raw);
+  if (fact) return fact.q;
   const tz = intentTimezone(raw, ctx);
   if (tz) return tz;
   const { words, notes } = normalize(raw);
@@ -1980,7 +2082,7 @@ export function runIntentWords(words: string[], notes: string[], ctx: EvalContex
   // "40% of x is 80, x?": an undefined x stands for the unknown
   const p = analyse(ctx.variables.has('x') ? words : words.map((w) => (w === 'x' ? 'what' : w)), notes);
   const order: ((p: Parsed, ctx: EvalContext) => IntentResult | Quantity | null)[] = [
-    intentEmi, intentInterest, intentOwes, intentBalance, intentBusiness, intentAllocate, intentRatio, intentList, intentTimeSpan, intentConvertMulti, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
+    intentBmi, intentPeriod, intentEmi, intentInterest, intentOwes, intentBalance, intentBusiness, intentAllocate, intentRatio, intentList, intentTimeSpan, intentDataRate, intentConvertMulti, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
   ];
   for (const intent of order) {
     const r = intent(p, ctx);

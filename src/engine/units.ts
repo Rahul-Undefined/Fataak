@@ -1,6 +1,6 @@
 import { Decimal } from './types';
 
-export type Dimension = 'length' | 'mass' | 'volume' | 'temperature' | 'time' | 'data' | 'area' | 'speed' | 'angle';
+export type Dimension = 'length' | 'mass' | 'volume' | 'temperature' | 'time' | 'data' | 'area' | 'speed' | 'angle' | 'bandwidth' | 'fuel';
 
 export interface UnitDef {
   id: string;
@@ -73,6 +73,24 @@ export const UNITS: UnitDef[] = [
   u('MiB', 'data', 1048576, 'MiB', ['mib', 'mebibyte', 'mebibytes']),
   u('GiB', 'data', 1073741824, 'GiB', ['gib', 'gibibyte', 'gibibytes']),
   u('TiB', 'data', 1099511627776, 'TiB', ['tib', 'tebibyte', 'tebibytes']),
+  u('PB', 'data', 1e15, 'PB', ['pb', 'petabyte', 'petabytes']),
+  u('EB', 'data', 1e18, 'EB', ['eb', 'exabyte', 'exabytes']),
+  u('ZB', 'data', 1e21, 'ZB', ['zb', 'zettabyte', 'zettabytes']),
+  u('PiB', 'data', '1125899906842624', 'PiB', ['pib', 'pebibyte', 'pebibytes']),
+  u('kbit', 'data', 125, 'kbit', ['kbit', 'kilobit', 'kilobits']),
+  u('Mbit', 'data', 125000, 'Mbit', ['mbit', 'megabit', 'megabits']),
+  u('Gbit', 'data', 125000000, 'Gbit', ['gbit', 'gigabit', 'gigabits']),
+  u('Tbit', 'data', 125000000000, 'Tbit', ['tbit', 'terabit', 'terabits']),
+  // bandwidth (base: bytes per second); bps/kbps/mbps/gbps are bits, kB/s … are bytes
+  u('bps', 'bandwidth', '0.125', 'bit/s', ['bps', 'bit/s', 'bits per second']),
+  u('kbps', 'bandwidth', 125, 'kbps', ['kbps', 'kbit/s', 'kilobits per second']),
+  u('mbps', 'bandwidth', 125000, 'Mbps', ['mbps', 'mbit/s', 'megabits per second', 'mb per second', 'megabit per second']),
+  u('gbps', 'bandwidth', 125000000, 'Gbps', ['gbps', 'gbit/s', 'gigabits per second', 'gigabit per second']),
+  u('tbps', 'bandwidth', 125000000000, 'Tbps', ['tbps', 'terabits per second']),
+  u('Bps', 'bandwidth', 1, 'B/s', ['b/s', 'bytes per second']),
+  u('kBps', 'bandwidth', 1000, 'kB/s', ['kb/s', 'kbyte/s', 'kilobytes per second']),
+  u('MBps', 'bandwidth', 1000000, 'MB/s', ['mb/s', 'mbyte/s', 'megabytes per second', 'megabyte per second']),
+  u('GBps', 'bandwidth', 1000000000, 'GB/s', ['gb/s', 'gbyte/s', 'gigabytes per second']),
   // angle (base: radian)
   u('rad', 'angle', 1, 'rad', ['rad', 'rads', 'radian', 'radians']),
   u('deg', 'angle', '0.017453292519943295769', '°', ['°', 'deg', 'degs', 'degree', 'degrees']),
@@ -88,6 +106,13 @@ export const UNITS: UnitDef[] = [
   u('kmh', 'speed', '0.277777777777777778', 'km/h', ['km/h', 'kmh', 'kph', 'kmph', 'kilometers per hour']),
   u('mph', 'speed', '0.44704', 'mph', ['mph', 'miles per hour']),
   u('knot', 'speed', '0.514444444444444444', 'kn', ['knot', 'knots', 'kn']),
+  u('kms', 'speed', 1000, 'km/s', ['km/s', 'kms', 'kilometres per second', 'kilometers per second']),
+  // fuel economy (base: metres per litre)
+  u('kmpl', 'fuel', 1000, 'km/l', ['km/l', 'kmpl', 'km per litre', 'km per liter', 'kilometres per litre', 'kilometers per liter', 'kmpl']),
+  u('mpg', 'fuel', '425.143707', 'mpg', ['mpg', 'miles per gallon']),
+  // fuel economy (base: metres per litre)
+  u('kmpl', 'fuel', 1000, 'km/l', ['km/l', 'kmpl', 'km per litre', 'km per liter', 'kilometres per litre', 'kilometers per liter', 'kmpl']),
+  u('mpg', 'fuel', '425.143707', 'mpg', ['mpg', 'miles per gallon']),
 ];
 
 const byId = new Map<string, UnitDef>();

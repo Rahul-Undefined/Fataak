@@ -23,6 +23,8 @@ export type Node =
 
 export type BinOp = '+' | '-' | '*' | '/' | '^' | 'mod' | 'of' | 'off' | 'on';
 export interface ConvTarget {
+  /** "in millions", "in lakhs": display scale */
+  scale?: { word: string; mult: Decimal };
   unit?: string;
   currency?: string;
   percent?: boolean;
@@ -221,6 +223,15 @@ class Parser {
   }
 
   private tryConvTarget(offset: number): { target: ConvTarget; width: number } | null {
+    // "5 lakh in millions", "2.5 crore in lakhs": a scale word as the target
+    const sw = this.peek(offset);
+    if (sw && sw.type === 'word') {
+      const key = sw.value.replace(/s$/, '');
+      const plural: Record<string, string> = { million: 'million', lakh: 'lakh', crore: 'crore', thousand: 'thousand', billion: 'billion', hazaar: 'hazaar', hazar: 'hazar' };
+      if (own(plural, key) && own(SCALES, key) && (this.peek(offset + 1) === undefined || this.peek(offset + 1)!.type === 'op' || this.peek(offset + 1)!.type === 'paren')) {
+        return { target: { scale: { word: key, mult: new Decimal(SCALES[key]) } }, width: 1 };
+      }
+    }
     const t = this.peek(offset);
     if (!t) return null;
     if (t.type === 'percent') return { target: { percent: true }, width: 1 };

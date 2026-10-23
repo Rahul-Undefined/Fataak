@@ -56,7 +56,8 @@ const PHRASES: [string, string][] = [
   ['drained', 'remove'], ['drain', 'remove'], ['removed', 'remove'], ['withdrawn', 'remove'], ['withdraw', 'remove'], ['used up', 'remove'], ['nikal liye', 'remove'], ['nikal liya', 'remove'],
   ['remain', 'remaining'], ['remains', 'remaining'], ['left over', 'remaining'], ['is left', 'remaining'], ['left', 'remaining'], ['bache', 'remaining'], ['bacha', 'remaining'], ['bachega', 'remaining'], ['bachenge', 'remaining'],
   ['the next day', ''], ['next day', ''], ['departs at', 'from'], ['departs', 'from'], ['departure', 'from'], ['leaves at', 'from'], ['arrives at', 'to'], ['arrives', 'to'], ['arrival', 'to'], ['reaches', 'to'],
-  ['half a', '0.5'], ['half an', '0.5'], ['quarter of a', '0.25'], ['find the number', 'what'], ['find the value', 'what'], ['find the amount', 'what'], ['find x', 'what'], ['find it', 'what'], ['old salary', 'what'], ['old price', 'what'], ['old value', 'what'], ['old amount', 'what'],
+  ['average speed', 'speed'], ['time to travel', 'time'], ['time to cover', 'time'], ['time to drive', 'time'], ['time to reach', 'time'], ['to travel', ''], ['to cover', ''], ['to drive', ''], ['to reach', ''],
+  ['fuel needed for', ''], ['petrol needed for', ''], ['diesel needed for', ''], ['fuel for', ''], ['petrol for', ''], ['diesel for', ''], ['fuel required for', ''], ['peeche', 'behind'], ['piche', 'behind'], ['pichhe', 'behind'], ['time gap', 'difference'], ['time difference', 'difference'], ['how long will it take', 'what time'], ['how long does it take', 'what time'], ['how long', 'what time'], ['kitna time lagega', 'what time'], ['kitna samay lagega', 'what time'], ['kitna time', 'what time'], ['half a', '0.5'], ['half an', '0.5'], ['quarter of a', '0.25'], ['find the number', 'what'], ['find the value', 'what'], ['find the amount', 'what'], ['find x', 'what'], ['find it', 'what'], ['old salary', 'what'], ['old price', 'what'], ['old value', 'what'], ['old amount', 'what'],
   ['previous salary', 'what'], ['purani salary', 'what'], ['purana price', 'what'], ['purani price', 'what'], ['maturity', 'total'], ['kaunsi', 'what'], ['konsi', 'what'], ['kitne bajenge', 'time'], ['bajenge', 'time'],
   ['midnight', '12:00 am'], ['noon', '12:00 pm'], ['midday', '12:00 pm'], ['sabse pehle', ''], ['tds', 'decrease'], ['income tax', 'decrease'], ['tax deducted', 'decrease'], ['tax deduction', 'decrease'],
   ['katke', 'decrease'], ['kaatke', 'decrease'], ['kat ke', 'decrease'], ['kaat ke', 'decrease'], ['kaat lo', 'decrease'], ['kaat do', 'decrease'], ['kaato', 'decrease'], ['katao', 'decrease'], ['kaat kar', 'decrease'], ['katne ke baad', 'decrease'],
@@ -176,7 +177,7 @@ const FILLERS = new Set([
   'karne', 'karein', 'kijiye', 'dijiye', 'dedo', 'liya', 'li', 'lo', 'le', 'leke', 'hisab', 'hisaab', 'calc', 'me', 'us', 'i', 'we', 'you', 'are', 'be', 'will', 'would', 'should', 'can', 'could',
   'if', 'agar', 'so', 'ok', 'just', 'par', 'lagega', 'lagegi', 'dena', 'dene', 'hoga',
   'has', 'kiye', 'kiya', 'kiyi', 'kia', 'set', 'let', 'define', 'assume', 'given', 'suppose', 'holds', 'hold', 'contains', 'contain', 'earns', 'earn',
-  'approximately', 'approx', 'decimal', 'equivalent', 'respectively', 'simplify', 'simplified', 'simplest', 'there', 'are', 'was', 'were', 'date', 'weight', 'height', 'vajan', 'wazan', 'lambai', 'temperature', 'length', 'about', 'roughly', 'around', 'speed', 'distance', 'marks', 'score', 'scored',
+  'approximately', 'approx', 'decimal', 'equivalent', 'respectively', 'simplify', 'simplified', 'simplest', 'there', 'are', 'was', 'were', 'date', 'journey', 'needed', 'required', 'mileage', 'download', 'downloading', 'downloaded', 'upload', 'uploading', 'transfer', 'transferring', 'file', 'files', 'internet', 'connection', 'network', 'wifi', 'data', 'movie', 'video', 'song', 'backup', 'weight', 'height', 'vajan', 'wazan', 'lambai', 'temperature', 'length', 'about', 'roughly', 'around', 'speed', 'distance', 'marks', 'score', 'scored',
   'amount', 'value', 'result', 'answer', 'figure', 'number', 'price', 'rakam', 'daam', 'dam', 'paisa', 'paise', 'rupay', 'wala', 'wali', 'wale', ]);
 
 const PHRASE_LIST = PHRASES.slice().sort((a, b) => b[0].split(' ').length - a[0].split(' ').length || b[0].length - a[0].length);
@@ -329,6 +330,17 @@ export function normalize(text: string): Normalized {
   s = s.replace(/\bke baad\s+(?=(?:gst|tax|discount|chhoot|chhut|phir|\d+(?:\.\d+)?\s*(?:%|percent|pratishat)))/g, 'then ');
   // "divide 100 by 8", "multiply 12 by 12", "subtract 15 from 100" → plain arithmetic
   s = s.replace(/\bdivide\s+(\d[\d.,]*)\s+by\s+(\d[\d.,]*)/g, '$1 / $2').replace(/\bmultiply\s+(\d[\d.,]*)\s+by\s+(\d[\d.,]*)/g, '$1 * $2').replace(/\bsubtract\s+(\d[\d.,]*)\s+from\s+(\d[\d.,]*)/g, '$2 - $1');
+  // "3 dozen" → 36, "half a dozen" → 6
+  s = s.replace(/\b(\d+(?:\.\d+)?)\s+dozen\b/g, (_m, n: string) => String(parseFloat(n) * 12)).replace(/\b(?:a |one )?dozen\b/g, '12').replace(/\bhalf (?:a )?12\b/g, '6');
+  // "cgpa 8.2 to percentage" → 77.9% (CBSE: CGPA × 9.5)
+  s = s.replace(/\bcgpa\s+(\d+(?:\.\d+)?)\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 95) / 10}%`).replace(/\b(\d+(?:\.\d+)?)\s+cgpa\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 95) / 10}%`);
+  if (/\bcgpa\b/.test(text.toLowerCase())) notes.push('CGPA × 9.5 (CBSE)');
+  // "450 km at 60 km/h" → time; "600 km at 15 km/l" → litres; "2.5 hours at 80 km/h" → distance
+  s = s.replace(/(\d[\d.,]*\s*(?:km|kilometres|kilometers|kilometre|kilometer|miles|mile|mi|m|metres|meters))\s+at\s+(\d[\d.,]*\s*(?:km\/h|kmph|kph|kmh|mph|m\/s|km\/l|kmpl|mpg|km per hour|km per litre))\b/g, '$1 / $2');
+  s = s.replace(/(\d[\d.,]*\s*(?:hours|hour|hrs|hr|h|minutes|minute|mins|min))\s+at\s+(\d[\d.,]*\s*(?:km\/h|kmph|kph|kmh|mph|m\/s))\b/g, '$2 * $1');
+  // "600 km in 40 litres" / "40 litres me 600 km" → km per litre
+  s = s.replace(/(\d[\d.,]*\s*(?:km|kilometres|kilometers|miles))\s+(?:in|me|mein|per)\s+(\d[\d.,]*\s*(?:litres|liters|litre|liter|l|gallons|gallon))\b/g, '$1 / $2');
+  s = s.replace(/(\d[\d.,]*\s*(?:litres|liters|litre|liter|l))\s+(?:in|me|mein|se)\s+(\d[\d.,]*\s*(?:km|kilometres|kilometers|miles))\b/g, '$2 / $1');
   // "120 km in 1.5 hours" is distance over time, not a conversion
   s = s.replace(/(\d[\d.,]*\s*(?:km|kilometres|kilometers|kilometre|kilometer|miles|mile|mi|metres|meters|metre|meter|m|ft|feet))\s+in\s+(\d[\d.,]*\s*(?:hours|hour|hrs|hr|h|minutes|minute|mins|min|seconds|second|sec|s))\b/g, '$1 / $2');
   // "… 500 percentage" at the end asks for a percentage; "500 percent" is a value

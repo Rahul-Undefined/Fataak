@@ -14,6 +14,10 @@ function browserShim(): FataakApi {
   return {
     platform: 'browser',
     version: 'dev',
+    app: {
+      info: async () => ({ version: 'dev', buildDate: new Date().toISOString().slice(0, 10), platform: 'browser', packaged: false }),
+      checkUpdate: async () => ({ current: 'dev', status: 'update checks run in the installed app' }),
+    },
     history: {
       load: async () => sanitizeLines(JSON.parse(localStorage.getItem(key) ?? '[]')),
       save: async (lines: HistoryLine[]) => localStorage.setItem(key, JSON.stringify(lines)),

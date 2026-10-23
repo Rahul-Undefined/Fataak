@@ -180,9 +180,42 @@ export function mul(a: Quantity, b: Quantity): Quantity {
       return unitQ(ua.id === 'mph' ? convertUnit(metres, unitById('m')!, unitById('mile')!) : convertUnit(metres, unitById('m')!, unitById('km')!), ua.id === 'mph' ? 'mile' : 'km');
     }
     if (ua.dim === 'time' && ub.dim === 'speed') return mul(b, a);
+    // "15 km/l * 40 l": fuel economy × fuel = distance
+    if (ua.dim === 'fuel' && ub.dim === 'volume') return unitQ(a.value.mul(ua.factor).mul(b.value.mul(ub.factor)).div(1000), 'km');
+    if (ua.dim === 'volume' && ub.dim === 'fuel') return mul(b, a);
+    // "15 km/l * 40 l": fuel economy × fuel = distance
+    if (ua.dim === 'fuel' && ub.dim === 'volume') return unitQ(a.value.mul(ua.factor).mul(b.value.mul(ub.factor)).div(1000), 'km');
+    if (ua.dim === 'volume' && ub.dim === 'fuel') return mul(b, a);
+    // "10 mbps * 1 hour": bandwidth × time = data
+    if (ua.dim === 'bandwidth' && ub.dim === 'time') return dataQ(a.value.mul(ua.factor).mul(b.value.mul(ub.factor)));
+    if (ua.dim === 'time' && ub.dim === 'bandwidth') return mul(b, a);
     throw new CalcError(`can't multiply ${ua.symbol} by ${ub.symbol}`);
   }
   throw new CalcError("can't multiply these");
+}
+
+/** bytes → the largest data unit that keeps the number readable */
+function dataQ(bytes: Decimal): Quantity {
+  const [id, f] = bytes.gte(1e12) ? ['TB', 1e12] : bytes.gte(1e9) ? ['GB', 1e9] : bytes.gte(1e6) ? ['MB', 1e6] : bytes.gte(1e3) ? ['KB', 1e3] : ['B', 1];
+  return unitQ(bytes.div(f), id);
+}
+
+/** 320 s → "5 min 20 s", 3600 → "1 h", 90000 → "1 day 1 h" */
+export function durationDisplay(seconds: Decimal): string {
+  let s = Math.round(seconds.toNumber());
+  if (s < 60) return `${seconds.toDecimalPlaces(2).toString()} s`;
+  const parts: string[] = [];
+  const d = Math.floor(s / 86400);
+  s -= d * 86400;
+  const h = Math.floor(s / 3600);
+  s -= h * 3600;
+  const m = Math.floor(s / 60);
+  s -= m * 60;
+  if (d) parts.push(`${d} ${d === 1 ? 'day' : 'days'}`);
+  if (h) parts.push(`${h} h`);
+  if (m) parts.push(`${m} min`);
+  if (s) parts.push(`${s} s`);
+  return parts.join(' ');
 }
 
 export function div(a: Quantity, b: Quantity): Quantity {
@@ -210,7 +243,27 @@ export function div(a: Quantity, b: Quantity): Quantity {
     }
     if (ua.dim === 'length' && ub.dim === 'speed') {
       const secs = a.value.mul(ua.factor).div(b.value.mul(ub.factor));
+      if (secs.lt(60)) return unitQ(secs, 's');
+      if (secs.lt(3600)) return unitQ(secs.div(60), 'min');
+      if (secs.gte(86400)) return { ...unitQ(secs.div(3600), 'h'), display: durationDisplay(secs) };
       return unitQ(secs.div(3600), 'h');
+    }
+    // "600 km in 40 litres": distance ÷ fuel = km/l; "600 km at 15 km/l": distance ÷ economy = litres
+    if (ua.dim === 'length' && ub.dim === 'volume') return unitQ(a.value.mul(ua.factor).div(b.value.mul(ub.factor)).div(1000), 'kmpl');
+    if (ua.dim === 'length' && ub.dim === 'fuel') return unitQ(a.value.mul(ua.factor).div(b.value.mul(ub.factor)), 'l');
+    // "600 km in 40 litres": distance ÷ fuel = km/l; "600 km at 15 km/l": distance ÷ economy = litres
+    if (ua.dim === 'length' && ub.dim === 'volume') return unitQ(a.value.mul(ua.factor).div(b.value.mul(ub.factor)).div(1000), 'kmpl');
+    if (ua.dim === 'length' && ub.dim === 'fuel') return unitQ(a.value.mul(ua.factor).div(b.value.mul(ub.factor)).div(1000), 'l');
+    // "2 GB at 50 Mbps": data ÷ bandwidth = time; "2 GB in 10 s": data ÷ time = bandwidth
+    if (ua.dim === 'data' && ub.dim === 'bandwidth') {
+      const secs = a.value.mul(ua.factor).div(b.value.mul(ub.factor));
+      return { ...unitQ(secs, 's'), display: durationDisplay(secs) };
+    }
+    if (ua.dim === 'data' && ub.dim === 'time') {
+      const bytesPerSec = a.value.mul(ua.factor).div(b.value.mul(ub.factor));
+      const bits = /bit/.test(ua.id);
+      const [id, f] = bits ? (bytesPerSec.gte(125000000) ? ['gbps', 125000000] : ['mbps', 125000]) : bytesPerSec.gte(1e9) ? ['GBps', 1e9] : bytesPerSec.gte(1e6) ? ['MBps', 1e6] : ['kBps', 1e3];
+      return unitQ(bytesPerSec.div(f), id);
     }
     throw new CalcError(`can't divide ${ua.symbol} by ${ub.symbol}`);
   }
@@ -220,6 +273,12 @@ export function div(a: Quantity, b: Quantity): Quantity {
 }
 
 export function convert(q: Quantity, target: ConvTarget, ctx: EvalContext): Quantity {
+  if (target.scale) {
+    if (q.kind !== 'number' && q.kind !== 'money') throw new CalcError(`only a number converts to ${target.scale.word}`);
+    const shown = q.value.div(target.scale.mult);
+    const text = `${formatNumber(shown)} ${target.scale.word}`;
+    return { ...q, display: q.kind === 'money' ? `${text} ${q.currency}` : text, note: undefined };
+  }
   if (target.zone) {
     if (q.kind !== 'time') throw new CalcError(`only a time converts to ${target.zone.label}`, 'e.g. now + 2 hours in EST');
     const d = q.date!.setZone(target.zone.zone);

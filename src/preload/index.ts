@@ -20,7 +20,12 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   const o = v as Record<string, unknown>;
   const out: Partial<Settings> = {};
   if ('hotkey' in o) out.hotkey = assertString(o.hotkey, 'hotkey', 64);
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop'] as const) {
+  if ('updateUrl' in o) out.updateUrl = assertString(o.updateUrl, 'updateUrl', 300);
+  if ('theme' in o) {
+    if (o.theme !== 'dark' && o.theme !== 'light') throw new TypeError('theme must be dark or light');
+    out.theme = o.theme;
+  }
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) {
     if (k in o) {
       if (typeof o[k] !== 'boolean') throw new TypeError(`${k} must be boolean`);
       out[k] = o[k] as boolean;
@@ -32,6 +37,10 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
 const api: FataakApi = {
   platform: process.platform,
   version: process.env.npm_package_version ?? '',
+  app: {
+    info: () => ipcRenderer.invoke('app:info'),
+    checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+  },
   history: {
     load: () => ipcRenderer.invoke('history:load'),
     save: (lines) => ipcRenderer.invoke('history:save', validateLines(lines)),

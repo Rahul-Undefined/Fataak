@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: 550 engine/app tests + 802-case reliability benchmark (tests/benchmark.test.ts)
+npm test           # vitest: engine/app tests + 892-case reliability benchmark (tests/benchmark.test.ts), 1,515 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -124,6 +124,19 @@ katke` and `12% tds on 50000` are deductions, while `1180 inclusive of 18% gst` 
 is 9am in mumbai`, `10:30 pm ist to 6:45 am gmt duration`, `45 min before 10am`, `age on 23 oct 2026 if born 23 oct
 2000`, `days until end of year`, `2 saal pehle ki date`. Percentages print to 2 decimals. Only English and Hinglish are
 understood; Bengali vocabulary was removed.
+
+**Version 0.2 additions.** Data sizes and bandwidth: `1 pb in tb`, `8 gbit in gb`, `2 gb at 50 mbps` → `5 min 20 s`,
+`how long to download 4.7 gb at 25 mbps`, `10 mbps for 1 hour` → 4.5 GB, `2 gb in 10 seconds` → 200 MB/s. Reference facts,
+offline with sources: `distance from earth to moon`, `sun se earth ki doori`, `size of pacific ocean`, `height of everest in
+feet`, `speed of light`, `mass of earth`, `area of india`, `delhi to mumbai distance` (straight-line), and they work inside
+expressions (`distance to moon / speed of light` → 1.28 s). Everyday asks: `bmi 70 kg 175 cm`, `mileage 600 km in 40
+litres` → 15 km/l, `fuel for 600 km at 15 km/l`, `6 lakh per year in month`, `5 lakh in millions`, `cgpa 8.2 to percentage`,
+`3 dozen`, `time difference between india and london`, `450 km at 60 km/h` → 7.5 h, `age in days if born 1 jan 2000`.
+In the app: double-click a result to see the working (every step, rate and source) and copy it; the bar at the bottom has
+labelled toggles for **On top**, **Widget** mode (pinned to the desktop, no taskbar entry, cannot be moved, minimised or
+closed until turned off) and the **theme** (dark/light); **? Help** replays the animated tutorial that autoplays on first
+run; **Settings** shows the version and build date and can check an update URL you set (a JSON file with `version` and
+`url`); nothing is downloaded or installed automatically.
 
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.

@@ -1,13 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { evaluateDocument, pruneExpired, syncLines, newId, type HistoryLine, type LineResult, type HighlightSpan } from '../../engine/index';
-import type { Settings } from '../../shared/api';
+import type { AppInfo, Settings, UpdateCheck } from '../../shared/api';
 import { DEFAULT_SETTINGS } from '../../shared/api';
 import { api, isElectron } from './bridge';
 import { RendererRates } from './rates';
+import { Tutorial } from './Tutorial';
 
 const rates = new RendererRates();
 const LINE_PX = 31;
-const PAD_X = 48;
+const PAD_X = 36;
 
 function Highlighted({ text, spans }: { text: string; spans: HighlightSpan[] }) {
   const parts: React.ReactNode[] = [];
@@ -21,11 +22,19 @@ function Highlighted({ text, spans }: { text: string; spans: HighlightSpan[] }) 
   return <>{parts}</>;
 }
 
+/** the note split into readable steps ("5,000 → 4,500 (−10% = 500) → 5,310 (+ GST 18% = 810) · taxable value 4,500") */
+function explain(note: string): string[] {
+  return note
+    .split(' · ')
+    .flatMap((part) => (part.includes(' → ') ? part.split(' → ').map((p, i) => (i === 0 ? `start ${p}` : `→ ${p}`)) : [part]))
+    .filter(Boolean);
+}
+
 /**
- * One result row. The note (rate timestamp, breakdown, hint) is only drawn when it fits in the
- * gap between the expression and the result; it is always available as a tooltip on the result.
+ * One result row. Click copies the answer; double-click opens the working (every step, rate, source).
+ * The note is drawn inline only when it fits between the expression and the result.
  */
-function ResultRow({ r, text, charW, width, rows, onCopy }: { r: LineResult; text: string; charW: number; width: number; rows: number; onCopy: (t: string) => void }) {
+function ResultRow({ r, text, charW, width, rows, open, onCopy, onToggle }: { r: LineResult; text: string; charW: number; width: number; rows: number; open: boolean; onCopy: (t: string) => void; onToggle: () => void }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -34,31 +43,64 @@ function ResultRow({ r, text, charW, width, rows, onCopy }: { r: LineResult; tex
   }, [copied]);
   const valueW = r.ok ? r.display.length * charW : 0;
   const avail = rows > 1 ? 0 : width - text.length * charW - valueW - 28;
-  const showNote = !!r.note && avail > 70;
-  const tip = r.note ? `${r.display}${r.display ? ' · ' : ''}${r.note}` : 'click to copy';
+  const showNote = !!r.note && avail > 90 && !open;
+  const tip = r.note ? 'click: copy · double-click: show the working' : 'click: copy';
+  const clickTimer = useRef<number | undefined>(undefined);
+  const onClick = () => {
+    window.clearTimeout(clickTimer.current);
+    clickTimer.current = window.setTimeout(() => {
+      onCopy(r.display);
+      setCopied(true);
+    }, 180);
+  };
+  const onDouble = () => {
+    window.clearTimeout(clickTimer.current);
+    onToggle();
+  };
   return (
-    <div className="row" style={{ height: rows * LINE_PX }}>
+    <div className={`row${open ? ' open' : ''}`} style={{ height: rows * LINE_PX }}>
       {showNote && (
         <span className={`note${r.ok ? '' : ' hint'}`} style={{ maxWidth: avail }} title={r.note}>
           {r.note}
         </span>
       )}
       {!showNote && !r.ok && r.note && (
-        <span className="note hint" title={r.note}>
-          ?
+        <span className="note hint pill" title={r.note} onDoubleClick={onDouble}>
+          {r.note.length > 28 ? '? ' + r.note.slice(0, 26) + '…' : r.note}
         </span>
       )}
       {r.ok && (
-        <span
-          className={`value${copied ? ' copied' : ''}`}
-          onClick={() => {
-            onCopy(r.display);
-            setCopied(true);
-          }}
-          title={tip}
-        >
+        <span className={`value${copied ? ' copied' : ''}`} onClick={onClick} onDoubleClick={onDouble} title={tip}>
           {r.display}
         </span>
+      )}
+      {open && (
+        <div className="details" onClick={(e) => e.stopPropagation()}>
+          <div className="details-head">
+            <span className="details-expr">{text}</span>
+            <button className="mini" onClick={() => onToggle()} title="close">
+              ✕
+            </button>
+          </div>
+          {r.ok && (
+            <div className="details-result">
+              <span>{r.display}</span>
+              <button className="mini" onClick={() => onCopy(r.display)}>
+                copy
+              </button>
+            </div>
+          )}
+          <ul className="details-steps">
+            {(r.note ? explain(r.note) : [r.ok ? 'direct evaluation, nothing to explain' : 'could not be calculated']).map((s, i) => (
+              <li key={i}>{s}</li>
+            ))}
+          </ul>
+          {r.note && (
+            <button className="mini wide" onClick={() => onCopy(`${text} = ${r.display}\n${explain(r.note!).join('\n')}`)}>
+              copy the working
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
@@ -69,9 +111,15 @@ export function App() {
   const [loaded, setLoaded] = useState(false);
   const [ratesVersion, setRatesVersion] = useState(0);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [hotkeyError, setHotkeyError] = useState<string | undefined>();
   const [showSettings, setShowSettings] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [hotkeyDraft, setHotkeyDraft] = useState('');
+  const [updateDraft, setUpdateDraft] = useState('');
+  const [info, setInfo] = useState<AppInfo | null>(null);
+  const [update, setUpdate] = useState<UpdateCheck | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -91,12 +139,20 @@ export function App() {
     void api.settings.get().then((r) => {
       setSettings(r.settings);
       setHotkeyDraft(r.settings.hotkey);
+      setUpdateDraft(r.settings.updateUrl);
       setHotkeyError(r.hotkeyError);
+      setSettingsLoaded(true);
+      if (!r.settings.tutorialSeen) setShowTutorial(true);
     });
+    void api.app.info().then((i) => setInfo(i));
     return api.onShow(() => {
       textareaRef.current?.focus();
     });
   }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = settings.theme;
+  }, [settings.theme]);
 
   // ---- glyph width + editor width (monospace, so note space = chars × glyph width)
   useEffect(() => {
@@ -193,12 +249,12 @@ export function App() {
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
-      if (showSettings) setShowSettings(false);
-      else api.window.hide();
+      if (openId) setOpenId(null);
+      else if (showSettings) setShowSettings(false);
+      else if (!settings.widgetMode) api.window.hide();
       return;
     }
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c') {
-      // copy result of the current line
       e.preventDefault();
       const r = results[currentLineIndex()];
       if (r?.ok) copy(r.display);
@@ -259,15 +315,50 @@ export function App() {
     if (mods.length > 0) void updateSettings({ hotkey: accel });
   };
 
+  const finishTutorial = useCallback(() => {
+    setShowTutorial(false);
+    void updateSettings({ tutorialSeen: true });
+    textareaRef.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const checkUpdate = async () => {
+    setUpdate({ current: info?.version ?? '', status: 'checking…' });
+    setUpdate(await api.app.checkUpdate());
+  };
+
+  const widget = settings.widgetMode;
+
   return (
-    <div className="app">
+    <div className={`app${widget ? ' widget' : ''}`} onClick={() => openId && setOpenId(null)}>
       <div className="titlebar">
-        <div className="lights">
-          <button className="light close" title="Close" onClick={() => api.window.close()} tabIndex={-1} />
-          <button className="light min" title="Minimize" onClick={() => api.window.minimize()} tabIndex={-1} />
-          <button className="light max" title="Zoom" onClick={() => api.window.toggleMaximize()} tabIndex={-1} />
+        <div className="brand" title="FATAAK — Think it. Type it. Fataak.">
+          <svg className="mark" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" />
+          </svg>
+          <span className="wordmark">FATAAK</span>
+          {info && <span className="version" title={`build ${info.buildDate}`}>v{info.version}</span>}
+          {widget && <span className="chip" title="Widget mode: pinned to the desktop, no taskbar entry, cannot be moved or minimised. Turn it off in the bar below.">widget</span>}
         </div>
-        FATAAK
+        {!widget && (
+          <div className="controls">
+            <button className="wc" title="Minimise" onClick={() => api.window.minimize()} tabIndex={-1}>
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <path d="M2 6.5h8" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </button>
+            <button className="wc" title="Maximise" onClick={() => api.window.toggleMaximize()} tabIndex={-1}>
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <rect x="2.5" y="2.5" width="7" height="7" rx="1" fill="none" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </button>
+            <button className="wc close" title="Close" onClick={() => api.window.close()} tabIndex={-1}>
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" strokeWidth="1.2" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="doc" onClick={(e) => e.target === e.currentTarget && textareaRef.current?.focus()}>
@@ -295,37 +386,64 @@ export function App() {
             autoCorrect="off"
             autoComplete="off"
             autoFocus
+            placeholder={texts.length === 1 && !texts[0] ? 'type a calculation… e.g. 25% of 480, 2 gb at 50 mbps, 100 usd in inr' : undefined}
             style={textStyle}
           />
           <div className="results">
             {results.map((r, i) => (
-              <ResultRow key={lines[i]?.id ?? i} r={r} text={texts[i]} charW={metrics.charW} width={metrics.width} rows={layout.rows[i]} onCopy={copy} />
+              <ResultRow
+                key={lines[i]?.id ?? i}
+                r={r}
+                text={texts[i]}
+                charW={metrics.charW}
+                width={metrics.width}
+                rows={layout.rows[i]}
+                open={openId === (lines[i]?.id ?? String(i))}
+                onCopy={copy}
+                onToggle={() => setOpenId((cur) => (cur === (lines[i]?.id ?? String(i)) ? null : (lines[i]?.id ?? String(i))))}
+              />
             ))}
           </div>
         </div>
       </div>
 
-      <div className="footer">
-        <button
-          className={`icon-btn${settings.alwaysOnTop ? ' on' : ''}`}
-          title={settings.alwaysOnTop ? 'Always on top: on' : 'Always on top: off'}
-          onClick={() => void updateSettings({ alwaysOnTop: !settings.alwaysOnTop })}
-          tabIndex={-1}
-        >
-          <svg width="22" height="12" viewBox="0 0 22 12" fill="none" stroke="currentColor" strokeWidth="1.5">
-            <rect x="1" y="1" width="20" height="10" rx="5" />
-            {settings.alwaysOnTop ? <circle cx="16" cy="6" r="2.5" fill="currentColor" stroke="none" /> : <circle cx="6" cy="6" r="2.5" />}
-          </svg>
-        </button>
-        <button className={`icon-btn${showSettings ? ' on' : ''}`} title="Settings" onClick={() => setShowSettings((s) => !s)} tabIndex={-1}>
-          <svg width="20" height="12" viewBox="0 0 20 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 6h17M13 1l5 5-5 5" />
-          </svg>
-        </button>
+      <div className="bar">
+        <div className="bar-left">
+          <button
+            className={`toggle${settings.alwaysOnTop && !widget ? ' on' : ''}`}
+            title="Keep FATAAK above other windows"
+            disabled={widget}
+            onClick={() => void updateSettings({ alwaysOnTop: !settings.alwaysOnTop })}
+            tabIndex={-1}
+          >
+            <span className="knob" />
+            <span className="lbl">On top</span>
+          </button>
+          <button
+            className={`toggle${widget ? ' on' : ''}`}
+            title={widget ? 'Widget mode is on: click to let the window move, minimise and close again' : 'Widget mode: pin FATAAK to the desktop with no taskbar entry; it cannot be moved, minimised or closed until you turn this off'}
+            onClick={() => void updateSettings({ widgetMode: !widget })}
+            tabIndex={-1}
+          >
+            <span className="knob" />
+            <span className="lbl">Widget</span>
+          </button>
+          <button className="toggle plain" title={settings.theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'} onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })} tabIndex={-1}>
+            <span className="lbl">{settings.theme === 'dark' ? '☾ Dark' : '☀ Light'}</span>
+          </button>
+        </div>
+        <div className="bar-right">
+          <button className="toggle plain" title="Watch the tutorial again" onClick={() => setShowTutorial(true)} tabIndex={-1}>
+            <span className="lbl">? Help</span>
+          </button>
+          <button className={`toggle plain${showSettings ? ' on' : ''}`} title="Settings" onClick={() => setShowSettings((s) => !s)} tabIndex={-1}>
+            <span className="lbl">⚙ Settings</span>
+          </button>
+        </div>
       </div>
 
       {showSettings && (
-        <div className="settings" onKeyDown={(e) => e.key === 'Escape' && setShowSettings(false)}>
+        <div className="settings" onKeyDown={(e) => e.key === 'Escape' && setShowSettings(false)} onClick={(e) => e.stopPropagation()}>
           <div className="srow">
             <span>Global hotkey</span>
             <input type="text" value={hotkeyDraft} onKeyDown={onHotkeyKeyDown} onChange={() => {}} title="press a key combination" />
@@ -341,8 +459,36 @@ export function App() {
           </div>
           <div className="srow">
             <span>Always on top</span>
-            <input type="checkbox" checked={settings.alwaysOnTop} onChange={(e) => void updateSettings({ alwaysOnTop: e.target.checked })} />
+            <input type="checkbox" checked={settings.alwaysOnTop} disabled={widget} onChange={(e) => void updateSettings({ alwaysOnTop: e.target.checked })} />
           </div>
+          <div className="srow">
+            <span title="Pinned to the desktop, no taskbar entry, cannot be moved, minimised or closed until turned off">Desktop widget mode</span>
+            <input type="checkbox" checked={widget} onChange={(e) => void updateSettings({ widgetMode: e.target.checked })} />
+          </div>
+          <div className="srow">
+            <span>Theme</span>
+            <select value={settings.theme} onChange={(e) => void updateSettings({ theme: e.target.value as Settings['theme'] })}>
+              <option value="dark">dark</option>
+              <option value="light">light</option>
+            </select>
+          </div>
+          <div className="srow sep">
+            <span>Update URL</span>
+            <input type="text" value={updateDraft} placeholder="https://…/latest.json" onChange={(e) => setUpdateDraft(e.target.value)} onBlur={() => void updateSettings({ updateUrl: updateDraft.trim() })} title='a JSON file: { "version": "0.3.0", "url": "https://…" }' />
+          </div>
+          <div className="srow">
+            <button className="link" onClick={() => void checkUpdate()}>
+              Check for updates
+            </button>
+            <span className="muted">{update ? update.status : info ? `v${info.version} · built ${info.buildDate}` : ''}</span>
+          </div>
+          {update?.url && (
+            <div className="srow">
+              <a className="link" href={update.url} target="_blank" rel="noreferrer">
+                Download {update.latest}
+              </a>
+            </div>
+          )}
           <div className="srow sep">
             <button className="link" onClick={() => copy(linesWithResults(0, texts.length))}>
               Copy all
@@ -350,15 +496,20 @@ export function App() {
             <button className="link" onClick={() => setLines([{ id: newId(), text: '', createdAt: Date.now() }])}>
               Clear all
             </button>
-            {isElectron && (
+            <button className="link" onClick={() => setShowTutorial(true)}>
+              Tutorial
+            </button>
+            {isElectron && !widget && (
               <button className="link" onClick={() => api.window.quit()}>
                 Quit
               </button>
             )}
           </div>
-          <div className="muted">Esc hides · Ctrl+Shift+C copies result · lines expire after 24h</div>
+          <div className="muted">Esc hides · click a result to copy · double-click for the working · Ctrl+Alt+C copies all · lines expire after 24h</div>
         </div>
       )}
+
+      {showTutorial && settingsLoaded && <Tutorial onDone={finishTutorial} />}
     </div>
   );
 }

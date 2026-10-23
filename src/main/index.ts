@@ -1,6 +1,7 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, clipboard, nativeImage, session, shell, screen } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, clipboard, nativeImage, net, session, shell, screen } from 'electron';
 import { join } from 'node:path';
-import { DEFAULT_SETTINGS, type Settings, type SettingsResult } from '../shared/api';
+import { statSync } from 'node:fs';
+import { DEFAULT_SETTINGS, type AppInfo, type Settings, type SettingsResult, type UpdateCheck } from '../shared/api';
 import { pruneExpired, sanitizeLines, type HistoryLine } from '../engine/history';
 import { JsonStore } from './store';
 import { RateService } from './rates';
@@ -19,38 +20,64 @@ if (SHORTCUTS_MODE) {
   app.on('second-instance', () => showWindow());
 }
 
+interface Bounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+type StoredSettings = Settings & { bounds?: Bounds };
+
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
-let settings: Settings = { ...DEFAULT_SETTINGS };
+let settings: StoredSettings = { ...DEFAULT_SETTINGS };
 
 const userData = app.getPath('userData');
 const historyStore = new JsonStore<HistoryLine[]>(userData, 'history.json', sanitizeLines, () => []);
-const settingsStore = new JsonStore<Settings>(userData, 'settings.json', validateSettings, () => ({ ...DEFAULT_SETTINGS }));
+const settingsStore = new JsonStore<StoredSettings>(userData, 'settings.json', validateSettings, () => ({ ...DEFAULT_SETTINGS }));
 const rates = new RateService(userData);
 
-function validateSettings(raw: unknown): Settings {
-  const out: Settings = { ...DEFAULT_SETTINGS };
+function validateSettings(raw: unknown): StoredSettings {
+  const out: StoredSettings = { ...DEFAULT_SETTINGS };
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as Record<string, unknown>;
   if (typeof o.hotkey === 'string' && o.hotkey.length <= 64) out.hotkey = o.hotkey;
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
+  if (typeof o.updateUrl === 'string' && o.updateUrl.length <= 300 && (o.updateUrl === '' || /^https:\/\//.test(o.updateUrl))) out.updateUrl = o.updateUrl;
+  if (o.theme === 'dark' || o.theme === 'light') out.theme = o.theme;
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
+  const b = o.bounds as Record<string, unknown> | undefined;
+  if (b && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]))) {
+    out.bounds = { x: b.x as number, y: b.y as number, width: Math.max(320, b.width as number), height: Math.max(220, b.height as number) };
+  }
   return out;
+}
+
+/** a saved position is only reused when it is still on a connected display */
+function usableBounds(): Bounds | undefined {
+  const b = settings.bounds;
+  if (!b) return undefined;
+  const onScreen = screen.getAllDisplays().some((d) => b.x >= d.workArea.x - 20 && b.y >= d.workArea.y - 20 && b.x < d.workArea.x + d.workArea.width && b.y < d.workArea.y + d.workArea.height);
+  return onScreen ? b : undefined;
 }
 
 // ---------------------------------------------------------------- window
 function createWindow(): BrowserWindow {
+  const saved = usableBounds();
   const w = new BrowserWindow({
-    width: 460,
-    height: 470,
+    width: saved?.width ?? 480,
+    height: saved?.height ?? 520,
+    x: saved?.x,
+    y: saved?.y,
     minWidth: 320,
     minHeight: 220,
     frame: false,
     show: false,
-    backgroundColor: '#1c1c1c',
+    backgroundColor: settings.theme === 'light' ? '#f6f7f9' : '#0f1419',
     title: 'FATAAK',
     icon: process.platform === 'win32' ? ICON_ICO : ICON_PNG,
-    alwaysOnTop: settings.alwaysOnTop,
+    alwaysOnTop: settings.alwaysOnTop && !settings.widgetMode,
+    skipTaskbar: settings.widgetMode,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -72,17 +99,37 @@ function createWindow(): BrowserWindow {
   });
 
   w.on('close', (e) => {
+    // widget mode: the window stays until the app is ended (Task Manager) or widget mode is switched off
+    if (!quitting && settings.widgetMode) {
+      e.preventDefault();
+      return;
+    }
     if (!quitting && settings.tray && settings.closeToTray) {
       e.preventDefault();
       w.hide();
     }
   });
+  w.on('minimize', () => {
+    if (settings.widgetMode) setTimeout(() => !w.isDestroyed() && w.restore(), 0);
+  });
   w.on('closed', () => {
     win = null;
   });
+  let boundsTimer: NodeJS.Timeout | undefined;
+  const rememberBounds = () => {
+    clearTimeout(boundsTimer);
+    boundsTimer = setTimeout(() => {
+      if (w.isDestroyed() || w.isMinimized() || w.isMaximized()) return;
+      settings = { ...settings, bounds: w.getBounds() };
+      void settingsStore.write(settings);
+    }, 400);
+  };
+  w.on('moved', rememberBounds);
+  w.on('resized', rememberBounds);
   w.once('ready-to-show', () => {
     w.show();
     w.focus();
+    applyWidgetMode(w);
   });
 
   if (isDev) void w.loadURL(process.env['ELECTRON_RENDERER_URL']!);
@@ -90,10 +137,28 @@ function createWindow(): BrowserWindow {
   return w;
 }
 
+/** Desktop-widget behaviour: pinned in place, no taskbar entry, cannot be moved, minimised or closed from the UI. */
+function applyWidgetMode(w: BrowserWindow): void {
+  const on = settings.widgetMode;
+  w.setSkipTaskbar(on);
+  w.setMovable(!on);
+  w.setMinimizable(!on);
+  w.setMaximizable(!on);
+  w.setResizable(!on);
+  w.setClosable(!on);
+  w.setAlwaysOnTop(on ? false : settings.alwaysOnTop);
+  w.setVisibleOnAllWorkspaces(on, { visibleOnFullScreen: false });
+  if (on) {
+    if (w.isMaximized()) w.unmaximize();
+    if (w.isMinimized()) w.restore();
+    if (!w.isVisible()) w.show();
+  }
+}
+
 function showWindow(): void {
   if (!win || win.isDestroyed()) win = createWindow();
   if (win.isMinimized()) win.restore();
-  if (!win.isVisible()) {
+  if (!win.isVisible() && !usableBounds()) {
     // open on the display where the cursor is, keeping the last size
     const { x, y } = screen.getCursorScreenPoint();
     const display = screen.getDisplayNearestPoint({ x, y });
@@ -107,6 +172,10 @@ function showWindow(): void {
 }
 
 function toggleWindow(): void {
+  if (settings.widgetMode) {
+    showWindow();
+    return;
+  }
   if (win && !win.isDestroyed() && win.isVisible() && win.isFocused()) win.hide();
   else showWindow();
 }
@@ -190,36 +259,101 @@ function trayIcon(): Electron.NativeImage {
   return img.isEmpty() ? nativeImage.createEmpty() : img;
 }
 
+function trayMenu(): Menu {
+  if (settings.widgetMode) {
+    return Menu.buildFromTemplate([
+      { label: 'Show FATAAK', click: () => showWindow() },
+      { type: 'separator' },
+      { label: 'Widget mode is on: turn it off in the app to move or close', enabled: false },
+      {
+        label: 'Turn widget mode off',
+        click: () => {
+          settings = { ...settings, widgetMode: false };
+          void settingsStore.write(settings);
+          applySettings();
+          win?.webContents.send('app:show');
+        },
+      },
+    ]);
+  }
+  return Menu.buildFromTemplate([
+    { label: 'Show FATAAK', click: () => showWindow() },
+    { label: 'Hide', click: () => win?.hide() },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        quitting = true;
+        app.quit();
+      },
+    },
+  ]);
+}
+
 function updateTray(): void {
   if (settings.tray && !tray) {
     tray = new Tray(trayIcon());
     tray.setToolTip('FATAAK — Think it. Type it. Fataak.');
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: 'Show FATAAK', click: () => showWindow() },
-        { label: 'Hide', click: () => win?.hide() },
-        { type: 'separator' },
-        {
-          label: 'Quit',
-          click: () => {
-            quitting = true;
-            app.quit();
-          },
-        },
-      ]),
-    );
     tray.on('click', () => toggleWindow());
   } else if (!settings.tray && tray) {
     tray.destroy();
     tray = null;
   }
+  tray?.setContextMenu(trayMenu());
 }
 
 function applySettings(): SettingsResult {
   const hotkeyError = registerHotkeyWithFallback();
   updateTray();
-  if (win && !win.isDestroyed()) win.setAlwaysOnTop(settings.alwaysOnTop);
+  if (win && !win.isDestroyed()) {
+    applyWidgetMode(win);
+    win.setBackgroundColor(settings.theme === 'light' ? '#f6f7f9' : '#0f1419');
+  }
   return { settings, hotkeyError };
+}
+
+// ---------------------------------------------------------------- app info & updates
+function appInfo(): AppInfo {
+  let buildDate = '';
+  try {
+    buildDate = statSync(__filename).mtime.toISOString().slice(0, 10);
+  } catch {
+    buildDate = '';
+  }
+  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged };
+}
+
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
+  const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
+/** reads { "version": "x.y.z", "url": "https://…" } from the configured HTTPS URL; never installs anything */
+async function checkUpdate(): Promise<UpdateCheck> {
+  const current = app.getVersion();
+  const url = settings.updateUrl;
+  if (!url) return { current, status: 'no update source set (Settings → update URL)' };
+  if (!/^https:\/\//.test(url)) return { current, status: 'the update URL must start with https://' };
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await net.fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } });
+    clearTimeout(t);
+    if (!res.ok) return { current, status: `update check failed (HTTP ${res.status})` };
+    const j = (await res.json()) as { version?: unknown; url?: unknown };
+    const latest = typeof j.version === 'string' && /^\d+(\.\d+){0,3}$/.test(j.version) ? j.version : undefined;
+    if (!latest) return { current, status: 'update file has no valid "version"' };
+    const link = typeof j.url === 'string' && /^https:\/\//.test(j.url) ? j.url : undefined;
+    const cmp = compareVersions(latest, current);
+    return { current, latest, url: link, status: cmp > 0 ? `update available: ${latest}` : cmp < 0 ? `you have a newer build than ${latest}` : 'up to date' };
+  } catch (e) {
+    return { current, status: `update check failed: ${(e as Error).message}` };
+  }
 }
 
 // ---------------------------------------------------------------- IPC (all inputs validated)
@@ -254,6 +388,8 @@ ipcMain.handle('settings:set', async (e, patch: unknown) => {
   await settingsStore.write(settings);
   return result;
 });
+ipcMain.handle('app:info', (e) => (fromWindow(e) ? appInfo() : null));
+ipcMain.handle('app:checkUpdate', (e) => (fromWindow(e) ? checkUpdate() : { current: '', status: 'denied' }));
 ipcMain.handle('rates:get', async (e, base: unknown) => {
   if (!fromWindow(e) || typeof base !== 'string' || !/^[A-Z]{3}$/.test(base)) return null;
   return rates.get(base);
@@ -263,16 +399,16 @@ ipcMain.handle('rates:getHistorical', async (e, base: unknown, date: unknown) =>
   if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
   return rates.getHistorical(base, date);
 });
-ipcMain.on('window:hide', (e) => fromWindow(e) && win?.hide());
-ipcMain.on('window:minimize', (e) => fromWindow(e) && win?.minimize());
+ipcMain.on('window:hide', (e) => fromWindow(e) && !settings.widgetMode && win?.hide());
+ipcMain.on('window:minimize', (e) => fromWindow(e) && !settings.widgetMode && win?.minimize());
 ipcMain.on('window:toggleMaximize', (e) => {
-  if (!fromWindow(e) || !win) return;
+  if (!fromWindow(e) || !win || settings.widgetMode) return;
   if (win.isMaximized()) win.unmaximize();
   else win.maximize();
 });
-ipcMain.on('window:close', (e) => fromWindow(e) && win?.close());
+ipcMain.on('window:close', (e) => fromWindow(e) && !settings.widgetMode && win?.close());
 ipcMain.on('app:quit', (e) => {
-  if (!fromWindow(e)) return;
+  if (!fromWindow(e) || settings.widgetMode) return;
   quitting = true;
   app.quit();
 });
