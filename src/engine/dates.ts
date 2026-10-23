@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { Decimal, type Quantity, type Token } from './types';
+import { Decimal, type Quantity, type Token, own } from './types';
 
 export const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6,
@@ -12,7 +12,7 @@ export const WEEKDAYS: Record<string, number> = {
   fri: 5, friday: 5, sat: 6, saturday: 6, sun: 7, sunday: 7,
 };
 
-export const DATE_KEYWORDS = new Set(['today', 'now', 'tomorrow', 'yesterday', 'next', 'last', 'this', ...Object.keys(WEEKDAYS), ...Object.keys(MONTHS)]);
+export const DATE_KEYWORDS = new Set(['today', 'now', 'tomorrow', 'yesterday', 'next', 'last', 'this', 'first', 'end', 'beginning', ...Object.keys(WEEKDAYS), ...Object.keys(MONTHS)]);
 
 export function dateQuantity(d: DateTime): Quantity {
   return { kind: 'date', value: new Decimal(d.toMillis()), date: d.startOf('day') };
@@ -39,12 +39,12 @@ function isOp(t: Token | undefined, v: string): boolean {
 function nextWeekday(from: DateTime, weekday: number, strictlyAfter: boolean): DateTime {
   let d = from.startOf('day');
   if (strictlyAfter) d = d.plus({ days: 1 });
-  while (d.weekday !== weekday) d = d.plus({ days: 1 });
+  for (let n = 0; n < 7 && d.weekday !== weekday; n++) d = d.plus({ days: 1 });
   return d;
 }
 function prevWeekday(from: DateTime, weekday: number): DateTime {
   let d = from.startOf('day').minus({ days: 1 });
-  while (d.weekday !== weekday) d = d.minus({ days: 1 });
+  for (let n = 0; n < 7 && d.weekday !== weekday; n++) d = d.minus({ days: 1 });
   return d;
 }
 
@@ -69,17 +69,64 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
     if (w === 'now') return { q: timeQuantity(now.setZone(zone), zone), consumed: 1 };
     if (w === 'tomorrow') return { q: dateQuantity(today.plus({ days: 1 })), consumed: 1 };
     if (w === 'yesterday') return { q: dateQuantity(today.minus({ days: 1 })), consumed: 1 };
+    // "last day of february 2028", "first day of next month", "end of march", "beginning of 2027"
+    const edge = w === 'last' || w === 'end' ? 'end' : w === 'first' || w === 'start' || w === 'beginning' ? 'start' : null;
+    if (edge) {
+      let j = i + 1;
+      if (isWord(tokens[j], 'day') || isWord(tokens[j], 'days')) j++;
+      if (isWord(tokens[j], 'of')) j++;
+      if (j > i + 1) {
+        const t = tokens[j];
+        let base: DateTime | null = null;
+        let consumed = 0;
+        if (isWord(t) && own(MONTHS, t.value)) {
+          let year = today.year;
+          consumed = 1;
+          if (isNum(tokens[j + 1]) && tokens[j + 1].value.length === 4) {
+            year = parseInt(tokens[j + 1].value, 10);
+            consumed = 2;
+          }
+          base = DateTime.fromObject({ year, month: MONTHS[t.value], day: 1 }, { zone });
+          if (base < today.startOf('month') && consumed === 1) base = base.plus({ years: 1 });
+        } else if (isNum(t) && t.value.length === 4) {
+          base = DateTime.fromObject({ year: parseInt(t.value, 10), month: 1, day: 1 }, { zone });
+          const res = edge === 'end' ? base.endOf('year').startOf('day') : base;
+          return { q: { ...dateQuantity(res), display: res.toFormat('ccc, d LLL yyyy') }, consumed: j - i + 1 };
+        } else if (isWord(t, 'this') || isWord(t, 'next') || isWord(t, 'last')) {
+          const unit = tokens[j + 1]?.value;
+          const n = t.value === 'next' ? 1 : t.value === 'last' ? -1 : 0;
+          if (unit === 'month' || unit === 'months') base = today.plus({ months: n }).startOf('month');
+          else if (unit === 'year' || unit === 'years') {
+            base = today.plus({ years: n }).startOf('year');
+            const res = edge === 'end' ? base.endOf('year').startOf('day') : base;
+            return { q: { ...dateQuantity(res), display: res.toFormat('ccc, d LLL yyyy') }, consumed: j - i + 2 };
+          }
+          consumed = 2;
+        } else if (isWord(t, 'month') || isWord(t, 'months')) {
+          base = today.startOf('month');
+          consumed = 1;
+        } else if (isWord(t, 'year') || isWord(t, 'years')) {
+          base = today.startOf('year');
+          const res = edge === 'end' ? base.endOf('year').startOf('day') : base;
+          return { q: { ...dateQuantity(res), display: res.toFormat('ccc, d LLL yyyy') }, consumed: j - i + 1 };
+        }
+        if (base && base.isValid) {
+          const res = edge === 'end' ? base.endOf('month').startOf('day') : base;
+          return { q: { ...dateQuantity(res), display: res.toFormat('ccc, d LLL yyyy') }, consumed: j - i + consumed };
+        }
+      }
+    }
     if (w === 'next' || w === 'last' || w === 'this') {
       const t1 = tokens[i + 1];
       if (isWord(t1)) {
         const v = t1.value;
-        if (v in WEEKDAYS) {
+        if (own(WEEKDAYS, v)) {
           const wd = WEEKDAYS[v];
           const d = w === 'last' ? prevWeekday(today, wd) : w === 'this' ? nextWeekday(today, wd, false) : nextWeekday(today, wd, true);
           return { q: dateQuantity(d), consumed: 2 };
         }
         const units: Record<string, 'weeks' | 'months' | 'years' | 'days'> = { week: 'weeks', month: 'months', year: 'years', day: 'days' };
-        if (v in units) {
+        if (own(units, v)) {
           const n = w === 'last' ? -1 : w === 'this' ? 0 : 1;
           let d = today.plus({ [units[v]]: n });
           if (v === 'week') d = d.startOf('week');
@@ -90,11 +137,17 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       }
       return null;
     }
-    if (w in WEEKDAYS) {
+    if (own(WEEKDAYS, w)) {
       return { q: dateQuantity(nextWeekday(today, WEEKDAYS[w], false)), consumed: 1 };
     }
-    // "aug 14 2026" / "aug 14, 2026" / "august 2026"? (month + year not supported)
-    if (w in MONTHS && isNum(tokens[i + 1])) {
+    // "february 2028" → the first of that month (for "february 2028 ka last day", "end of march 2027")
+    if (own(MONTHS, w) && isNum(tokens[i + 1]) && tokens[i + 1].value.length === 4) {
+      const d = DateTime.fromObject({ year: parseInt(tokens[i + 1].value, 10), month: MONTHS[w], day: 1 }, { zone });
+      if (d.isValid) return { q: dateQuantity(d), consumed: 2 };
+      return null;
+    }
+    // "aug 14 2026" / "aug 14, 2026"
+    if (own(MONTHS, w) && isNum(tokens[i + 1])) {
       const day = parseInt(tokens[i + 1].value, 10);
       let j = i + 2;
       if (isOp(tokens[j], ',')) j++;
@@ -121,7 +174,7 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       if (u) return { q: dateQuantity(today.minus({ [u]: parseFloat(t0.value) })), consumed: 3 };
     }
     // 14 aug 2026 / 14 aug
-    if (isWord(t1) && t1.value in MONTHS && t0.value.length <= 2) {
+    if (isWord(t1) && own(MONTHS, t1.value) && t0.value.length <= 2) {
       const day = parseInt(t0.value, 10);
       let j = i + 2;
       let year = today.year;

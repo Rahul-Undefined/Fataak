@@ -45,7 +45,7 @@ describe('arithmetic', () => {
     expect(last('5% of what is 6 EUR')).toBe('120 EUR');
     expect(last('20% of what is 30 cm')).toBe('150 cm');
     expect(last('30 is what % of 150')).toBe('20%');
-    expect(last('150 to 200 % change')).toBe('33.33%');
+    expect(last('150 to 200 % change')).toBe('33.33% increase');
     expect(last('100 * 20%')).toBe('20');
   });
 

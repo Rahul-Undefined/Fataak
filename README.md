@@ -32,7 +32,8 @@ npm run dist:zip      # → release/FATAAK-<version>-x64.zip
 
 1. Extract the zip anywhere (for example `Downloads\FATAAK`).
 2. Double-click `Install-FATAAK.cmd`. It copies the folder to `%LOCALAPPDATA%\Programs\FATAAK`,
-   creates Start Menu and Desktop shortcuts with the FATAAK logo, and starts the app. No UAC prompt.
+   creates Start Menu and Desktop shortcuts with the FATAAK logo, registers `fataak` for Win+R
+   (HKCU App Paths, no admin), and starts the app. No UAC prompt.
 3. `Uninstall-FATAAK.cmd` removes it again (history and settings in `%APPDATA%\FATAAK` are kept).
 
 You can also just run `FATAAK.exe` straight from the extracted folder. On first run the app writes its own
@@ -79,6 +80,19 @@ ECB rate for that day (frankfurter.app, cached). `2 hrs from now in EST`, `in 3 
 `30 min ago in London`, `2 ghante baad est me kitne baje` and `now + 2 hours in EST` shift the current
 time first and then convert it.
 
+**Multi-step sentences.** The intent layer splits a sentence into clauses (commas, "then/phir/tarpor",
+"and/aur/ar") and applies the operations in order: `5000 ka aadha aur usmein 250 jodo` → 2,750;
+`Calculate a 10% raise, then another 5% raise on the new amount, starting at 50000` → 57,750 with the
+trail `50,000 → 55,000 → 57,750 · +7,750 (15.5%)`; `20% off then 10% off on 1000` → 720;
+`Rahul ko 150, Rohit ko 250, total kitna?` → 400 (and `rahul`, `rohit` become usable below).
+`Revenue 500000, expenses 350000, profit margin?` → 30% with the profit in the note. Numbers in words
+compose (`five hundred`, `paanch sau`, `1 lakh 20 hazaar`). `that`/`usmein`/`previous result` refer to the
+line immediately above; if that line has no result the calculator says so instead of guessing.
+
+**Time-zone abbreviations are fixed offsets.** `EST` is always UTC−5 (even in July), `PST` UTC−8,
+`CET` UTC+1; cities and regions (`New York`, `ET`, `US Eastern`, `London`) follow daylight-saving rules
+for the date in question. `6pm IST to EST` → 7:30 AM EST; `6pm IST to New York` → 8:30 AM EDT in summer.
+
 Percent rules follow Numi: `$10 - 40%`, `20% of $10`, `5% on $30`, `6% off 40 EUR`, `$50 as a % of $100`, `5% of what is 6 EUR`.
 `prev`, `sum`/`total`, `average`, `line3`, `// comments`, `"inline comments"` and `# headers` work as in Numi.
 
@@ -91,7 +105,9 @@ When a financial input is ambiguous (no GST rate, no tenure, undefined variable)
 - **Esc** — hide window
 - **Enter** — new line; **Ctrl+Enter** — copy this line's result and start a new line
 - **Ctrl+Shift+C** — copy result of the current line; click a result to copy it
+- **Ctrl+A, Ctrl+C** (any multi-line selection) — copies `expression = result` for each selected line
 - **Ctrl+Alt+C** — copy everything; **Ctrl+Alt+Backspace** — clear all
+- **Win+R, `fataak`** — opens FATAAK after a script install (per-user App Paths registry entry)
 - Bottom-left toggle: always on top. Bottom-right arrow: settings (hotkey, tray, quit).
 
 ### History

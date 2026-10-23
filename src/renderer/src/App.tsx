@@ -167,6 +167,23 @@ export function App() {
 
   const copy = useCallback((t: string) => api.clipboard.write(t), []);
 
+  /** expression and answer for each line in [from, to) */
+  const linesWithResults = useCallback(
+    (from: number, to: number) => texts.slice(from, to).map((t, k) => (results[from + k]?.ok ? `${t} = ${results[from + k].display}` : t)).join('\n'),
+    [texts, results],
+  );
+
+  // Ctrl+C over several lines (or select-all) copies the answers too; a partial single-line selection copies plain text
+  const onCopy = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    if (ta.selectionStart === ta.selectionEnd) return;
+    const startLine = text.slice(0, ta.selectionStart).split('\n').length - 1;
+    const endLine = text.slice(0, ta.selectionEnd).split('\n').length - 1;
+    if (startLine === endLine) return;
+    e.preventDefault();
+    e.clipboardData.setData('text/plain', linesWithResults(startLine, endLine + 1));
+  };
+
   const currentLineIndex = (): number => {
     const ta = textareaRef.current;
     if (!ta) return -1;
@@ -189,7 +206,7 @@ export function App() {
     }
     if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'c') {
       e.preventDefault();
-      copy(texts.map((t, i) => (results[i]?.ok ? `${t} = ${results[i].display}` : t)).join('\n'));
+      copy(linesWithResults(0, texts.length));
       return;
     }
     if (e.ctrlKey && e.altKey && e.key === 'Backspace') {
@@ -272,6 +289,7 @@ export function App() {
             value={text}
             onChange={onChange}
             onKeyDown={onKeyDown}
+            onCopy={onCopy}
             spellCheck={false}
             autoCapitalize="off"
             autoCorrect="off"
@@ -326,7 +344,7 @@ export function App() {
             <input type="checkbox" checked={settings.alwaysOnTop} onChange={(e) => void updateSettings({ alwaysOnTop: e.target.checked })} />
           </div>
           <div className="srow sep">
-            <button className="link" onClick={() => copy(texts.map((t, i) => (results[i]?.ok ? `${t} = ${results[i].display}` : t)).join('\n'))}>
+            <button className="link" onClick={() => copy(linesWithResults(0, texts.length))}>
               Copy all
             </button>
             <button className="link" onClick={() => setLines([{ id: newId(), text: '', createdAt: Date.now() }])}>

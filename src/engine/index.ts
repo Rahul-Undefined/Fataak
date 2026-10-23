@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { CalcError, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider } from './types';
+import { CalcError, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider, own } from './types';
 import { tokenize } from './tokenizer';
 import { parseTokens, KEYWORDS, SCALES } from './parser';
 import { evaluate } from './evaluator';
@@ -128,9 +128,14 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   }
   // 2. natural-language intents
   let intentError: CalcError | undefined;
+  let defines: Record<string, Quantity> | undefined;
   if (!value) {
     try {
-      value = runIntents(clean, ctx) ?? undefined;
+      const r = runIntents(clean, ctx);
+      if (r) {
+        value = r;
+        defines = r.defines;
+      }
     } catch (e) {
       if (e instanceof CalcError) intentError = e;
       else intentError = new CalcError(String((e as Error).message ?? e));
@@ -138,18 +143,25 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   }
   // 3. stripped expression fallback
   if (!value && !intentError) {
-    const fb = expressionFallback(clean);
+    const fb = expressionFallback(clean, ctx);
     if (fb && fb !== clean.trim().toLowerCase()) {
       try {
         value = evaluate(parseTokens(tokenize(fb), parseOpts), ctx);
-      } catch {
-        /* keep first error */
+      } catch (e) {
+        if (e instanceof CalcError && /previous result|that = \?/.test(e.message)) intentError = e;
       }
     }
   }
 
   if (value) {
-    return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, spans: spans() };
+    // 4. magnitude guard: decimal.js happily represents 1e309, which no downstream consumer can
+    if (value.kind !== 'date' && value.kind !== 'time') {
+      if (value.value.isNaN()) return { ok: false, display: '', note: 'not a number', isText: false, label: labelKey, spans: spans() };
+      if (!value.value.isFinite() || value.value.abs().gt('1e308')) {
+        return { ok: false, display: '', note: 'overflow · number out of range (limit 1e308)', isText: false, label: labelKey, spans: spans() };
+      }
+    }
+    return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, defines, spans: spans() };
   }
   const err = intentError ?? firstError;
   if (looksLikeText(clean) && !intentError) {
@@ -165,7 +177,7 @@ function isPlainName(word: string, variables: Set<string>): boolean {
   if (variables.has(word)) return true;
   if (KEYWORDS.has(word) || CANON_KEYWORDS.has(word) || SOURCE_WORDS.has(word)) return false;
   if (isUnitWord(word) || isCurrencyWord(word) || isZoneWord(word)) return false;
-  if (word in SCALES || word === 'percent' || word === 'ago') return false;
+  if (own(SCALES, word) || word === 'percent' || word === 'ago') return false;
   return true;
 }
 
@@ -221,6 +233,7 @@ export function evaluateDocument(lines: string[], opts: DocumentOptions): LineRe
     if (r.ok) {
       block.push(r.value!);
       if (r.label) variables.set(r.label, r.value!);
+      if (r.defines) for (const [k, v] of Object.entries(r.defines)) variables.set(k, v);
     }
   }
   return results;

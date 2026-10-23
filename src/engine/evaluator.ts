@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { Decimal, CalcError, type EvalContext, type Quantity } from './types';
+import { Decimal, CalcError, own, type EvalContext, type Quantity } from './types';
 import type { Node, ConvTarget } from './parser';
 import { convertUnit, unitById } from './units';
 import { formatNumber } from './format';
@@ -49,8 +49,9 @@ export function convertMoney(q: Quantity, to: string, ctx: EvalContext, date?: s
     throw new CalcError(`no rate for ${from}→${to}`, 'fetching… (needs internet)');
   }
   const rate = new Decimal(quote.rate);
-  const when = histDate ? `on ${DateTime.fromISO(quote.timestamp).toFormat('d LLL yyyy')}` : fmtRateTime(quote.timestamp);
-  const note = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to} · ${when}${quote.stale ? ' (cached)' : ''}`;
+  const when = histDate ? `on ${DateTime.fromISO(quote.timestamp).toFormat('d LLL yyyy')} · ${quote.source}` : fmtRateTime(quote.timestamp);
+  const freshness = quote.offline ? ' · cached rate, offline' : quote.stale ? ' · cached' : '';
+  const note = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to} · ${when}${freshness}`;
   return withNote({ kind: 'money', value: q.value.mul(rate), currency: to }, note);
 }
 
@@ -71,7 +72,7 @@ function toUnitOf(b: Quantity, a: Quantity): Quantity {
 function dateShift(d: Quantity, dur: Quantity, sign: 1 | -1): Quantity {
   const u = unitById(dur.unit!)!;
   if (u.dim !== 'time') throw new CalcError(`can't add ${u.symbol} to a date`);
-  const cal = CALENDAR_UNITS[u.id];
+  const cal = own(CALENDAR_UNITS, u.id) ? CALENDAR_UNITS[u.id] : undefined;
   const amount = dur.value.mul(sign);
   let dt: DateTime;
   if (cal) {
@@ -213,7 +214,7 @@ export function convert(q: Quantity, target: ConvTarget, ctx: EvalContext): Quan
     if (dayDiff > 0) notes.push(`next day · ${d.toFormat('ccc d LLL')}`);
     else if (dayDiff < 0) notes.push(`previous day · ${d.toFormat('ccc d LLL')}`);
     if (target.zone.note) notes.push(target.zone.note);
-    return { kind: 'time', value: q.value, date: d, zone: target.zone.zone, showZone: true, display: `${t} ${zoneAbbrev(d)}`, note: notes.length ? notes.join(' · ') : undefined };
+    return { kind: 'time', value: q.value, date: d, zone: target.zone.zone, showZone: true, display: `${t} ${zoneAbbrev(d, target.zone)}`, note: notes.length ? notes.join(' · ') : undefined };
   }
   if (target.percent) {
     if (q.kind === 'number') return percent(q.value.mul(100));
@@ -324,11 +325,10 @@ function callFn(fn: string, args: Quantity[]): Quantity {
 
 function aggregate(name: 'sum' | 'avg' | 'prev' | 'count', ctx: EvalContext): Quantity {
   if (name === 'prev') {
-    for (let i = ctx.previous.length - 1; i >= 0; i--) {
-      const p = ctx.previous[i];
-      if (p) return p;
-    }
-    throw new CalcError('no previous result');
+    // strictly the line above: a blank, text or failed line in between makes the reference ambiguous
+    const p = ctx.previous[ctx.previous.length - 1];
+    if (p) return { ...p, note: undefined };
+    throw new CalcError('previous result?', ctx.previous.length === 0 ? 'nothing above this line' : 'the line above has no result');
   }
   const items = ctx.block.filter((q) => q.kind !== 'date' && q.kind !== 'time');
   if (name === 'count') return num(items.length);

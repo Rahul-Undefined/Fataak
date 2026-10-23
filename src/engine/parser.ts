@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { Decimal, CalcError, type Quantity, type Token } from './types';
+import { Decimal, CalcError, type Quantity, type Token, own } from './types';
 import { tokenize, significant } from './tokenizer';
 import { findUnit, unitById, MAX_UNIT_WORDS } from './units';
 import { currencyBySymbol, findCurrency } from './currency';
@@ -316,7 +316,7 @@ class Parser {
       if (t.type === 'word') {
         if (this.opts.variables.has(t.value)) break;
         const scaleKey = t.text === 'M' ? 'million' : t.text === 'm' ? '' : t.text === 'K' ? 'k' : t.value;
-        if (scaleKey && scaleKey in SCALES) {
+        if (scaleKey && own(SCALES, scaleKey)) {
           this.next();
           node = { t: 'scale', e: node, mult: new Decimal(SCALES[scaleKey]) };
           continue;
@@ -431,7 +431,7 @@ class Parser {
         this.i += d.consumed;
         return { t: 'lit', q: d.q };
       }
-      if (w in AGG_WORDS) {
+      if (own(AGG_WORDS, w)) {
         this.next();
         return { t: 'agg', name: AGG_WORDS[w] };
       }
@@ -499,7 +499,7 @@ class Parser {
     for (;;) {
       const p = this.peek();
       const pk = p && p.type === 'word' ? (p.text === 'M' ? 'million' : p.text === 'm' ? '' : p.value) : '';
-      if (p && pk && pk in SCALES) {
+      if (p && pk && own(SCALES, pk)) {
         this.next();
         node = { t: 'scale', e: node, mult: new Decimal(SCALES[pk]) };
         continue;

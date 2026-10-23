@@ -84,7 +84,9 @@ export class RateService {
       this.inflight.set(base, p);
     }
     const fresh = await p;
-    return fresh ?? cached ?? null;
+    if (fresh) return fresh;
+    // network failed: hand back the cache, clearly flagged so the UI can say "cached, offline"
+    return cached ? { ...cached, offline: true } : null;
   }
 
   /**

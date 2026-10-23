@@ -16,6 +16,10 @@ if errorlevel 8 (
 rem the app writes its own shortcuts (with icon + AppUserModelID, so taskbar pinning shows the FATAAK logo)
 "%DST%\FATAAK.exe" --install-shortcuts
 if errorlevel 1 echo Warning: could not create shortcuts.
-echo Done. Starting FATAAK (Alt+Space shows or hides it).
+rem Win+R → "fataak": per-user App Paths entry (HKCU, no admin rights needed)
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\fataak.exe" /ve /d "%DST%\FATAAK.exe" /f >nul
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\App Paths\fataak.exe" /v Path /d "%DST%" /f >nul
+if errorlevel 1 echo Warning: could not register the "fataak" Run command.
+echo Done. Starting FATAAK (Alt+Space shows or hides it; Win+R then "fataak" also opens it).
 start "" "%DST%\FATAAK.exe"
 endlocal

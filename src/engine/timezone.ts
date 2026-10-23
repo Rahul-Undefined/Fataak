@@ -1,15 +1,21 @@
 import { DateTime } from 'luxon';
-import { Decimal, type Quantity } from './types';
+import { Decimal, own, type Quantity } from './types';
 
 export interface ZoneRef {
   zone: string;
   /** short note when an abbreviation is ambiguous */
   note?: string;
   label: string;
+  /** fixed-offset abbreviation (EST = UTC−5 always); cities/regions follow DST instead */
+  fixed?: string;
 }
 
-/** Abbreviations → IANA. Ambiguous ones carry a note stating the assumption. */
-export const ZONE_ABBR: Record<string, { zone: string; note?: string }> = {
+/**
+ * Abbreviations → zone. Standard/daylight abbreviations such as EST, PST, CET are FIXED offsets
+ * (EST is always UTC−5, even in July); places and regional names (New York, ET, US Eastern)
+ * are IANA zones and follow daylight-saving rules for the date in question.
+ */
+export const ZONE_ABBR: Record<string, { zone: string; note?: string; fixed?: string }> = {
   ist: { zone: 'Asia/Kolkata', note: 'IST = India' },
   'india time': { zone: 'Asia/Kolkata' },
   'indian time': { zone: 'Asia/Kolkata' },
@@ -17,36 +23,43 @@ export const ZONE_ABBR: Record<string, { zone: string; note?: string }> = {
   'irish time': { zone: 'Europe/Dublin' },
   'israel time': { zone: 'Asia/Jerusalem' },
   utc: { zone: 'UTC' },
-  gmt: { zone: 'UTC', note: 'GMT = UTC+0 (not UK summer time)' },
+  gmt: { zone: 'UTC', note: 'GMT = UTC+0 fixed (London may be on BST)', fixed: 'GMT' },
   z: { zone: 'UTC' },
-  bst: { zone: 'Europe/London', note: 'BST = British Summer Time' },
+  bst: { zone: 'UTC+1', note: 'BST = UTC+1 fixed (British Summer Time)', fixed: 'BST' },
   'uk time': { zone: 'Europe/London' },
   'london time': { zone: 'Europe/London' },
-  est: { zone: 'America/New_York', note: 'EST = US Eastern' },
-  edt: { zone: 'America/New_York' },
-  et: { zone: 'America/New_York', note: 'ET = US Eastern' },
+  est: { zone: 'UTC-5', note: 'EST = UTC−5 fixed (New York may be on EDT)', fixed: 'EST' },
+  edt: { zone: 'UTC-4', note: 'EDT = UTC−4 fixed', fixed: 'EDT' },
+  et: { zone: 'America/New_York', note: 'ET = US Eastern (EST/EDT by date)' },
+  'us eastern': { zone: 'America/New_York' },
+  'us eastern time': { zone: 'America/New_York' },
+  'eastern standard time': { zone: 'UTC-5', fixed: 'EST' },
+  'us central': { zone: 'America/Chicago' },
+  'us pacific': { zone: 'America/Los_Angeles' },
+  'us mountain': { zone: 'America/Denver' },
   'eastern time': { zone: 'America/New_York' },
   'eastern': { zone: 'America/New_York' },
-  cst: { zone: 'America/Chicago', note: 'CST = US Central (not China)' },
-  cdt: { zone: 'America/Chicago' },
-  ct: { zone: 'America/Chicago', note: 'CT = US Central' },
+  cst: { zone: 'UTC-6', note: 'CST = UTC−6 fixed (US Central, not China)', fixed: 'CST' },
+  cdt: { zone: 'UTC-5', note: 'CDT = UTC−5 fixed', fixed: 'CDT' },
+  ct: { zone: 'America/Chicago', note: 'CT = US Central (CST/CDT by date)' },
   'central time': { zone: 'America/Chicago' },
-  mst: { zone: 'America/Denver', note: 'MST = US Mountain' },
-  mdt: { zone: 'America/Denver' },
-  mt: { zone: 'America/Denver', note: 'MT = US Mountain' },
+  mst: { zone: 'UTC-7', note: 'MST = UTC−7 fixed', fixed: 'MST' },
+  mdt: { zone: 'UTC-6', note: 'MDT = UTC−6 fixed', fixed: 'MDT' },
+  mt: { zone: 'America/Denver', note: 'MT = US Mountain (MST/MDT by date)' },
   'mountain time': { zone: 'America/Denver' },
-  pst: { zone: 'America/Los_Angeles', note: 'PST = US Pacific' },
-  pdt: { zone: 'America/Los_Angeles' },
-  pt: { zone: 'America/Los_Angeles', note: 'PT = US Pacific' },
+  pst: { zone: 'UTC-8', note: 'PST = UTC−8 fixed (Los Angeles may be on PDT)', fixed: 'PST' },
+  pdt: { zone: 'UTC-7', note: 'PDT = UTC−7 fixed', fixed: 'PDT' },
+  pt: { zone: 'America/Los_Angeles', note: 'PT = US Pacific (PST/PDT by date)' },
   'pacific time': { zone: 'America/Los_Angeles' },
-  akst: { zone: 'America/Anchorage' },
-  akdt: { zone: 'America/Anchorage' },
-  hst: { zone: 'Pacific/Honolulu' },
+  akst: { zone: 'UTC-9', fixed: 'AKST' },
+  akdt: { zone: 'UTC-8', fixed: 'AKDT' },
+  hst: { zone: 'UTC-10', fixed: 'HST' },
   ast: { zone: 'Asia/Riyadh', note: 'AST = Arabia Standard Time' },
-  cet: { zone: 'Europe/Berlin' },
-  cest: { zone: 'Europe/Berlin' },
-  eet: { zone: 'Europe/Athens' },
-  eest: { zone: 'Europe/Athens' },
+  cet: { zone: 'UTC+1', note: 'CET = UTC+1 fixed (Berlin may be on CEST)', fixed: 'CET' },
+  cest: { zone: 'UTC+2', note: 'CEST = UTC+2 fixed', fixed: 'CEST' },
+  eet: { zone: 'UTC+2', note: 'EET = UTC+2 fixed', fixed: 'EET' },
+  eest: { zone: 'UTC+3', note: 'EEST = UTC+3 fixed', fixed: 'EEST' },
+  'central european time': { zone: 'Europe/Berlin' },
   wet: { zone: 'Europe/Lisbon' },
   msk: { zone: 'Europe/Moscow' },
   jst: { zone: 'Asia/Tokyo' },
@@ -68,12 +81,12 @@ export const ZONE_ABBR: Record<string, { zone: string; note?: string }> = {
   'kolkata time': { zone: 'Asia/Kolkata' },
   'delhi time': { zone: 'Asia/Kolkata' },
   'mumbai time': { zone: 'Asia/Kolkata' },
-  aest: { zone: 'Australia/Sydney' },
-  aedt: { zone: 'Australia/Sydney' },
-  acst: { zone: 'Australia/Adelaide' },
+  aest: { zone: 'UTC+10', note: 'AEST = UTC+10 fixed (Sydney may be on AEDT)', fixed: 'AEST' },
+  aedt: { zone: 'UTC+11', note: 'AEDT = UTC+11 fixed', fixed: 'AEDT' },
+  acst: { zone: 'UTC+9:30', fixed: 'ACST' },
   awst: { zone: 'Australia/Perth' },
-  nzst: { zone: 'Pacific/Auckland' },
-  nzdt: { zone: 'Pacific/Auckland' },
+  nzst: { zone: 'UTC+12', fixed: 'NZST' },
+  nzdt: { zone: 'UTC+13', fixed: 'NZDT' },
   sast: { zone: 'Africa/Johannesburg' },
   wat: { zone: 'Africa/Lagos' },
   eat: { zone: 'Africa/Nairobi' },
@@ -136,12 +149,13 @@ const DST_LABELS: Record<string, [string, string]> = {
   'America/Sao_Paulo': ['BRT', 'BRST'], 'Asia/Tehran': ['IRST', 'IRDT'], 'Asia/Jerusalem': ['IST', 'IDT'], 'America/Mexico_City': ['CST', 'CDT'],
 };
 
-export function zoneAbbrev(d: DateTime): string {
+export function zoneAbbrev(d: DateTime, ref?: ZoneRef): string {
+  if (ref?.fixed) return ref.fixed;
   const z = d.zoneName ?? '';
-  if (DST_LABELS[z]) return DST_LABELS[z][d.isInDST ? 1 : 0];
+  if (own(DST_LABELS, z)) return DST_LABELS[z][d.isInDST ? 1 : 0];
   const icu = d.toFormat('ZZZZ');
   if (/^GMT[+-]/.test(icu) || /^UTC[+-]/.test(icu)) {
-    if (ZONE_LABELS[z]) return ZONE_LABELS[z];
+    if (own(ZONE_LABELS, z)) return ZONE_LABELS[z];
     return icu;
   }
   return icu;
@@ -154,8 +168,8 @@ export const MAX_ZONE_WORDS = 3;
 export function resolveZone(phrase: string): ZoneRef | null {
   const p = phrase.toLowerCase().replace(/\s+/g, ' ').trim();
   if (!p) return null;
-  if (ZONE_ABBR[p]) return { zone: ZONE_ABBR[p].zone, note: ZONE_ABBR[p].note, label: p.toUpperCase() };
-  if (CITY_ZONES[p]) return { zone: CITY_ZONES[p], label: p };
+  if (own(ZONE_ABBR, p)) return { zone: ZONE_ABBR[p].zone, note: ZONE_ABBR[p].note, label: p.toUpperCase(), fixed: ZONE_ABBR[p].fixed };
+  if (own(CITY_ZONES, p)) return { zone: CITY_ZONES[p], label: p };
   // IANA id typed directly (Asia/Kolkata)
   if (/^[a-z_]+\/[a-z_]+(\/[a-z_]+)?$/i.test(phrase)) {
     const cand = phrase
@@ -228,7 +242,7 @@ export function tzResultQuantity(c: TzConversion): Quantity {
     date: c.to,
     zone: c.toRef.zone,
     showZone: true,
-    display: `${t} ${zoneAbbrev(c.to)}`,
+    display: `${t} ${zoneAbbrev(c.to, c.toRef)}`,
     note: notes.length ? notes.join(' · ') : undefined,
   };
 }
@@ -241,7 +255,7 @@ export function nowInZone(ref: ZoneRef, now: DateTime): Quantity {
     date: d,
     zone: ref.zone,
     showZone: true,
-    display: `${d.toFormat('h:mm a')} ${zoneAbbrev(d)}`,
+    display: `${d.toFormat('h:mm a')} ${zoneAbbrev(d, ref)}`,
     note: [d.toFormat('ccc d LLL'), ref.note].filter(Boolean).join(' · '),
   };
 }

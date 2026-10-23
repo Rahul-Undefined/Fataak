@@ -32,7 +32,10 @@ export interface RateQuote {
   /** ISO timestamp of when the rate was published */
   timestamp: string;
   source: string;
+  /** older than a day */
   stale?: boolean;
+  /** served from the on-disk cache because the network fetch failed */
+  offline?: boolean;
 }
 
 export interface RateProvider {
@@ -83,6 +86,8 @@ export interface LineResult {
   /** true if the line was treated as plain text / comment */
   isText: boolean;
   label?: string;
+  /** extra names this line defines ("Rahul ko 150, Rohit ko 250") */
+  defines?: Record<string, Quantity>;
   spans: HighlightSpan[];
 }
 
@@ -93,4 +98,9 @@ export class CalcError extends Error {
   ) {
     super(message);
   }
+}
+
+/** own-property lookup for word dictionaries: `'constructor' in {}` is true, `own({}, 'constructor')` is not */
+export function own(obj: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
 }

@@ -33,7 +33,14 @@ export class RendererRates implements RateProvider {
   }
 
   private quote(t: RateTable, rate: number, historical = false): RateQuote {
-    return { rate, timestamp: t.timestamp, source: t.source, stale: !historical && Date.now() - t.fetchedAt > STALE_MS };
+    return { rate, timestamp: t.timestamp, source: t.source, stale: !historical && Date.now() - t.fetchedAt > STALE_MS, offline: !!t.offline };
+  }
+
+  /** drop live tables older than the refresh window so a reconnect gets fresh rates (historical tables never expire) */
+  expireLive(): void {
+    for (const [k, t] of this.tables) {
+      if (!k.includes('@') && (t.offline || Date.now() - t.fetchedAt > STALE_MS)) this.tables.delete(k);
+    }
   }
 
   request(from: string, to: string, date?: string): void {

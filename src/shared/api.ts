@@ -25,6 +25,8 @@ export interface RateTable {
   source: string;
   /** epoch ms when we fetched it */
   fetchedAt: number;
+  /** true when this table was served from disk because the network fetch failed */
+  offline?: boolean;
 }
 
 export interface SettingsResult {

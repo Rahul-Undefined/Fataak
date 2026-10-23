@@ -14,7 +14,8 @@ describe('time zone conversion', () => {
   });
 
   it('handles daylight saving time via IANA zones', () => {
-    expect(last('6pm IST to EST', { now: summer })).toBe('8:30 AM EDT');
+    expect(last('6pm IST to New York', { now: summer })).toBe('8:30 AM EDT');
+    expect(last('6pm IST to EST', { now: summer })).toBe('7:30 AM EST');
     expect(last('London 10am to Kolkata time', { now: summer })).toBe('2:30 PM IST');
     expect(last('London 10am to Kolkata time', { now: winter })).toBe('3:30 PM IST');
     expect(last('2:30 pm HKT in Berlin', { now: summer })).toBe('8:30 AM CEST');
@@ -40,6 +41,7 @@ describe('time zone conversion', () => {
     expect(lastNote('6pm IST to EST', { now: winter })).toContain('IST = India');
     expect(last('9am CST to IST', { now: winter })).toBe('8:30 PM IST');
     expect(lastNote('9am CST to IST', { now: winter })).toContain('US Central');
+    expect(last('9am Chicago to IST', { now: summer })).toBe('7:30 PM IST');
     expect(last('9am GST to IST', { now: winter })).toBe('10:30 AM IST');
     expect(last('9am BDT to IST', { now: winter })).toBe('8:30 AM IST');
   });
@@ -52,16 +54,17 @@ describe('time zone conversion', () => {
   });
 
   it('relative times: "2 hrs from now in est" is now + 2 h, converted', () => {
-    // NOW is 10:00 IST = 04:30 UTC = 00:30 EDT
-    expect(last('2 hrs from now in est')).toBe('2:30 AM EDT');
+    // NOW is 10:00 IST = 04:30 UTC = 23:30 EST (fixed UTC−5) = 00:30 EDT (New York in October)
+    expect(last('2 hrs from now in est')).toBe('1:30 AM EST');
     expect(lastNote('2 hrs from now in est')).toContain('now + 2 h');
-    expect(last('in 3 hours est time')).toBe('3:30 AM EDT');
+    expect(last('2 hrs from now in new york')).toBe('2:30 AM EDT');
+    expect(last('in 3 hours est time')).toBe('2:30 AM EST');
     expect(last('30 min ago in tokyo')).toBe('1:00 PM JST');
-    expect(last('2 ghante baad est me kitne baje')).toBe('2:30 AM EDT');
+    expect(last('2 ghante baad est me kitne baje')).toBe('1:30 AM EST');
     expect(last('ekhon theke 2 ghonta por tokyo te koto baje')).toBe('3:30 PM JST');
-    expect(last('now + 2 hours in est')).toBe('2:30 AM EDT');
-    expect(last('6pm + 1 hour in est')).toBe('9:30 AM EDT');
-    expect(last('now in est')).toBe('12:30 AM EDT');
+    expect(last('now + 2 hours in est')).toBe('1:30 AM EST');
+    expect(last('6pm + 1 hour in est')).toBe('8:30 AM EST');
+    expect(last('now in new york')).toBe('12:30 AM EDT');
   });
 
   it('single zone converts from the local zone', () => {
