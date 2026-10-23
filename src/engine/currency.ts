@@ -17,7 +17,7 @@ export const CURRENCIES: CurrencyDef[] = [
     indianGrouping: true,
     names: ['inr', 'rs', 'rs.', 'rupee', 'rupees', 'rupaye', 'rupaya', 'rupiya', 'rupaiya', 'rupya', 'rupai', 'rupee', 'indian rupee', 'indian rupees'],
   },
-  { code: 'EUR', symbol: '€', names: ['eur', 'euro', 'euros'] },
+  { code: 'EUR', symbol: '€', prefix: true, names: ['eur', 'euro', 'euros'] },
   { code: 'GBP', symbol: '£', prefix: true, names: ['gbp', 'pound', 'pounds', 'sterling', 'pound sterling', 'quid', 'british pound', 'british pounds'] },
   { code: 'JPY', symbol: '¥', prefix: true, names: ['jpy', 'yen', 'japanese yen'] },
   { code: 'CNY', names: ['cny', 'rmb', 'yuan', 'renminbi', 'chinese yuan'] },

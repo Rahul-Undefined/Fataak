@@ -70,7 +70,9 @@ export const CONV_WORDS = new Set(['in', 'to', 'as', 'into']);
 export const AGG_WORDS: Record<string, 'sum' | 'avg' | 'prev' | 'count'> = {
   sum: 'sum', total: 'sum', avg: 'avg', average: 'avg', mean: 'avg', prev: 'prev', ans: 'prev', previous: 'prev', count: 'count',
 };
-export const KEYWORDS = new Set([...CONV_WORDS, 'of', 'off', 'on', 'mod', 'x', 'what', 'is', 'and', 'per', 'at', 'by', 'from', ...Object.keys(AGG_WORDS), ...DATE_KEYWORDS, ...FUNCTIONS, 'pi']);
+/** functions that take an explicit list: median(3, 9, 4), lcm(84, 126), gcd(12, 18), mode(1, 2, 2) */
+export const LIST_CALL_FNS = new Set(['median', 'lcm', 'gcd', 'mode']);
+export const KEYWORDS = new Set([...LIST_CALL_FNS, ...CONV_WORDS, 'of', 'off', 'on', 'mod', 'x', 'what', 'is', 'and', 'per', 'at', 'by', 'from', ...Object.keys(AGG_WORDS), ...DATE_KEYWORDS, ...FUNCTIONS, 'pi']);
 
 export interface ParseOptions {
   variables: Set<string>;
@@ -312,6 +314,7 @@ class Parser {
     }
     if (this.isOp('+')) {
       this.next();
+      if (this.isOp('+') || this.isOp('-')) this.fail('unexpected "+"');
       return this.unary();
     }
     return this.postfix(this.primary());
@@ -347,13 +350,29 @@ class Parser {
       }
       if (t.type === 'word') {
         if (this.opts.variables.has(t.value)) break;
+        // "3 ft + 6 in": a final bare "in" after a number is inches
+        if (t.value === 'in' && node.t === 'num' && this.peek(1) === undefined) {
+          this.next();
+          node = { t: 'unit', e: node, unit: 'inch' };
+          continue;
+        }
         const scaleKey = t.text === 'M' ? 'million' : t.text === 'm' ? '' : t.text === 'K' ? 'k' : t.value;
-        if (scaleKey && own(SCALES, scaleKey)) {
+        // "0 k in c": kelvin, not thousands, when a temperature conversion follows
+        const nx = this.peek(1);
+        const nx2 = this.peek(2);
+        const kelvin = scaleKey === 'k' && nx?.type === 'word' && CONV_WORDS.has(nx.value) && nx2?.type === 'word' && ['c', 'f', 'k', 'celsius', 'fahrenheit', 'kelvin'].includes(nx2.value);
+        if (scaleKey && own(SCALES, scaleKey) && !kelvin) {
           this.next();
           node = { t: 'scale', e: node, mult: new Decimal(SCALES[scaleKey]) };
           continue;
         }
         // function names like min/max are not units when followed by '('
+        // "50 pounds in rupees": pounds are money when a currency conversion follows
+        if ((t.value === 'pound' || t.value === 'pounds') && this.peek(1)?.type === 'word' && CONV_WORDS.has(this.peek(1)!.value) && this.matchCurrency(2)) {
+          this.next();
+          node = { t: 'money', e: node, code: 'GBP' };
+          continue;
+        }
         const u = this.matchUnit(0);
         if (u && !(FUNCTIONS.has(t.value) && this.peek(1)?.value === '(')) {
           this.i += u.width;
@@ -365,7 +384,7 @@ class Parser {
             let u2 = this.matchUnit(1);
             if (!u2 && unitById(u.unit)!.dim === 'length' && this.peek(1)?.value === 'in') {
               const after = this.peek(2);
-              if (!after || (after.type === 'word' && CONV_WORDS.has(after.value))) u2 = { unit: 'inch', width: 1 };
+              if (!after || (after.type === 'word' && CONV_WORDS.has(after.value)) || after.type === 'op' || after.type === 'paren') u2 = { unit: 'inch', width: 1 };
             }
             if (u2 && unitById(u2.unit)!.dim === unitById(u.unit)!.dim) {
               this.next();
@@ -378,6 +397,7 @@ class Parser {
         }
         const c = this.matchCurrency(0);
         if (c) {
+          if (node.t === 'money') this.fail(`unexpected "${t.text}"`, 'one currency per amount; use "in" to convert');
           this.i += c.width;
           node = { t: 'money', e: node, code: c.code };
           continue;
@@ -386,6 +406,7 @@ class Parser {
       // a currency symbol after a value ("rahul Rs in USD"): tags/converts it
       if (t.type === 'currency' && this.peek(1)?.type !== 'number') {
         const c = currencyBySymbol(t.text);
+        if (c && node.t === 'money') this.fail(`unexpected "${t.text}"`, 'one currency per amount; use "in" to convert');
         if (c) {
           this.next();
           node = { t: 'money', e: node, code: c.code };
@@ -469,7 +490,7 @@ class Parser {
         return { t: 'lit', q: d.q };
       }
       // "avg(10, 20, 30)", "sum(1, 2, 3)", "median(3, 9, 4)": an explicit list is a function call, not the block aggregate
-      if ((own(AGG_WORDS, w) || w === 'median') && this.peek(1)?.type === 'paren' && this.peek(1)!.value === '(') {
+      if ((own(AGG_WORDS, w) || LIST_CALL_FNS.has(w)) && this.peek(1)?.type === 'paren' && this.peek(1)!.value === '(') {
         this.next();
         this.next();
         const args: Node[] = [this.expr(0)];
@@ -479,7 +500,7 @@ class Parser {
         }
         if (!(this.peek()?.type === 'paren' && this.peek()!.value === ')')) this.fail('missing )');
         this.next();
-        const fn = w === 'median' ? 'median' : AGG_WORDS[w] === 'sum' ? 'sumlist' : AGG_WORDS[w] === 'avg' ? 'avglist' : w;
+        const fn = LIST_CALL_FNS.has(w) ? w : AGG_WORDS[w] === 'sum' ? 'sumlist' : AGG_WORDS[w] === 'avg' ? 'avglist' : w;
         return { t: 'call', fn, args };
       }
       if (own(AGG_WORDS, w)) {
@@ -514,6 +535,8 @@ class Parser {
       const factors: Record<string, string> = { half: '0.5', quarter: '0.25', double: '2', twice: '2', triple: '3', thrice: '3' };
       if (own(factors, w)) {
         this.next();
+        // "half of 5000": the "of" is optional
+        if (this.isWord('of') && this.peek(1) && this.peek(1)!.type !== 'percent') this.next();
         const nx = this.peek();
         const operandFollows = !!nx && (nx.type === 'number' || nx.type === 'currency' || (nx.type === 'paren' && nx.value === '(') || (nx.type === 'word' && (this.opts.variables.has(nx.value) || nx.value === 'prev' || nx.value === 'that')));
         if (operandFollows) return { t: 'bin', op: '*', l: { t: 'num', v: new Decimal(factors[w]) }, r: this.unary() };

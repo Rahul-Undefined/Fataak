@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { Decimal, type Quantity, type Token, own } from './types';
+import { CalcError, Decimal, type Quantity, type Token, own } from './types';
 
 export const MONTHS: Record<string, number> = {
   jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3, apr: 4, april: 4, may: 5, jun: 6, june: 6,
@@ -178,7 +178,9 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       const fromNow = t2.value === 'from' && (isWord(tokens[i + 3], 'now') || isWord(tokens[i + 3], 'today'));
       // "today from 45 days after" (aaj se 45 din baad) and "45 days after today" anchor on a date: leave that to the date intent
       const t3 = tokens[i + 3];
-      const anchorAfter = isWord(t3) && (['today', 'tomorrow', 'yesterday', 'now', 'next', 'last', 'this'].includes(t3.value) || own(WEEKDAYS, t3.value) || own(MONTHS, t3.value));
+      // "90 days before 1 jan 2027" / "2 weeks after 15 nov 2026": a date literal after the offset anchors it
+      const t4 = tokens[i + 4];
+      const anchorAfter = (isWord(t3) && (['today', 'tomorrow', 'yesterday', 'now', 'next', 'last', 'this'].includes(t3.value) || own(WEEKDAYS, t3.value) || own(MONTHS, t3.value))) || (isNum(t3) && isWord(t4) && own(MONTHS, t4.value));
       // "today 45 days after" (aaj ke 45 din baad): the offset shifts the date before it rather than forming a second date
       const DAY_WORDS = ['today', 'tomorrow', 'yesterday', 'now'];
       const anchorBefore = (isWord(tokens[i - 1]) && DAY_WORDS.includes(tokens[i - 1].value)) || (isWord(tokens[i - 1], 'of') && isWord(tokens[i - 2]) && DAY_WORDS.includes(tokens[i - 2].value));
@@ -218,6 +220,8 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       if (tokens[i + 4].value.length === 2) year += 2000;
       const d = DateTime.fromObject({ year, month: parseInt(tokens[i + 2].value, 10), day: parseInt(t0.value, 10) }, { zone });
       if (d.isValid) return { q: dateQuantity(d), consumed: 5 };
+      // 12/13/2026: not a day-first date and nobody divides by a year — say so instead of computing 12 ÷ 13 ÷ 2026
+      if (tokens[i + 4].value.length === 4) throw new CalcError(`invalid date ${t0.value}${t1.value}${tokens[i + 2].value}${t1.value}${tokens[i + 4].value}`, 'dates are day/month/year, e.g. 13/12/2026');
       return null;
     }
   }
@@ -249,8 +253,8 @@ export function tryParseTime(tokens: Token[], i: number, now: DateTime, zone: st
     j++;
   } else if (isWord(tw) && (tw.value === 'hrs' || tw.value === 'hours') && hasColon) {
     j++;
-  } else if (isWord(tw) && ["o'clock", 'oclock', 'baje', 'ta', 'tay', 'bajey'].includes(tw.value)) {
-    // "10 o'clock" / "10 baje" / "5 ta": hour as given (24-hour if ≥ 13); a span intent may lift the end past noon
+  } else if (isWord(tw) && ["o'clock", 'oclock', 'baje'].includes(tw.value)) {
+    // "10 o'clock" / "10 baje": hour as given (24-hour if ≥ 13); a span intent may lift the end past noon
     oclock = true;
     j++;
   }

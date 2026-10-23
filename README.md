@@ -3,7 +3,7 @@
 **Think it. Type it. Fataak.**
 
 A Windows 10/11 smart calculator in the spirit of Numi: type a line, the answer appears on the right.
-Understands English, Hinglish and Bengalish, finance formulas, currencies, units, dates and time zones.
+Understands English and Hinglish, finance formulas, currencies, units, dates and time zones.
 
 Built with Electron, React, TypeScript and Vite.
 
@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: 552 tests — unit, parser, paraphrase (EN/Hinglish/Bengalish), property, integration, regression, negative
+npm test           # vitest: 550 engine/app tests + 802-case reliability benchmark (tests/benchmark.test.ts)
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -110,6 +110,20 @@ then deduct 10%` → 65,484. A sentence-ending period is ignored.
 → hours, `flat rate loan 100000 at 10% for 2 years` (flat vs reducing-balance EMI), `-273.15 c in k` → 0 K.
 `5 items cost 24.75 each add 12% tax` is a price, never a profit/loss guess; `cost 500 sold 600` still is one.
 Unknown words (`asdf`, `constructor`), `10 % 5 %`, `1e309` and a dangling `5 +` show a hint, never a number.
+
+**Reliability upgrade (Oct 2026).** Long statements work as well as short ones: `If x = 375 and y = 28% of x,
+calculate x + y, x - y and x * y` → `480 · 270 · 39,375` (and `x`, `y` stay defined); `Set rent = 18500, food = 9200 and
+travel = 3750. Calculate total expenses and remaining balance from salary of 78500` → `31,450 · 47,050`; `A customer owes
+25000 plus 18% GST after a 10% discount and pays 15000` → 11,550 with the invoice trail; `mere paas 5000 the, 1275 kharch
+kiye, phir 450 mile, kitna bacha` → 4,175; `Convert 7.85 kilometres to metres, miles and feet` → all three; `180 cm in ft
+and in` → `5 ft 10.87 in`; `A tank holds 2.75 cubic metres, 18% is drained and 125 litres are added, how many litres
+remain?` → 2,380 l; `lcm of 84 and 126`, `gcd(48, 180)`, `mode of 1, 2, 2, 3`, `2 raised to the power of 15`, `4th root
+of 81`, `√144`; `sin(30)` → 0.5 (degrees); `invested 5000 got back 6500, return` → 30% return; `ratio 300:400` → 3:4;
+`revenue 25 lakh, cogs 14.5 lakh, opex 7 lakh` → operating profit with gross profit and margins; `salary 60000, 30% tax
+katke` and `12% tds on 50000` are deductions, while `1180 inclusive of 18% gst` removes GST; `what time in sydney when it
+is 9am in mumbai`, `10:30 pm ist to 6:45 am gmt duration`, `45 min before 10am`, `age on 23 oct 2026 if born 23 oct
+2000`, `days until end of year`, `2 saal pehle ki date`. Percentages print to 2 decimals. Only English and Hinglish are
+understood; Bengali vocabulary was removed.
 
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.

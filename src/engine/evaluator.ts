@@ -274,14 +274,15 @@ function toNumber(q: Quantity, what: string): number {
   if (q.kind === 'date' || q.kind === 'time') throw new CalcError(`${what} needs a number`);
   return q.value.toNumber();
 }
-/** trig input: degrees when given with ° / deg, radians otherwise */
+/** trig input: a plain number is degrees (sin(30) = 0.5, as on a calculator); "0.5 rad" is radians */
 function toRadians(q: Quantity): number {
   if (q.kind === 'unit') {
     const u = unitById(q.unit!)!;
     if (u.dim === 'angle') return convertUnit(q.value, u, unitById('rad')!).toNumber();
   }
-  return toNumber(q, 'trig');
+  return (toNumber(q, 'trig') * Math.PI) / 180;
 }
+const DEG = 180 / Math.PI;
 
 /** list functions add same-currency/unit values only; mixing is refused as in a normal sum */
 const ctxForList: EvalContext = { variables: new Map(), previous: [], block: [], rates: { get: () => null }, now: () => DateTime.now(), zone: 'UTC' };
@@ -305,20 +306,20 @@ function callFn(fn: string, args: Quantity[]): Quantity {
     case 'ceil':
       return keep(a.value.ceil());
     case 'sin':
-      return num(Math.sin(toRadians(a)));
+      return num(new Decimal(Math.sin(toRadians(a))).toDecimalPlaces(12));
     case 'cos':
-      return num(Math.cos(toRadians(a)));
+      return num(new Decimal(Math.cos(toRadians(a))).toDecimalPlaces(12));
     case 'tan':
-      return num(Math.tan(toRadians(a)));
+      return num(new Decimal(Math.tan(toRadians(a))).toDecimalPlaces(12));
     case 'asin':
     case 'arcsin':
-      return num(Math.asin(toNumber(a, fn)));
+      return num(Math.asin(toNumber(a, fn)) * DEG);
     case 'acos':
     case 'arccos':
-      return num(Math.acos(toNumber(a, fn)));
+      return num(Math.acos(toNumber(a, fn)) * DEG);
     case 'atan':
     case 'arctan':
-      return num(Math.atan(toNumber(a, fn)));
+      return num(Math.atan(toNumber(a, fn)) * DEG);
     case 'sinh':
       return num(Math.sinh(toNumber(a, fn)));
     case 'cosh':
@@ -353,6 +354,25 @@ function callFn(fn: string, args: Quantity[]): Quantity {
       let acc: Quantity = { ...args[0], note: undefined, display: undefined };
       for (const x of args.slice(1)) acc = add(acc, x, ctxForList, 1);
       return { ...acc, value: acc.value.div(args.length) };
+    }
+    case 'lcm':
+    case 'gcd': {
+      if (args.some((q) => !q.value.isInteger())) throw new CalcError(`${fn} needs whole numbers`);
+      const gcd2 = (x: Decimal, y: Decimal): Decimal => (y.isZero() ? x.abs() : gcd2(y, x.mod(y)));
+      let acc = args[0].value.abs();
+      for (const q of args.slice(1)) {
+        const g = gcd2(acc, q.value);
+        acc = fn === 'gcd' ? g : g.isZero() ? new Decimal(0) : acc.mul(q.value).abs().div(g);
+      }
+      return num(acc);
+    }
+    case 'mode': {
+      const counts = new Map<string, number>();
+      for (const q of args) counts.set(q.value.toString(), (counts.get(q.value.toString()) ?? 0) + 1);
+      const max = Math.max(...counts.values());
+      if (max === 1) throw new CalcError('no mode', 'every value appears once');
+      const modes = [...counts.entries()].filter(([, n]) => n === max).map(([v]) => new Decimal(v)).sort((x, y) => x.cmp(y));
+      return modes.length > 1 ? { ...num(modes[0]), display: modes.map((m) => m.toString()).join(', ') } : num(modes[0]);
     }
     case 'median': {
       const sorted = args.slice().sort((x, y) => x.value.cmp(y.value));

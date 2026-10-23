@@ -1,5 +1,5 @@
 /** Supplementary fixes after round 2: reverse percentages, quantity × price + tax, finance questions,
- *  math/rounding/compound units, dates with explicit DST dates, Bengalish chaining, currency mixing. */
+ *  math/rounding/compound units, dates with explicit DST dates, Hinglish chaining, currency mixing. */
 import { describe, it, expect } from 'vitest';
 import { DateTime } from 'luxon';
 import { last, lastNote, run } from './helpers';
@@ -12,7 +12,7 @@ describe('reverse percentages', () => {
     ['840 is 12% less than what original amount?', '954.55'],
     ['750 is 20% more than what number?', '625'],
     ['840 kis amount se 12% kam hai?', '954.55'],
-    ['750 kon number theke 20% beshi?', '625'],
+    ['750 kis number se 20% zyada hai?', '625'],
     ['₹840 is 12% less than what?', '₹954.55'],
     ['what number is 750 20% more than?', '625'],
   ])('%s → %s', (input, expected) => {
@@ -35,7 +35,7 @@ describe('quantity × price and tax steps', () => {
   it.each([
     ['10% discount on 4500, then add 18% GST', '4,779'],
     ['4500 pe 10% discount, phir 18% gst lagao', '4,779'],
-    ['4500 e 10% chhar, tarpor 18% gst add koro', '4,779'],
+    ['4500 pe 10% chhoot, phir 18% gst lagao', '4,779'],
     ['5 pcs @ 24.75 each, then 12% tax', '138.6'],
     ['3 items at ₹120 each', '₹360'],
   ])('%s → %s', (input, expected) => {
@@ -53,7 +53,7 @@ describe('finance: the question asked', () => {
   it('compound interest vs maturity amount', () => {
     expect(last('compound interest on 10000 at 5% for 2 years')).toBe('1,025');
     expect(last('10000 at 5% compound interest for 2 years, maturity amount')).toBe('11,025');
-    expect(last('10000 er 5% chakrabriddhi sud 2 bochor, sheshe koto pabo')).toBe('11,025');
+    expect(last('10000 pe 5% chakravriddhi byaj 2 saal, end me kitna milega')).toBe('11,025');
     expect(last('total interest on 10000 at 5% compound for 2 years')).toBe('1,025');
   });
   it('EMI stays EMI', () => {
@@ -107,12 +107,12 @@ describe('dates and time zones with explicit dates', () => {
   });
 });
 
-describe('Hinglish/Bengalish chaining', () => {
+describe('Hinglish chaining', () => {
   it.each([
-    ['1200 er 15 percent ber kore tar sathe 80 jog koro', '260'],
+    ['1200 ka 15 percent nikal ke usme 80 jodo', '260'],
     ['1200 ka 15 percent nikal ke usme 80 jodo', '260'],
     ['15% of 1200 and add 80 to that', '260'],
-    ['1200 er 15% ber koro, tarpor 80 jog koro', '260'],
+    ['1200 ka 15% nikalo, phir 80 jodo', '260'],
     ['2000 ka 10% nikal ke usme se 50 ghatao', '150'],
   ])('%s → %s', (input, expected) => {
     expect(last(input)).toBe(expected);

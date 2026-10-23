@@ -36,7 +36,7 @@ line text
 ## Natural-language layer (`src/engine/nl/`)
 
 1. `normalize.ts` rewrites the sentence into a small canonical vocabulary: number words are composed
-   (`five hundred`, `paanch sau`, `1 lakh 20 hazaar`), Hinglish/Bengalish verbs map to `increase`,
+   (`five hundred`, `paanch sau`, `1 lakh 20 hazaar`), Hinglish verbs map to `increase`,
    `decrease`, `add`, `remove`, `gst`, `discount`, `divide`, `that`, `then`…; sentence-ending periods and
    clause separators (`,` `;` `then` `and`) are kept as structure.
 2. `intents.ts` tags words (numbers, percentages, verbs, connectors, names) and runs intents in a fixed
@@ -49,6 +49,24 @@ line text
      profit/margin, allocation, ratio, list statistics, time spans, GST, discount, profit/loss,
      margin/markup, dates (counts, weekdays, leap years, age), quantity × price, division among
      people, percent questions (of, change, difference, points, reverse), increase/decrease, conversion.
+
+## Guards added in the reliability upgrade
+
+- **Pure-expression gate.** After normalisation, a sentence made only of numbers, percentages, operators
+  (`add`/`plus`/`minus`/`times`/`divide`), functions, units and currencies is handed to the parser as one
+  expression (`what 35% of 840 plus 12% of 1250` → `35% of 840 + 12% of 1250`). A dangling operator or any
+  other word sends it to the intents instead; nothing is ever trimmed.
+- **Clause guard.** Every clause of a multi-step sentence must account for all of its words: a leading
+  subject noun ("salary 68000", "invoice 4 items"), a descriptor after a unit ("2.75 cubic metres of water"),
+  numbers, percentages, verbs and connectors. One unknown word makes the chain refuse the sentence, so
+  "Rahul = 2450, Priti = 1875 …" can never be summed as 2450 + 1875.
+- **Ordering.** English "X after Y" runs Y first; Hindi "X ke baad Y" runs X first and is rewritten to
+  "then" before tax/discount/percent words. A clause whose number follows "on"/"of" is a base; any other
+  number after "after"/"becomes" is an outcome (reverse percentage).
+- **Multi-statement lines.** A line with `=` and commas/"and"/"then" is split into definitions, expressions,
+  `total <name>` and `remaining … from <amount>`; every result is shown and the names stay defined.
+- **Deductions vs GST removal.** "tax katke", "tds", "deducted" subtract a percentage; "inclusive", "remove
+  gst", "included" reverse an added tax. A percentage followed by a deduction word is never a tax rate.
 
 ## Context policy
 

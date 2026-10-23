@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { CalcError, Decimal, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider, own } from './types';
 import { tokenize } from './tokenizer';
 import { parseTokens, KEYWORDS, SCALES } from './parser';
-import { evaluate } from './evaluator';
+import { evaluate, add } from './evaluator';
 import { formatQuantity } from './format';
 import { runIntents, expressionFallback } from './nl/intents';
 import { SOURCE_WORDS, CANON_KEYWORDS, normalize } from './nl/normalize';
@@ -81,6 +81,11 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   ctx.cachedOnly = /\b(offline|cached|cache)\b/i.test(trimmed);
   // mixed-currency sums are only allowed when the line says which currency it wants ("sum in USD - 4%")
   ctx.allowMixedCurrency = currencyNamed(trimmed);
+  // "x = 375 and y = 28% of x, calculate x + y, x - y and x * y": definitions and expressions on one line
+  if (trimmed.includes('=') && /,|\band\b|\bthen\b/i.test(trimmed)) {
+    const multi = tryMultiStatement(rawText, ctx, variables);
+    if (multi) return multi;
+  }
 
   let label: string | undefined;
   let labelRange: { start: number; end: number } | null = null;
@@ -109,7 +114,10 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   const { clean: cleanRaw, comments } = stripQuotes(body);
   // a sentence-ending period/question mark is punctuation, not part of the expression ("1000 + 10%.")
   // ("5!" is a factorial, so "!" only counts as punctuation after a letter or space)
-  const { text: clean, places: roundTo } = extractRounding(cleanRaw.replace(/[.?]+\s*$/, '').replace(/(?<=[\p{L}\s])!+\s*$/u, ''));
+  // ("n!" with a variable n is a factorial, so the trailing "!" stays in that case)
+  const bang = /^\s*([\p{L}][\p{L}\p{N}_]*)!\s*$/u.exec(cleanRaw);
+  const noBang = bang && variables.has(bang[1].toLowerCase()) ? cleanRaw : cleanRaw.replace(/(?<=[\p{L}\s])!+\s*$/u, '');
+  const { text: clean, places: roundTo } = extractRounding(noBang.replace(/[.?]+\s*$/, ''));
   const commentRanges = comments.map((c) => ({ start: c.start + bodyOffset, end: c.end + bodyOffset }));
   let labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
   const spans = () => highlight(rawText, labelRange, variables, commentRanges);
@@ -194,6 +202,83 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   return { ok: false, display: '', note: hint, isText: false, label: labelKey, spans: spans() };
 }
 
+/**
+ * Several statements on one line, split at commas/"and"/"then": each is "name = expression", an expression,
+ * "total <name>" (this line's definitions added up) or "remaining … from <amount>". All results are shown.
+ */
+function tryMultiStatement(rawText: string, ctx: EvalContext, variables: Set<string>): LineResult | null {
+  const { clean } = stripQuotes(rawText);
+  const { words } = normalize(clean.replace(/[.?]+\s*$/, ''));
+  const pieces: string[][] = [];
+  let cur: string[] = [];
+  for (const w of words) {
+    if (w === ',' || w === 'and' || w === 'then') {
+      if (cur.length) pieces.push(cur);
+      cur = [];
+    } else cur.push(w);
+  }
+  if (cur.length) pieces.push(cur);
+  if (!pieces.some((p) => p.includes('='))) return null;
+  const local = new Map(ctx.variables);
+  const scoped: EvalContext = { ...ctx, variables: local };
+  const defines: Record<string, Quantity> = {};
+  const lineNames: string[] = [];
+  const results: Quantity[] = [];
+  const notes: string[] = [];
+  const spans = () => highlight(rawText, null, variables, []);
+  const evalPiece = (ws: string[]): Quantity => evaluate(parseTokens(tokenize(ws.join(' ')), { variables: new Set(local.keys()), now: ctx.now(), zone: ctx.zone }), scoped);
+  const lineTotal = (): Quantity => {
+    let acc: Quantity = { ...local.get(lineNames[0])!, note: undefined, display: undefined };
+    for (const n of lineNames.slice(1)) acc = add(acc, local.get(n)!, scoped);
+    return acc;
+  };
+  try {
+    for (const piece of pieces) {
+      const eq = piece.indexOf('=');
+      if (eq >= 0) {
+        if (eq === 0 || eq === piece.length - 1 || piece.slice(eq + 1).includes('=')) return null;
+        const name = piece.slice(0, eq).join(' ');
+        if (!/^[\p{L}][\p{L}\p{N}_ ]*$/u.test(name)) return null;
+        const value = evalPiece(piece.slice(eq + 1));
+        local.set(name, value);
+        defines[name] = value;
+        lineNames.push(name);
+        continue;
+      }
+      if ((piece[0] === 'total' || piece[0] === 'sum') && lineNames.length) {
+        const acc = lineTotal();
+        const label = piece[1] && /^[\p{L}]+$/u.test(piece[1]) ? piece[1] : 'total';
+        if (label !== 'total') {
+          local.set(label, acc);
+          defines[label] = acc;
+        }
+        results.push(acc);
+        notes.push(`${label} ${formatQuantity(acc)} (${lineNames.join(' + ')})`);
+        continue;
+      }
+      if (piece[0] === 'remaining' && lineNames.length) {
+        const ni = piece.findIndex((w) => /^[₹$€£¥৳]?\d/.test(w));
+        if (ni < 0) return null;
+        const base = evalPiece(piece.slice(ni));
+        const sum = lineTotal();
+        const rem = add(base, sum, scoped, -1);
+        results.push(rem);
+        notes.push(`remaining ${formatQuantity(rem)} = ${formatQuantity(base)} − ${formatQuantity(sum)}`);
+        continue;
+      }
+      results.push(evalPiece(piece));
+    }
+  } catch (e) {
+    if (e instanceof CalcError) return { ok: false, display: '', note: e.hint ? `${e.message} · ${e.hint}` : e.message, isText: false, spans: spans() };
+    return null;
+  }
+  if (!results.length && lineNames.length < 2) return null;
+  const value = results.length ? results[results.length - 1] : local.get(lineNames[lineNames.length - 1])!;
+  const display = results.length ? results.map((q) => formatQuantity(q)).join(' · ') : formatQuantity(value);
+  const note = notes.length ? notes.join(' · ') : results.length ? undefined : lineNames.map((n) => `${n} ${formatQuantity(local.get(n)!)}`).join(' · ');
+  return { ok: true, value, display, note, isText: false, defines, spans: spans() };
+}
+
 /** the currency word/code that ends a conversion phrase ("… in USD", "… to rupees"), if any */
 function currencyNamed(text: string): boolean {
   const re = /\b(?:in|to|into|as|me|mein|te)\s+([\p{L}][\p{L} .]{1,20}?)(?=\s*(?:[-+*/?.!,]|$))/giu;
@@ -241,6 +326,10 @@ function tryImplicitDefinition(
   ctx: EvalContext,
   variables: Set<string>,
 ): { name: string; value: Quantity; start: number; end: number } | null {
+  // "Meri salary 50000" / "my rent 15000": the possessive is not part of the name
+  const poss = /^(?:my|our|meri|mera|mere|hamara|hamari|humara|humari|apna|apni)\s+/i.exec(clean);
+  const off = poss ? poss[0].length : 0;
+  clean = clean.slice(off);
   const toks = tokenize(clean).filter((t) => t.type !== 'space');
   let n = 0;
   while (n < 3 && toks[n]?.type === 'word' && isPlainName(toks[n].value, variables)) n++;
@@ -248,7 +337,8 @@ function tryImplicitDefinition(
   const first = toks[n];
   const startsValue = first.type === 'number' || first.type === 'currency' || (first.type === 'word' && isCurrencyWord(first.value) && toks[n + 1]?.type === 'number');
   if (!startsValue) return null;
-  const rest = clean.slice(first.start);
+  // "salary 85000 inr in usd per month": a period word after the amount describes it, it is not part of the value
+  const rest = clean.slice(first.start).replace(/\s+(?:per\s+(?:month|year|annum|week|day)|monthly|yearly|annually)\s*$/i, '');
   try {
     const value = evaluate(parseTokens(tokenize(rest), parseOpts), ctx);
     if (value.kind === 'date' || value.kind === 'time') return null;
@@ -256,7 +346,7 @@ function tryImplicitDefinition(
       .slice(0, n)
       .map((t) => t.value)
       .join(' ');
-    return { name, value, start: toks[0].start, end: toks[n - 1].end };
+    return { name, value, start: toks[0].start + off, end: toks[n - 1].end + off };
   } catch {
     return null;
   }

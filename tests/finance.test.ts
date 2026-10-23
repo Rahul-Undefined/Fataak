@@ -34,7 +34,7 @@ describe('finance formulas (deterministic)', () => {
 describe('finance via natural language', () => {
   it('GST', () => {
     expect(last('25000 pe 18% GST add karo')).toBe('29,500');
-    expect(last('25000 er upor 18% GST add koro')).toBe('29,500');
+    expect(last('25000 pe 18% GST lagao')).toBe('29,500');
     expect(last('18% GST on 25000')).toBe('29,500');
     expect(last('₹25000 + 18% gst')).toBe('₹29,500');
     expect(last('29500 inclusive of 18% GST')).toBe('25,000');
@@ -49,7 +49,7 @@ describe('finance via natural language', () => {
   it('discount', () => {
     expect(last('20% discount on 1500')).toBe('1,200');
     expect(last('1500 pe 20% chhoot')).toBe('1,200');
-    expect(last('1500 e 20% chhar dile')).toBe('1,200');
+    expect(last('1500 pe 20% chhoot do')).toBe('1,200');
     expect(lastNote('20% discount on 1500')).toContain('saved 300');
     expect(run('discount on 1500')[0].note).toContain('discount %?');
   });
@@ -66,7 +66,7 @@ describe('finance via natural language', () => {
   it('profit and loss', () => {
     expect(last('bought at 500 sold at 600')).toBe('100 profit');
     expect(last('500 me kharida 600 me becha')).toBe('100 profit');
-    expect(last('500 te kinlam 400 e bechlam')).toBe('100 loss');
+    expect(last('500 me kharida 400 me becha')).toBe('100 loss');
     expect(lastNote('bought at 500 sold at 600')).toContain('20% on cost');
     expect(last('20% profit on 500')).toBe('600');
     expect(last('cp 500 sp 450')).toBe('50 loss');
@@ -81,7 +81,7 @@ describe('finance via natural language', () => {
     expect(last('emi 5 lakh at 9% for 5 years')).toBe('10,379.18/month');
     expect(last('5 lakh ka loan 9% pe 5 saal emi')).toBe('10,379.18/month');
     expect(last('₹5 lakh loan 9% 60 months emi')).toBe('₹10,379.18/month');
-    expect(last('5 lakh taka loan 9% e 5 bochor emi koto')).toBe('10,379.18 BDT/month');
+    expect(last('5 lakh ka loan 9% pe 5 saal, emi kitni')).toBe('10,379.18/month');
     expect(run('emi 5 lakh at 9%')[0].note).toContain('tenure?');
     expect(run('emi 5 lakh for 5 years')[0].note).toContain('rate?');
   });
@@ -90,14 +90,14 @@ describe('finance via natural language', () => {
     expect(last('10000 pe 5% byaj 2 saal')).toBe('1,000');
     expect(lastNote('10000 pe 5% byaj 2 saal')).toContain('total 11,000');
     expect(last('compound interest 10000 at 5% for 2 years')).toBe('1,025');
-    expect(last('10000 er 5% chakrabriddhi sud 2 bochor monthly')).toBe('1,049.41');
+    expect(last('10000 pe 5% chakravriddhi byaj 2 saal monthly')).toBe('1,049.41');
   });
   it('date arithmetic', () => {
     expect(last('today + 30 days')).toBe('22 Nov 2026');
     expect(last('aaj se 45 din baad')).toBe('Mon, 7 Dec 2026');
-    expect(last('ajke theke 45 din por')).toBe('Mon, 7 Dec 2026');
+    expect(last('aaj ke 45 din baad')).toBe('Mon, 7 Dec 2026');
     expect(last('days between 1 jan 2026 and 15 mar 2026')).toBe('73 days');
-    expect(last('1 jan 2026 theke 15 mar 2026 koto din')).toBe('73 days');
+    expect(last('1 jan 2026 se 15 mar 2026 tak kitne din')).toBe('73 days');
     expect(last('next friday + 2 weeks')).toBe('13 Nov 2026');
     expect(last('15 mar 2026 - 1 jan 2026')).toBe('73 days');
     expect(last('today - 2026-01-01')).toBe('295 days');

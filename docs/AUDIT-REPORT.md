@@ -14,7 +14,7 @@ npx vitest run                      # 15 files, 552 tests, 552 passed, 0 failed
 | Suite               | Tests | What it covers                                                        |
 | ------------------- | ----: | --------------------------------------------------------------------- |
 | audit               |   108 | regressions found by the audit matrix (~430 inputs run by hand)       |
-| paraphrase          |   111 | same question in English / Hinglish / Bengalish must give one answer  |
+| paraphrase          |   111 | same question in English / Hinglish must give one answer  |
 | engine-units        |    33 | pure functions: finance, units, dates, formatting, rounding           |
 | properties          |    12 | seeded identities: reverse %, GST add/remove, margin↔markup, EMI sums |
 | regression 1–4      |   197 | the four earlier review rounds                                        |
@@ -39,7 +39,7 @@ npx vitest run                      # 15 files, 552 tests, 552 passed, 0 failed
    requires a selling-price or profit/loss word; a bare "cost" is a unit price.
 5. **Anchored offsets.** `aaj ke 45 din baad` produced two dates (today, today+45) and reported
    the span between them. An offset immediately after today/tomorrow/yesterday now shifts that date.
-6. **Hindi/Bengali multiplication order.** `12 ka 3 guna` only matched plain digits; a Python patch
+6. **Hindi multiplication order.** `12 ka 3 guna` only matched plain digits; a Python patch
    had also corrupted the regex with a literal backspace byte. Rewritten to accept scale words
    (`3 lakh ka 2 guna` → 600,000) and checked byte-for-byte.
 7. **Mixed currencies.** `$100 + ₹500` silently used one currency. Adding money in different
@@ -76,7 +76,7 @@ item × unit price with tax, lists (sum/avg/median/min/max), unit and compound-u
 cubic volumes, temperature, data sizes, dates (offsets, last/first day, weekdays, age, leap years,
 weekday names, days until/since), time spans with breaks, time-zone conversion (fixed abbreviations
 vs IANA cities), live/cached/historical currency with disclosed rate dates.
-Languages: English, Hinglish, Bengalish, mixed, with number words in all three.
+Languages: English and Hinglish, mixed, with number words in both.
 
 ## Known limitations and data dependencies
 
@@ -96,3 +96,32 @@ Languages: English, Hinglish, Bengalish, mixed, with number words in all three.
 - Historical conversions across currency redenominations.
 - Dates typed as `dd/mm` vs `mm/dd` (the engine reads day-first).
 - Rounding of EMI schedules against a bank's own statement (banks differ in the last instalment).
+
+## Reliability upgrade (23 Oct 2026, round two)
+
+No AI integration existed or exists: runtime dependencies are decimal.js and luxon only; the only network
+calls are the two exchange-rate providers in the main process; the renderer's CSP is `connect-src 'none'`.
+
+**Baseline.** 36 inputs reported from app testing were replayed against the engine: 13 failed or gave wrong
+numbers (power words summed as "17", percent sums read as a ratio, tax rates combined with a discount,
+owes/pays and had/spent sentences, multi-target conversions, variables defined mid-sentence). The others
+(parenthesised arithmetic, decimals, weekdays, zoned dates) already passed; those app failures came from
+an older installed build.
+
+**Benchmark.** `tests/benchmark.test.ts` holds 802 cases in two rounds written after the fixes of the
+previous round, with answers worked by hand or with Python's decimal module. All 802 pass:
+
+| Group                       | Cases | Target  | Result |
+| --------------------------- | ----: | ------- | ------ |
+| core arithmetic             |   109 | ≥ 99.9% | 100%   |
+| structured intents          |   510 | ≥ 99%   | 100%   |
+| natural-language (Hinglish) |    68 | ≥ 95%   | 100%   |
+| must fail clearly           |   115 | 0 wrong | 0 wrong|
+
+The engine suite (550 tests) also passes. Two expected values supplied with the report were themselves
+wrong and were not matched: 17.5% of 864 plus 12.5% of 640 divided by 4 is 57.8 (not 69.525), and 4.65
+acres is 18,817.88 m² with the international acre (not 18,819.7).
+
+**Known limitations.** "bought at 500" alone echoes 500 (a definition-like line, as in Numi); "apples 5"
+defines `apples`; `10 % 3` is percent-of; two durations added print in minutes; durations across two
+zones need both clock times; public holidays are unknown; dates are read day-first.

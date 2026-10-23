@@ -74,8 +74,8 @@ describe('finance: tax stacks, cost from sale, accounting lines, loan types', ()
     ['cgst sgst on 1000 at 18%', '1,180'],
     ['cost price if sold at 500 with 25% profit', '400'],
     ['cost price if sold at 300 with 25% loss', '400'],
-    ['gross margin revenue 1000 cogs 600', '40%'],
-    ['revenue 1000 cogs 600 opex 200 operating profit', '200 profit'],
+    ['gross margin revenue 1000 cogs 600', '40% gross margin'],
+    ['revenue 1000 cogs 600 opex 200 operating profit', '200 operating profit'],
     ['si 10000 8% 3 years', '2,400'],
     ['ci 10000 8% 3 years monthly', '2,702.37'], // 10000·(1+0.08/12)^36 − 10000
     ['flat rate loan 100000 at 10% for 2 years monthly payment', '5,000/month'], // (100000 + 20000) / 24
@@ -129,11 +129,11 @@ describe('dates: counts, questions, relative days, time spans', () => {
     ['3 din baad', 'Mon, 26 Oct 2026'],
     ['agle somvar', 'Mon, 26 Oct 2026'],
     ['aaj ka din kya hai', 'Friday, 23 Oct 2026'],
-    ['ajke ki bar', 'Friday, 23 Oct 2026'],
+    ['aaj kaunsa din hai', 'Friday, 23 Oct 2026'],
     ['hours between 9am and 5:30pm', '8 hours 30 minutes'],
     ['9am to 5pm minus 30 min break', '7 hours 30 minutes'],
     ['10 baje se 5 baje tak kitne ghante', '7 hours'],
-    ['sokal 10 ta theke bikel 5 ta koto ghonta', '7 hours'],
+    ['subah 10 baje se sham 5 baje tak kitne ghante', '7 hours'],
     ['10pm to 6am', '8 hours'],
     ['february 2028 ka last day', 'Tue, 29 Feb 2028'],
     ['31 jan 2027 + 1 month', '28 Feb 2027'],
@@ -170,7 +170,7 @@ describe('currency and context', () => {
 describe('audit follow-up: scale words in multiplication, anchored offsets, cost-only lines', () => {
   it.each([
     ['3 lakh ka 2 guna', '600,000'],
-    ['2.5 lakh er 3 gun', '750,000'],
+    ['2.5 lakh ka 3 guna', '750,000'],
     ['aaj ke 45 din baad', 'Mon, 7 Dec 2026'],
     ['kal ke 10 din baad', 'Tue, 3 Nov 2026'],
     ['today 3 weeks later', 'Fri, 13 Nov 2026'],

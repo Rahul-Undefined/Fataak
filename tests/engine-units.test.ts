@@ -102,7 +102,7 @@ describe('formatting', () => {
     expect(formatNumber(new Decimal('-0'))).toBe('0');
     expect(formatMoney(new Decimal('1234567.891'), 'INR')).toBe('₹12,34,567.89');
     expect(formatMoney(new Decimal('-5'), 'USD')).toBe('-$5');
-    expect(formatMoney(new Decimal('5'), 'EUR')).toBe('5 EUR');
+    expect(formatMoney(new Decimal('5'), 'EUR')).toBe('€5');
   });
 });
 

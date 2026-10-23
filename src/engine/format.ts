@@ -77,7 +77,7 @@ export function formatQuantity(q: Quantity): string {
     case 'number':
       return formatNumber(q.value);
     case 'percent':
-      return `${formatNumber(q.value)}%`;
+      return `${formatNumber(q.value, { maxDecimals: 2 })}%`;
     case 'money':
       return formatMoney(q.value, q.currency!);
     case 'unit': {

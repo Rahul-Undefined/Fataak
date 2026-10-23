@@ -6,9 +6,9 @@ const summer = DateTime.fromISO('2026-07-15T10:00:00', { zone: 'Asia/Kolkata' })
 const winter = DateTime.fromISO('2026-12-15T10:00:00', { zone: 'Asia/Kolkata' }); // US on EST, UK on GMT
 
 describe('time zone conversion', () => {
-  it('English, Hinglish and Bengalish phrasings agree', () => {
+  it('English and Hinglish phrasings agree', () => {
     expect(last('6pm IST to EST', { now: winter })).toBe('7:30 AM EST');
-    expect(last('6pm IST theke EST e convert koro', { now: winter })).toBe('7:30 AM EST');
+    expect(last('6pm IST se EST me', { now: winter })).toBe('7:30 AM EST');
     expect(last('6pm IST ko EST me convert karo', { now: winter })).toBe('7:30 AM EST');
     expect(last('6 pm ist me kitne baje honge est me', { now: winter })).toBe('7:30 AM EST');
   });
@@ -49,7 +49,7 @@ describe('time zone conversion', () => {
   it('current time in a city', () => {
     expect(last('time in tokyo')).toBe('1:30 PM JST');
     expect(last('New York time')).toBe('12:30 AM EDT');
-    expect(last('tokyo te ekhon koto baje')).toBe('1:30 PM JST');
+    expect(last('tokyo me abhi kitne baje')).toBe('1:30 PM JST');
     expect(last('dubai me abhi kitne baje hain')).toBe('8:30 AM GST');
   });
 
@@ -61,7 +61,7 @@ describe('time zone conversion', () => {
     expect(last('in 3 hours est time')).toBe('2:30 AM EST');
     expect(last('30 min ago in tokyo')).toBe('1:00 PM JST');
     expect(last('2 ghante baad est me kitne baje')).toBe('1:30 AM EST');
-    expect(last('ekhon theke 2 ghonta por tokyo te koto baje')).toBe('3:30 PM JST');
+    expect(last('abhi se 2 ghante baad tokyo me kitne baje')).toBe('3:30 PM JST');
     expect(last('now + 2 hours in est')).toBe('1:30 AM EST');
     expect(last('6pm + 1 hour in est')).toBe('8:30 AM EST');
     expect(last('now in new york')).toBe('12:30 AM EDT');

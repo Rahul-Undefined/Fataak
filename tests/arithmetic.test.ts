@@ -40,9 +40,9 @@ describe('arithmetic', () => {
     expect(last('$500 + 18%')).toBe('$590');
     expect(last('20% of $10')).toBe('$2');
     expect(last('5% on $30')).toBe('$31.5');
-    expect(last('6% off 40 EUR')).toBe('37.6 EUR');
+    expect(last('6% off 40 EUR')).toBe('€37.6');
     expect(last('$50 as a % of $100')).toBe('50%');
-    expect(last('5% of what is 6 EUR')).toBe('120 EUR');
+    expect(last('5% of what is 6 EUR')).toBe('€120');
     expect(last('20% of what is 30 cm')).toBe('150 cm');
     expect(last('30 is what % of 150')).toBe('20%');
     expect(last('150 to 200 % change')).toBe('33.33% increase');
@@ -85,7 +85,7 @@ describe('arithmetic', () => {
   it('currency', () => {
     expect(last('100 USD in INR')).toBe('₹8,400');
     expect(last('₹5000 ka 18%')).toBe('₹900');
-    expect(last('$30 in Euro')).toBe('27.6 EUR');
+    expect(last('$30 in Euro')).toBe('€27.6');
     expect(lastNote('100 USD in INR')).toContain('1 USD = 84 INR');
     expect(lastNote('100 USD in INR')).toContain('23 Oct 00:02 UTC');
     expect(last('$10 + 5 EUR in USD')).toBe('$15.43');

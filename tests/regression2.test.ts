@@ -1,4 +1,4 @@
-/** Round-2 regression suite: division, sequential discounts, previous-result policy, Bengalish percent,
+/** Round-2 regression suite: division, sequential discounts, previous-result policy, Hinglish percent,
  *  historical and offline conversion, GST-inclusive price + discount. */
 import { describe, it, expect } from 'vitest';
 import { last, lastNote, run, testRates } from './helpers';
@@ -11,7 +11,7 @@ describe('A. division among people / parts', () => {
     '50000 ke 3 equal parts',
     '50000 ke 3 bhag karo',
     'split 50000 between 3 people',
-    '50000 taka 3 joner moddhe bhag koro'.replace('taka ', ''),
+    '50000 ko 3 hisson me baanto',
     '3 logon me 50000 baanto',
   ])('%s → 16,666.67 each', (input) => {
     const r = run(input)[0];
@@ -43,7 +43,7 @@ describe('B. sequential discounts', () => {
   it.each([
     ['20% then 10% discount on 1000', '720'],
     ['1000 pe pehle 20% discount, phir 10% discount', '720'],
-    ['1000 e 20% chhar, tarpor abar 10% chhar', '720'],
+    ['1000 pe 20% chhoot, phir aur 10% chhoot', '720'],
     ['20% and 10% discount on 1000', '720'],
     ['1000 pe 20% chhoot aur phir 10% aur', '720'],
     ['apply 20% off then another 10% off starting at 1000', '720'],
@@ -56,8 +56,8 @@ describe('C. previous-result references (documented policy)', () => {
   it('"that" and "previous result" use the nearest valid result above', () => {
     const doc = ['Calculate a 10% raise, then another 5% raise on the new amount, starting at 50000', "What's 10% of that?"];
     expect(last(doc)).toBe('5,775');
-    expect(last(['1000 takar moddhe 18% GST ache, base koto?', '10% of the previous result'])).toBe('84.75 BDT');
-    expect(run(['1000 takar moddhe 18% GST ache, base koto?', '10% of the previous result'])[1].value!.value.toFixed(6)).toBe('84.745763');
+    expect(last(['1000 me 18% GST included hai, base kitna?', '10% of the previous result'])).toBe('84.7458');
+    expect(run(['1000 me 18% GST included hai, base kitna?', '10% of the previous result'])[1].value!.value.toFixed(6)).toBe('84.745763');
   });
   it('a failed, blank or text line never replaces the last valid result', () => {
     expect(last(['57750', '5 +', 'What is 10% of that?'])).toBe('5,775');
@@ -84,13 +84,13 @@ describe('C. previous-result references (documented policy)', () => {
   });
 });
 
-describe('D. Bengalish percentage', () => {
+describe('D. Hinglish percentage', () => {
   it.each([
-    ['2500 takar 5 percent ber koro', '125 BDT'],
-    ['2500 takar 5% koto?', '125 BDT'],
-    ['2500 er 5 percent koto?', '125'],
-    ['2500 taka theke 5 percent ber koro', '125 BDT'],
-    ['2500 takay 5% kato hobe', '125 BDT'],
+    ['2500 rupaye ka 5 percent nikalo', '₹125'],
+    ['2500 rupaye ka 5% kitna?', '₹125'],
+    ['2500 ka 5 percent kitna?', '125'],
+    ['2500 rupaye me se 5 percent nikalo', '₹125'],
+    ['2500 pe 5% kitna hoga', '125'],
     ['2500 rupaye ka 5 percent nikalo', '₹125'],
   ])('%s → %s', (input, expected) => {
     const r = run(input)[0];
@@ -132,7 +132,7 @@ describe('F. GST-inclusive price followed by a discount', () => {
   });
   it.each([
     ['₹1000 GST samet 18%, phir 10% discount', '₹900'],
-    ['1000 taka 18% gst dhore, tarpor 10% chhar', '900 BDT'],
+    ['1000 me 18% gst included hai, phir 10% chhoot', '900'],
     ['25000 + 18% gst, then 5% discount', '28,025'],
   ])('%s → %s', (input, expected) => {
     expect(last(input)).toBe(expected);

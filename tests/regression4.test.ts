@@ -8,7 +8,7 @@ describe('reverse percentage with an outcome', () => {
     ['What original amount becomes 3910 after a 15% increase?', '3,400'],
     ['which amount becomes 2550 after a 15% decrease', '3,000'],
     ['15% badhne ke baad 3910 hota hai, original kitna tha?', '3,400'],
-    ['15% barar por 3910 hoy, agey koto chhilo?', '3,400'],
+    ['15% badhne ke baad 3910 ho jata hai, pehle kitna tha?', '3,400'],
   ])('%s → %s', (input, expected) => {
     expect(last(input)).toBe(expected);
   });
@@ -82,7 +82,7 @@ describe('weekday counts', () => {
     expect(r.display).toBe('21 weekdays');
     expect(last('working days between 1 jan 2027 and 31 jan 2027')).toBe('21 weekdays');
     expect(last('weekend days from 1 jan 2027 to 31 jan 2027')).toBe('10 weekend days');
-    expect(last('1 jan 2027 theke 31 jan 2027 kajer din koto')).toBe('21 weekdays');
+    expect(last('1 jan 2027 se 31 jan 2027 tak kaam ke din kitne')).toBe('21 weekdays');
   });
   it('plain day differences stay exclusive unless asked', () => {
     expect(last('days between 1 jan 2027 and 31 jan 2027')).toBe('30 days');
@@ -113,7 +113,7 @@ describe('chained raise and deduction', () => {
   it.each([
     ['Salary 68000, increase by 7%, then deduct 10%.', '65,484'],
     ['salary 68000 ko 7% badhao, phir 10% kaato'.replace('kaato', 'ghatao'), '65,484'],
-    ['68000 e 7% barao tarpor 10% komao', '65,484'],
+    ['68000 me 7% badhao phir 10% ghatao', '65,484'],
   ])('%s → %s', (input, expected) => {
     const r = run(input)[0];
     expect(r.display).toBe(expected);
