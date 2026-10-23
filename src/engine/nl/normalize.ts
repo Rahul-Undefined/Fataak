@@ -21,7 +21,8 @@ const PHRASES: [string, string][] = [
   ['kya hoga', 'what'], ['kya hogi', 'what'], ['kya hai', 'what'], ['kya hain', 'what'], ['kitna hoga', 'what'], ['kitna hogi', 'what'], ['kitni hogi', 'what'], ['kitna hai', 'what'],
   ['kitne hain', 'what'], ['koto hobe', 'what'], ['kato hobe', 'what'], ['koto hbe', 'what'], ['ki hobe', 'what'], ['koto ache', 'what'], ['kotota', 'what'], ['how much', 'what'], ['how many', 'what'],
   ['what is', 'what'], ['what will be', 'what'], ['what would be', 'what'], ["what's", 'what'], ['whats', 'what'], ['kitna', 'what'], ['kitni', 'what'], ['kitne', 'what'], ['kya', 'what'],
-  ['koto', 'what'], ['kato', 'what'], ['kot', 'what'], ['kto', 'what'], ['ktna', 'what'], ['kitta', 'what'], ['kis', 'what'], ['kaunsa', 'what'], ['konsa', 'what'], ['kaunse', 'what'], ['kon', 'what'], ['konta', 'what'],
+  ['koto', 'what'], ['kato', 'what'], ['kot', 'what'], ['kto', 'what'], ['ktna', 'what'], ['kitta', 'what'], ['kis', 'what'], ['kaunsa', 'what'], ['konsa', 'what'], ['kaunse', 'what'], ['kon', 'what'], ['konta', 'what'], ['which', 'what'],
+  ['barar', 'increase'], ['baranor', 'increase'], ['barano', 'increase'], ['barhne', 'increase'], ['badhne', 'increase'], ['komar', 'decrease'], ['komanor', 'decrease'], ['ghatne', 'decrease'], ['chhilo', 'before'], ['chilo', 'before'], ['tha', 'before'], ['thi', 'before'],
   // --- increase ---
   ['badha do', 'increase'], ['bada do', 'increase'], ['barha do', 'increase'], ['badhaa do', 'increase'], ['up by', 'increase'], ['bump up', 'increase'], ['upar karo', 'increase'], ['barhaye', 'increase'],
   ['badhao', 'increase'], ['badhado', 'increase'], ['badha', 'increase'], ['badhaye', 'increase'], ['badhana', 'increase'], ['badhane', 'increase'], ['badhakar', 'increase'], ['badhne', 'increase'], ['badhaao', 'increase'],
@@ -147,6 +148,12 @@ const PHRASES: [string, string][] = [
   // --- math words ---
   ['square root of', 'sqrt'], ['square root', 'sqrt'], ['sqrt of', 'sqrt'], ['vargmool', 'sqrt'], ['vargmul', 'sqrt'], ['borgomul', 'sqrt'], ['cube root of', 'cbrt'], ['cube root', 'cbrt'], ['squared', '^ 2'], ['cubed', '^ 3'],
   ['to the power of', '^'], ['to the power', '^'], ['raised to', '^'], ['ki power', '^'], ['ka square', '^ 2'], ['ka cube', '^ 3'], ['ka varg', '^ 2'], ['er borgo', '^ 2'], ['er ghon', '^ 3'],
+  // --- allocation / weekdays / outcomes ---
+  ['allocate', 'divide'], ['allocated', 'divide'], ['allocation', 'divide'], ['distribute', 'divide'], ['distributed', 'divide'], ['break up', 'divide'], ['breakup', 'divide'], ['split into', 'divide in'], ['split up', 'divide'],
+  ['remaining', 'remaining'], ['remainder', 'remaining'], ['rest', 'remaining'], ['balance', 'remaining'], ['baki', 'remaining'], ['baaki', 'remaining'], ['bacha', 'remaining'], ['bacha hua', 'remaining'], ['bache', 'remaining'], ['baki ta', 'remaining'], ['leftover', 'remaining'],
+  ['weekdays', 'weekdays'], ['weekday', 'weekdays'], ['working days', 'weekdays'], ['business days', 'weekdays'], ['work days', 'weekdays'], ['kaam ke din', 'weekdays'], ['kajer din', 'weekdays'], ['weekends', 'weekends'], ['weekend', 'weekends'], ['weekend days', 'weekends'],
+  ['through', 'to'], ['thru', 'to'], ['up to and including', 'to inclusive'], ['including both', 'inclusive'], ['dono din milake', 'inclusive'],
+  ['becomes', 'after'], ['become', 'after'], ['became', 'after'], ['ban jata hai', 'after'], ['ban jata', 'after'], ['ho jata hai', 'after'], ['ho jata', 'after'], ['hoye jay', 'after'], ['hoye jai', 'after'], ['results in', 'after'], ['gives', 'after'], ['yields', 'after'], ['ends up at', 'after'],
   // --- reverse percentage ("840 is 12% less than what") ---
   ['more than', 'increase than'], ['greater than', 'increase than'], ['higher than', 'increase than'], ['less than', 'decrease than'], ['lower than', 'decrease than'], ['smaller than', 'decrease than'],
   ['se zyada', 'increase than'], ['se jyada', 'increase than'], ['se kam', 'decrease than'], ['theke beshi', 'increase than'], ['theke kom', 'decrease than'], ['original amount', 'what'], ['original number', 'what'], ['original value', 'what'], ['original', 'what'],
@@ -185,6 +192,7 @@ export const CANON_KEYWORDS = new Set<string>([
   'increase', 'decrease', 'add', 'remove', 'inclusive', 'gst', 'discount', 'profit', 'loss', 'cost', 'sell', 'margin', 'markup', 'emi', 'loan', 'interest', 'simple', 'compound',
   'convert', 'change', 'what', 'after', 'before', 'between', 'with', 'without', 'yearly', 'monthly', 'quarterly', 'half-yearly', 'daily', 'time', 'now', 'today', 'tomorrow', 'yesterday', 'next', 'last', 'from', 'to', 'in', 'of', 'on', 'at', 'for',
   'revenue', 'expenses', 'prev', 'that', 'then', 'another', 'start', 'double', 'triple', 'times', 'divide', 'minus', 'plus', 'total', 'sum', 'parts', 'equally', 'people', 'each', 'reset', 'items', 'than', 'sqrt', 'cbrt',
+  'remaining', 'weekdays', 'weekends',
 ]);
 
 /** every source word/phrase the normaliser knows (for syntax highlighting of Hinglish/Bengalish verbs) */
@@ -291,6 +299,9 @@ export function normalize(text: string): Normalized {
   const notes: string[] = [];
   let s = text.toLowerCase();
   s = s.replace(/[?!¿]/g, ' ');
+  // sentence-ending periods are not part of a word ("1.8 lakh.", "10%.", "litres."); decimal points stay.
+  // A period inside the text ends a clause; the final one is simply dropped.
+  s = s.replace(/[.?!]+\s*$/, '').replace(/\.(?=\s)/g, ' , ');
   // commas and semicolons separate clauses ("rahul 150, rohit 250, total") but commas stay inside numbers (1,00,000)
   s = s.replace(/,(?=\s|$)/g, ' , ').replace(/;/g, ' , ');
   s = s.replace(/(\d)\s*%/g, '$1%');

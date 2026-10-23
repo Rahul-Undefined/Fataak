@@ -146,7 +146,7 @@ describe('H. sequential percentage changes', () => {
   it('two raises starting at 50000', () => {
     const r = run('Calculate a 10% raise, then another 5% raise on the new amount, starting at 50000')[0];
     expect(r.display).toBe('57,750');
-    expect(r.note).toContain('50,000 → 55,000 → 57,750');
+    expect(r.note).toContain('50,000 → 55,000 (+10% = 5,000) → 57,750 (+5% = 2,750)');
     expect(r.note).toContain('+7,750 (15.5%)');
   });
   it.each([

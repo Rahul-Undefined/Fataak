@@ -106,7 +106,8 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   }
 
   const { clean: cleanRaw, comments } = stripQuotes(body);
-  const { text: clean, places: roundTo } = extractRounding(cleanRaw);
+  // a sentence-ending period/question mark is punctuation, not part of the expression ("1000 + 10%.")
+  const { text: clean, places: roundTo } = extractRounding(cleanRaw.replace(/[.?!]+\s*$/, ''));
   const commentRanges = comments.map((c) => ({ start: c.start + bodyOffset, end: c.end + bodyOffset }));
   let labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
   const spans = () => highlight(rawText, labelRange, variables, commentRanges);

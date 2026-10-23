@@ -96,6 +96,13 @@ saal, kitna milega?` → the amount (interest in the note) while `simple interes
 `Square root of 50 rounded to 3 decimal places` → 7.071; `2.75 hours into hours and minutes` → 2 hours 45
 minutes; `days until 25 dec 2026`; `1200 er 15 percent ber kore tar sathe 80 jog koro` → 260.
 
+**Also understood.** `What original amount becomes 3910 after a 15% increase?` → 3,400; `Revenue is 12 lakh and
+net profit is 1.8 lakh, net profit margin` → 15%; `Split 96000 into 25% rent, 18% food, 12% travel, 15% savings and
+remaining other expenses` → each share (and `rent`, `food`… become names); `2.4 cubic metres to litres`; `15% of 800,
+then subtract 35% of 240` → 36; `weekdays from 1 January 2027 through 31 January 2027` → 21 weekdays; `4 items at
+1250 each, a 10% discount before GST, and 18% GST` → 5,310 with each step labelled; `Salary 68000, increase by 7%,
+then deduct 10%` → 65,484. A sentence-ending period is ignored.
+
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.
 

@@ -37,7 +37,7 @@ describe('B. sequential discounts', () => {
   it('two discounts with requested outputs', () => {
     const r = run('Discount 20% followed by another 10% discount on 1000; calculate final price and effective discount')[0];
     expect(r.display).toBe('720');
-    expect(r.note).toContain('1,000 → 800 → 720');
+    expect(r.note).toContain('1,000 → 800 (−20% = 200) → 720 (−10% = 80)');
     expect(r.note).toContain('−280 (28%)');
   });
   it.each([
@@ -126,9 +126,8 @@ describe('F. GST-inclusive price followed by a discount', () => {
   it('final payable is the discounted inclusive price, with the split shown', () => {
     const r = run('1000 including 18% GST, then apply 10% discount')[0];
     expect(r.display).toBe('900');
-    expect(r.note).toContain('1,000 → 900');
-    expect(r.note).toContain('−100 (10%)');
-    expect(r.note).toContain('taxable base 762.71');
+    expect(r.note).toContain('1,000 → 900 (−10% = 100)');
+    expect(r.note).toContain('taxable value 762.71');
     expect(r.note).toContain('GST 137.29');
   });
   it.each([

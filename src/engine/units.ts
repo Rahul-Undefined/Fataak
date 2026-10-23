@@ -43,6 +43,10 @@ export const UNITS: UnitDef[] = [
   u('floz', 'volume', '0.0295735295625', 'fl oz', ['floz', 'fl oz', 'fluid ounce', 'fluid ounces']),
   u('pint', 'volume', '0.473176473', 'pt', ['pint', 'pints']),
   u('gal', 'volume', '3.785411784', 'gal', ['gal', 'gallon', 'gallons']),
+  u('m3', 'volume', 1000, 'm³', ['m3', 'm³', 'cbm', 'cu m', 'cubic meter', 'cubic meters', 'cubic metre', 'cubic metres', 'cubic m']),
+  u('cm3', 'volume', '0.001', 'cm³', ['cm3', 'cm³', 'cc', 'cu cm', 'cubic cm', 'cubic centimeter', 'cubic centimeters', 'cubic centimetre', 'cubic centimetres']),
+  u('ft3', 'volume', '28.316846592', 'ft³', ['ft3', 'cu ft', 'cubic feet', 'cubic foot', 'cft']),
+  u('in3', 'volume', '0.016387064', 'in³', ['in3', 'cu in', 'cubic inch', 'cubic inches']),
   // temperature (special handling)
   u('c', 'temperature', 1, '°C', ['c', '°c', 'celsius', 'centigrade', 'degc', 'deg c']),
   u('f', 'temperature', 1, '°F', ['f', '°f', 'fahrenheit', 'degf', 'deg f']),

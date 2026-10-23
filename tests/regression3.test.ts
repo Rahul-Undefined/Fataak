@@ -28,8 +28,8 @@ describe('quantity × price and tax steps', () => {
   it('5 items cost 24.75 each, add 12% tax → 138.6', () => {
     const r = run('5 items cost 24.75 each, add 12% tax')[0];
     expect(r.display).toBe('138.6');
-    expect(r.note).toContain('123.75 → 138.6');
-    expect(r.note).toContain('taxable base 123.75');
+    expect(r.note).toContain('123.75 → 138.6 (+ GST 12% = 14.85)');
+    expect(r.note).toContain('taxable value 123.75');
     expect(r.note).toContain('GST 14.85');
   });
   it.each([

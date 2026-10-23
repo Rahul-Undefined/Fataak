@@ -42,7 +42,7 @@ const VERBS = new Set([
 const SCALE_WORDS = new Set(['k', 'thousand', 'hazaar', 'hazar', 'hajar', 'lakh', 'lakhs', 'lac', 'lacs', 'crore', 'crores', 'cr', 'koti', 'lokkho', 'million', 'mn', 'billion', 'bn', 'hundred']);
 const SEQUENCE_SPLIT = new Set([',', 'then', 'and', 'that']);
 /** words that mean "do something to the amount": a sentence with none of them and "X P%" is a plain percent-of */
-const OPERATION_WORDS = new Set(['increase', 'decrease', 'add', 'remove', 'discount', 'off', 'on', 'gst', 'profit', 'loss', 'margin', 'markup', 'emi', 'loan', 'interest', 'change', 'minus', 'plus', 'times', 'divide', 'double', 'triple', 'to']);
+const OPERATION_WORDS = new Set(['increase', 'decrease', 'add', 'remove', 'discount', 'off', 'on', 'gst', 'profit', 'loss', 'margin', 'markup', 'emi', 'loan', 'interest', 'change', 'minus', 'plus', 'times', 'divide', 'double', 'triple', 'to', '+', '-', '*', '/', '^']);
 
 export interface Parsed {
   words: string[];
@@ -83,10 +83,29 @@ function numberAt(p: Parsed, i: number, ctx: EvalContext): { q: Quantity; used: 
   const used = new Set<number>([i]);
   const parts = [p.words[i]];
   let j = i + 1;
-  while (j < p.words.length && (SCALE_WORDS.has(p.words[j]) || isCurrencyWord(p.words[j]) || (isUnitWord(p.words[j]) && !TIME_UNITS.has(p.words[j])))) {
-    parts.push(p.words[j]);
-    used.add(j);
-    j++;
+  for (;;) {
+    if (j >= p.words.length) break;
+    if (SCALE_WORDS.has(p.words[j]) || isCurrencyWord(p.words[j]) || (isUnitWord(p.words[j]) && !TIME_UNITS.has(p.words[j]))) {
+      parts.push(p.words[j]);
+      used.add(j);
+      j++;
+      continue;
+    }
+    // multi-word units: "cubic metres", "tea spoons", "sq ft"
+    let matched = false;
+    for (let n = 3; n >= 2; n--) {
+      const phrase = p.words.slice(j, j + n).join(' ');
+      if (j + n <= p.words.length && isUnitWord(phrase)) {
+        for (let k = 0; k < n; k++) {
+          parts.push(p.words[j + k]);
+          used.add(j + k);
+        }
+        j += n;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) break;
   }
   // currency word before the number: "inr 5000"
   if (i > 0 && isCurrencyWord(p.words[i - 1]) && !TIME_UNITS.has(p.words[i - 1])) {
@@ -252,7 +271,13 @@ function analyseClause(raw: RawClause, ctx: EvalContext): Clause {
   const p = analyse(words, []);
   p.isStartLike = p.has('start');
   const c: Clause = { words, p, isStart: p.has('start'), wantsTotal: p.has('total') || p.has('sum'), ops: [], refersBack: raw.refersBack };
-  if (p.has('gst') && p.pcts.length >= 1) return gstClause(p, ctx, c);
+  // a GST clause is one whose percentage sits next to the word GST ("18% GST", "GST 18%"); "10% discount before GST" is a discount
+  const gstIdx = p.idx('gst');
+  const gstPct = gstIdx >= 0 ? p.pcts.find((i) => Math.abs(i - gstIdx) <= 2 && !p.words.slice(Math.min(i, gstIdx) + 1, Math.max(i, gstIdx)).some((w) => w === 'discount' || w === 'before')) : undefined;
+  if (gstPct !== undefined) {
+    const gp: Parsed = { ...p, pcts: [gstPct, ...p.pcts.filter((i) => i !== gstPct)] };
+    return gstClause(gp, ctx, c);
+  }
   // "5 items cost 24.75 each", "3 pcs @ 120": quantity × unit price is a value
   if ((p.has('each') || p.has('items')) && p.nums.length >= 2 && p.pcts.length === 0) {
     const countIdx = p.nums.find((i) => p.words[i + 1] === 'items' || p.words[i - 1] === 'items') ?? p.nums[0];
@@ -273,6 +298,17 @@ function analyseClause(raw: RawClause, ctx: EvalContext): Clause {
 
   if (p.pcts.length >= 1) {
     const refersBack = raw.refersBack || p.has('prev');
+    // "subtract 35% of 240" / "add 10% of 500": the percentage of that number is the amount to add or subtract
+    const ofIdx = p.idx('of');
+    if (p.pcts.length === 1 && p.nums.length >= 1 && ofIdx >= 0 && (inc >= 0 || dec >= 0) && (p.nums.includes(ofIdx + 1) || p.nums.includes(ofIdx - 1))) {
+      // English "35% of 240" and Hindi "240 ka 35%" both put the number next to "of"
+      const { q } = numberAt(p, p.nums.includes(ofIdx + 1) ? ofIdx + 1 : ofIdx - 1, ctx);
+      const amount = moneyOrNumber(q.value.mul(pctAt(p, p.pcts[0])).div(100), q);
+      const kind: OpKind = dec > inc ? 'sub' : 'add';
+      c.ops.push({ kind, amount, label: `${kind === 'add' ? '+' : '−'} ${formatQuantity(amount)} (${formatNumber(pctAt(p, p.pcts[0]))}% of ${formatQuantity(q)})` });
+      c.explicitKind = true;
+      return c;
+    }
     const kind: OpKind = inc > dec && inc >= 0 ? 'pctInc' : dec >= 0 ? 'pctDec' : p.has('of') || refersBack ? 'pctOf' : 'pctInc';
     c.explicitKind = inc >= 0 || dec >= 0 || p.has('of') || refersBack;
     // every percentage in the clause is one step ("20% followed by another 10% discount")
@@ -368,11 +404,14 @@ export interface IntentResult extends Quantity {
  */
 function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
   const markers = p.has('then') || p.has('that') || p.has('start') || p.has('another');
-  if (!markers && !p.has(',')) return null;
+  if (!markers && !p.has(',') && !p.has('and')) return null;
   // specialised vocabulary (EMI, revenue, margin…) is handled by its own intent; GST and "N items at P each" may take part in a chain
-  const gate = ['emi', 'interest', 'revenue', 'expenses', 'margin', 'markup', 'sell', 'loan', 'parts', 'people', 'equally'];
+  const gate = ['emi', 'interest', 'revenue', 'expenses', 'margin', 'markup', 'sell', 'loan', 'parts', 'people', 'equally', 'weekdays', 'weekends'];
   if (!p.has('each') && !p.has('items')) gate.push('cost');
   if (gate.some((w) => p.has(w))) return null;
+  // dates ("days between 1 jan and 5 jan") belong to the date intent
+  const dateToks = tokenize(p.words.filter((w) => w !== ',').join(' ')).filter((t) => t.type !== 'space');
+  for (let i = 0; i < dateToks.length; i++) if (tryParseDate(dateToks, i, ctx.now(), ctx.zone)?.q.kind === 'date') return null;
   const clauses = splitClauses(p.words).map((w) => analyseClause(w, ctx));
   const numeric = clauses.filter((c) => c.p.nums.length || c.p.pcts.length);
   if (!markers && numeric.length < 2) return null;
@@ -414,8 +453,11 @@ function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
   const trail = [formatQuantity(acc)];
   for (const c of clauses) {
     for (const op of c.ops) {
+      const before = acc;
       acc = applyOp(acc, op, ctx);
-      trail.push(formatQuantity(acc));
+      // each step shows what it did ("4,500 (−10% = 500)", "5,310 (+ GST 18%)")
+      const step = op.kind === 'pctDec' || op.kind === 'pctInc' ? `${op.label} = ${formatQuantity(moneyOrNumber(acc.value.minus(before.value).abs(), acc))}` : op.label;
+      trail.push(`${formatQuantity(acc)} (${step})`);
     }
   }
   const delta = acc.value.minus(start.value);
@@ -428,9 +470,47 @@ function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
   if (gstRate) {
     // split the final payable amount at the GST rate so base and tax stay visible after the operations
     const r = fin.gstRemove(acc.value, gstRate);
-    note += ` · taxable base ${formatQuantity(moneyOrNumber(r.base, acc))} · GST ${formatQuantity(moneyOrNumber(r.tax, acc))} @ ${formatNumber(gstRate)}%`;
+    note += ` · taxable value ${formatQuantity(moneyOrNumber(r.base, acc))} · GST ${formatQuantity(moneyOrNumber(r.tax, acc))} @ ${formatNumber(gstRate)}%`;
   }
   return { ...acc, note };
+}
+
+/**
+ * Allocation: "Split 96000 into 25% rent, 18% food, 12% travel, 15% savings and remaining other expenses"
+ * → each share, the remainder, and the names defined for later lines.
+ */
+function intentAllocate(p: Parsed, ctx: EvalContext): IntentResult | null {
+  if (p.pcts.length < 2 || p.nums.length < 1) return null;
+  if (!(p.has('divide') || p.has('in') || p.has('remaining') || p.has('parts'))) return null;
+  if (['gst', 'discount', 'emi', 'interest', 'then', 'that'].some((w) => p.has(w))) return null;
+  const { q: total } = numberAt(p, p.nums[0], ctx);
+  const shares: { name: string; pct: Decimal; value: Quantity }[] = [];
+  let sum = new Decimal(0);
+  for (const i of p.pcts) {
+    const pct = pctAt(p, i);
+    // the label is the name word right after the percentage ("25% rent"), else right before it ("rent 25%")
+    const after = p.words[i + 1];
+    const before = p.words[i - 1];
+    const name = after && isNameWord(after, ctx) ? after : before && isNameWord(before, ctx) ? before : `part ${shares.length + 1}`;
+    sum = sum.plus(pct);
+    shares.push({ name, pct, value: moneyOrNumber(total.value.mul(pct).div(100), total) });
+  }
+  if (sum.gt(100)) throw new CalcError(`shares add up to ${formatNumber(sum)}%`, 'they must not exceed 100%');
+  let remainder: { name: string; value: Quantity } | undefined;
+  if (p.has('remaining') || sum.lt(100)) {
+    const ri = p.idx('remaining');
+    const after = ri >= 0 ? p.words.slice(ri + 1).find((w) => isNameWord(w, ctx) || w === 'expenses') : undefined;
+    remainder = { name: after ?? 'remaining', value: moneyOrNumber(total.value.minus(total.value.mul(sum).div(100)), total) };
+  }
+  const all = [...shares.map((s) => ({ name: s.name, value: s.value })), ...(remainder ? [remainder] : [])];
+  const defines: Record<string, Quantity> = {};
+  for (const a of all) if (isNameWord(a.name, ctx) || a.name === 'expenses') defines[a.name] = a.value;
+  return {
+    ...total,
+    display: all.map((a) => formatQuantity(a.value)).join(' / '),
+    note: all.map((a) => `${a.name} ${formatQuantity(a.value)}`).join(' · ') + (remainder ? ` · remaining ${formatNumber(new Decimal(100).minus(sum))}%` : ''),
+    defines,
+  };
 }
 
 // ---------------------------------------------------------------- one-shot intents
@@ -527,10 +607,24 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
   }
   if (dates.length === 0) return null;
   if (dates.length >= 2) {
-    const a = dates[0].q.date!;
-    const b = dates[1].q.date!;
-    const days = b.startOf('day').diff(a.startOf('day'), 'days').days;
-    return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
+    const a = dates[0].q.date!.startOf('day');
+    const b = dates[1].q.date!.startOf('day');
+    const span = `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}`;
+    if (p.has('weekdays') || p.has('weekends')) {
+      // count calendar days in [a, b] (inclusive: "from … through …", "… inclusive")
+      let weekdays = 0;
+      let weekends = 0;
+      for (let d = a; d <= b; d = d.plus({ days: 1 })) {
+        if (d.weekday <= 5) weekdays++;
+        else weekends++;
+      }
+      const n = p.has('weekends') ? weekends : weekdays;
+      const what = p.has('weekends') ? 'weekend days' : 'weekdays';
+      return { kind: 'number', value: new Decimal(n), display: `${formatNumber(new Decimal(n))} ${what}`, note: `${span} inclusive · Mon–Fri${p.has('weekends') ? ' excluded' : ''}` };
+    }
+    const inclusive = p.has('inclusive');
+    const days = b.diff(a, 'days').days + (inclusive ? 1 : 0);
+    return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${span}${inclusive ? ' inclusive' : ''}` };
   }
   let amount: Decimal | null = null;
   let unit: string | null = null;
@@ -695,16 +789,34 @@ function intentBusiness(p: Parsed, ctx: EvalContext): Quantity | null {
   const revMarker = p.has('revenue') ? p.idx('revenue') : p.has('sell') && p.has('expenses') ? p.idx('sell') : -1;
   if (revMarker < 0) return null;
   const expMarker = p.has('expenses') ? p.idx('expenses') : p.has('cost') ? p.idx('cost') : -1;
-  if (expMarker < 0) return null;
+  const profitMarker = expMarker < 0 && p.has('profit') ? p.idx('profit') : -1;
+  if (expMarker < 0 && profitMarker < 0) return null;
   const used = new Set<number>();
   const revIdx = numberNear(p, revMarker, used);
   if (revIdx === undefined) throw new CalcError('revenue amount?', 'e.g. revenue 500000, expenses 350000');
   used.add(revIdx);
-  const expIdx = numberNear(p, expMarker, used);
-  if (expIdx === undefined) throw new CalcError('expenses amount?', 'e.g. revenue 500000, expenses 350000');
   const { q: revenue } = numberAt(p, revIdx, ctx);
-  const { q: expenses } = numberAt(p, expIdx, ctx);
-  const profit = fin.money2(revenue.value.minus(expenses.value));
+  let expenses: Quantity;
+  let profit: Decimal;
+  const expIdx = expMarker >= 0 ? numberNear(p, expMarker, used) : undefined;
+  if (expIdx !== undefined) {
+    expenses = numberAt(p, expIdx, ctx).q;
+    profit = fin.money2(revenue.value.minus(expenses.value));
+  } else if (expMarker >= 0 && p.has('profit') && numberNear(p, p.idx('profit'), used) !== undefined) {
+    // "revenue 12 lakh, profit 1.8 lakh, expenses?" → the expenses are what is asked
+    const profIdx = numberNear(p, p.idx('profit'), used)!;
+    profit = numberAt(p, profIdx, ctx).q.value;
+    expenses = moneyOrNumber(revenue.value.minus(profit), revenue);
+    return { ...expenses, display: `${formatQuantity(expenses)} expenses`, note: `revenue ${formatQuantity(revenue)} − profit ${formatQuantity(moneyOrNumber(profit, revenue))}` };
+  } else if (expMarker >= 0) {
+    throw new CalcError('expenses amount?', 'e.g. revenue 500000, expenses 350000');
+  } else {
+    // "revenue 12 lakh and net profit 1.8 lakh, margin?" — the profit is given, expenses follow from it
+    const profIdx = numberNear(p, profitMarker, used);
+    if (profIdx === undefined) throw new CalcError('profit amount?', 'e.g. revenue 12 lakh, profit 1.8 lakh');
+    profit = numberAt(p, profIdx, ctx).q.value;
+    expenses = moneyOrNumber(revenue.value.minus(profit), revenue);
+  }
   const margin = revenue.value.isZero() ? new Decimal(NaN) : fin.pct2(profit.div(revenue.value).mul(100));
   const breakdown = `revenue ${formatQuantity(revenue)} · expenses ${formatQuantity(expenses)} · profit ${formatQuantity(moneyOrNumber(profit, revenue))}`;
   const wantsMargin = p.has('margin') || p.has('%') || p.has('markup');
@@ -915,8 +1027,9 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
     if (whole.isZero()) throw new CalcError('division by zero');
     return { kind: 'percent', value: fin.pct2(part.div(whole).mul(100)) };
   }
-  // reverse percentage: "840 is 12% less than what original amount" → 840 / 0.88; "750 is 20% more than what number" → 750 / 1.2
-  if (p.nums.length === 1 && p.pcts.length === 1 && (p.has('than') || p.has('from')) && wi >= 0 && (p.has('increase') || p.has('decrease'))) {
+  // reverse percentage: "840 is 12% less than what original amount" → 840 / 0.88; "750 is 20% more than what number" → 750 / 1.2;
+  // "what original amount becomes 3910 after a 15% increase" → 3910 / 1.15
+  if (p.nums.length === 1 && p.pcts.length === 1 && (p.has('than') || p.has('from') || p.has('after') || p.has('before')) && wi >= 0 && (p.has('increase') || p.has('decrease'))) {
     const pct = pctAt(p, p.pcts[0]);
     const { q: x } = numberAt(p, p.nums[0], ctx);
     const factor = p.has('decrease') ? new Decimal(100).minus(pct) : new Decimal(100).plus(pct);
@@ -956,7 +1069,7 @@ export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
   if (words.length === 0) return null;
   const p = analyse(words, notes);
   const order: ((p: Parsed, ctx: EvalContext) => IntentResult | Quantity | null)[] = [
-    intentEmi, intentInterest, intentBusiness, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
+    intentEmi, intentInterest, intentBusiness, intentAllocate, intentChain, intentMarginMarkup, intentGst, intentDiscount, intentProfitLoss, intentDates, intentQuantity, intentDivide, intentPercentQuestions, intentIncreaseDecrease, intentConvert,
   ];
   for (const intent of order) {
     const r = intent(p, ctx);
