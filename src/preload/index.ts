@@ -46,6 +46,12 @@ const api: FataakApi = {
       if (!/^[A-Z]{3}$/.test(b)) return Promise.resolve(null);
       return ipcRenderer.invoke('rates:get', b);
     },
+    getHistorical: (base, date) => {
+      const b = assertString(base, 'base', 3).toUpperCase();
+      const d = assertString(date, 'date', 10);
+      if (!/^[A-Z]{3}$/.test(b) || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return Promise.resolve(null);
+      return ipcRenderer.invoke('rates:getHistorical', b, d);
+    },
   },
   window: {
     hide: () => ipcRenderer.send('window:hide'),

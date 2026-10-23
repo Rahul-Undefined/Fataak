@@ -41,6 +41,21 @@ function browserShim(): FataakApi {
           return null;
         }
       },
+      getHistorical: async (base, date) => {
+        const key = `${base}@${date}`;
+        const hit = tables.get(key);
+        if (hit) return hit;
+        try {
+          const res = await fetch(`https://api.frankfurter.dev/v1/${date}?from=${base}`);
+          const j = (await res.json()) as { rates: Record<string, number>; date: string };
+          if (!j.rates) return null;
+          const t: RateTable = { base, rates: { ...j.rates, [base]: 1 }, timestamp: j.date, source: 'frankfurter.app (ECB)', fetchedAt: Date.now() };
+          tables.set(key, t);
+          return t;
+        } catch {
+          return null;
+        }
+      },
     },
     window: { hide: () => {}, minimize: () => {}, close: () => {}, toggleMaximize: () => {}, quit: () => {} },
     clipboard: { write: (text) => void navigator.clipboard?.writeText(text) },

@@ -3,6 +3,7 @@ import { Decimal, CalcError, type EvalContext, type Quantity } from './types';
 import type { Node, ConvTarget } from './parser';
 import { convertUnit, unitById } from './units';
 import { formatNumber } from './format';
+import { zoneAbbrev } from './timezone';
 
 const CALENDAR_UNITS: Record<string, 'days' | 'weeks' | 'months' | 'years' | 'hours' | 'minutes' | 'seconds' | 'milliseconds'> = {
   day: 'days', week: 'weeks', month: 'months', year: 'years', h: 'hours', min: 'minutes', s: 'seconds', ms: 'milliseconds',
@@ -33,17 +34,23 @@ function fmtRateTime(ts: string): string {
 }
 
 /** Convert money to another currency using the context's rate provider. */
-export function convertMoney(q: Quantity, to: string, ctx: EvalContext): Quantity {
+export function convertMoney(q: Quantity, to: string, ctx: EvalContext, date?: string): Quantity {
   if (q.kind !== 'money') throw new CalcError('not money');
   const from = q.currency!;
-  if (from === to) return q;
-  const quote = ctx.rates.get(from, to);
+  // a date of today or later means the live rate
+  const today = ctx.now().toISODate();
+  const histDate = date && today && date < today ? date : undefined;
+  if (from === to && !histDate) return q;
+  if (from === to) return { ...q, note: `same currency · ${histDate}` };
+  const quote = ctx.rates.get(from, to, histDate);
   if (!quote) {
-    ctx.rates.request?.(from, to);
+    ctx.rates.request?.(from, to, histDate);
+    if (histDate) throw new CalcError(`no ${from}→${to} rate for ${histDate}`, 'fetching… (ECB history, needs internet)');
     throw new CalcError(`no rate for ${from}→${to}`, 'fetching… (needs internet)');
   }
   const rate = new Decimal(quote.rate);
-  const note = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to} · ${fmtRateTime(quote.timestamp)}${quote.stale ? ' (cached)' : ''}`;
+  const when = histDate ? `on ${DateTime.fromISO(quote.timestamp).toFormat('d LLL yyyy')}` : fmtRateTime(quote.timestamp);
+  const note = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to} · ${when}${quote.stale ? ' (cached)' : ''}`;
   return withNote({ kind: 'money', value: q.value.mul(rate), currency: to }, note);
 }
 
@@ -197,13 +204,24 @@ export function div(a: Quantity, b: Quantity): Quantity {
 }
 
 export function convert(q: Quantity, target: ConvTarget, ctx: EvalContext): Quantity {
+  if (target.zone) {
+    if (q.kind !== 'time') throw new CalcError(`only a time converts to ${target.zone.label}`, 'e.g. now + 2 hours in EST');
+    const d = q.date!.setZone(target.zone.zone);
+    const t = d.minute === 0 && d.second === 0 ? d.toFormat('h a') : d.toFormat('h:mm a');
+    const notes: string[] = [];
+    const dayDiff = d.ordinal + d.year * 1000 - (q.date!.ordinal + q.date!.year * 1000);
+    if (dayDiff > 0) notes.push(`next day · ${d.toFormat('ccc d LLL')}`);
+    else if (dayDiff < 0) notes.push(`previous day · ${d.toFormat('ccc d LLL')}`);
+    if (target.zone.note) notes.push(target.zone.note);
+    return { kind: 'time', value: q.value, date: d, zone: target.zone.zone, showZone: true, display: `${t} ${zoneAbbrev(d)}`, note: notes.length ? notes.join(' · ') : undefined };
+  }
   if (target.percent) {
     if (q.kind === 'number') return percent(q.value.mul(100));
     if (q.kind === 'percent') return q;
     throw new CalcError("only plain numbers convert to %");
   }
   if (target.currency) {
-    if (q.kind === 'money') return convertMoney(q, target.currency, ctx);
+    if (q.kind === 'money') return convertMoney(q, target.currency, ctx, target.date);
     if (q.kind === 'number') return money(q.value, target.currency);
     throw new CalcError(`can't convert ${q.kind} to ${target.currency}`);
   }

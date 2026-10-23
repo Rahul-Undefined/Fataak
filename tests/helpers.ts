@@ -3,9 +3,15 @@ import { evaluateDocument, type LineResult, type RateProvider } from '@engine/in
 
 /** Fixed test rates (USD base) so currency tests are deterministic. */
 export const testRates: RateProvider = {
-  get(from, to) {
+  get(from, to, date) {
     const usd: Record<string, number> = { USD: 1, INR: 84, EUR: 0.92, GBP: 0.78, JPY: 150, BDT: 120, AED: 3.67, SGD: 1.34 };
     if (!(from in usd) || !(to in usd)) return null;
+    if (date) {
+      // historical: only one fixture date (10 days before NOW), INR was 80 then
+      if (date !== '2026-10-13') return null;
+      const hist: Record<string, number> = { ...usd, INR: 80 };
+      return { rate: hist[to] / hist[from], timestamp: '2026-10-13', source: 'test-history' };
+    }
     return { rate: usd[to] / usd[from], timestamp: '2026-10-23T00:02:00Z', source: 'test' };
   },
 };

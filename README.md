@@ -70,6 +70,15 @@ newly generated executables are allowed to run (the uninstaller stub is executed
 | `6pm IST theke EST e convert koro`       | same                                     |
 | `aaj se 45 din baad`                     | `Mon, 7 Dec 2026`                        |
 
+**Context from visible lines.** A line like `rahul Rs 100` or `rent 15000` defines that name for the lines
+below it, so `Rahul + Rohit * 2`, `Rahul / 5` or `rahul Rs in USD` just work. Delete or clear the defining
+line and the name is forgotten; nothing is remembered outside what is on screen.
+
+**Dated and relative questions.** `1 usd to inr 10 days ago` or `100 usd in inr on 1 jan 2026` use the
+ECB rate for that day (frankfurter.app, cached). `2 hrs from now in EST`, `in 3 hours Tokyo time`,
+`30 min ago in London`, `2 ghante baad est me kitne baje` and `now + 2 hours in EST` shift the current
+time first and then convert it.
+
 Percent rules follow Numi: `$10 - 40%`, `20% of $10`, `5% on $30`, `6% off 40 EUR`, `$50 as a % of $100`, `5% of what is 6 EUR`.
 `prev`, `sum`/`total`, `average`, `line3`, `// comments`, `"inline comments"` and `# headers` work as in Numi.
 

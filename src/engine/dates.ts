@@ -111,8 +111,16 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
   }
 
   if (isNum(t0)) {
-    // 14 aug 2026 / 14 aug
     const t1 = tokens[i + 1];
+    // "10 days ago" / "2 weeks ago" / "3 months ago"
+    if (isWord(t1) && isWord(tokens[i + 2], 'ago')) {
+      const units: Record<string, 'days' | 'weeks' | 'months' | 'years'> = {
+        day: 'days', days: 'days', week: 'weeks', weeks: 'weeks', month: 'months', months: 'months', year: 'years', years: 'years',
+      };
+      const u = units[t1.value];
+      if (u) return { q: dateQuantity(today.minus({ [u]: parseFloat(t0.value) })), consumed: 3 };
+    }
+    // 14 aug 2026 / 14 aug
     if (isWord(t1) && t1.value in MONTHS && t0.value.length <= 2) {
       const day = parseInt(t0.value, 10);
       let j = i + 2;

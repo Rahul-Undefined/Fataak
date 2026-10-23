@@ -14,7 +14,7 @@ import { findZones, convertTime, tzResultQuantity, nowInZone, type ZoneRef } fro
 import { tokenize } from '../tokenizer';
 import { tryParseDate } from '../dates';
 import { isCurrencyWord, currencyBySymbol, findCurrency } from '../currency';
-import { isUnitWord } from '../units';
+import { isUnitWord, findUnit } from '../units';
 
 const PCT_RE = /^(\d+(?:\.\d+)?)%$/;
 const NUM_RE = /^[₹$€£¥৳]?\d[\d,]*(?:\.\d+)?$/;
@@ -147,12 +147,30 @@ function intentTimezone(raw: string, ctx: EvalContext): Quantity | null {
   }
   const wordList = words.filter((w) => !PCT_RE.test(w));
   const zones = findZones(wordList);
-  const wantsNow = !time && (wordList.includes('time') || wordList.includes('now'));
+  // relative offset from now: "2 hours from now", "in 3 hours", "30 min ago", "2 ghante baad"
+  let offsetSeconds = 0;
+  let hasOffset = false;
+  for (let i = 0; i + 1 < wordList.length; i++) {
+    if (!NUM_RE.test(wordList[i]) || PCT_RE.test(wordList[i])) continue;
+    const u = findUnit(wordList[i + 1]);
+    if (!u || u.dim !== 'time') continue;
+    offsetSeconds += parseFloat(wordList[i].replace(/[^\d.]/g, '')) * u.factor.toNumber();
+    hasOffset = true;
+  }
+  if (hasOffset && (wordList.includes('ago') || wordList.includes('before'))) offsetSeconds = -offsetSeconds;
+  const wantsNow = !time && (wordList.includes('time') || wordList.includes('now') || hasOffset);
   if (zones.length === 0) return null;
   if (!time && !wantsNow) return null;
   if (!time) {
-    // "time in tokyo", "tokyo time", "new york time now"
-    return nowInZone(zones[zones.length - 1].ref, ctx.now());
+    // "time in tokyo", "tokyo time", "2 hrs from now in est"
+    const base = ctx.now().plus({ seconds: offsetSeconds });
+    const q = nowInZone(zones[zones.length - 1].ref, base);
+    if (hasOffset) {
+      const h = Math.abs(offsetSeconds) / 3600;
+      const span = h >= 1 ? `${formatNumber(new Decimal(h))} h` : `${Math.round(Math.abs(offsetSeconds) / 60)} min`;
+      q.note = `now ${offsetSeconds < 0 ? '−' : '+'} ${span}${q.note ? ` · ${q.note}` : ''}`;
+    }
+    return q;
   }
   // optional explicit date in the text (tomorrow, 25 dec)
   let date: DateTime | undefined;

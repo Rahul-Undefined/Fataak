@@ -47,6 +47,8 @@ export interface FataakApi {
   rates: {
     /** returns the cached/fetched table for the base currency, or null when offline with no cache */
     get(base: string): Promise<RateTable | null>;
+    /** ECB rates for a past date (YYYY-MM-DD); null when unavailable */
+    getHistorical(base: string, date: string): Promise<RateTable | null>;
   };
   window: {
     hide(): void;

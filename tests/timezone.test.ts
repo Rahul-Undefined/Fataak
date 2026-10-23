@@ -51,6 +51,19 @@ describe('time zone conversion', () => {
     expect(last('dubai me abhi kitne baje hain')).toBe('8:30 AM GST');
   });
 
+  it('relative times: "2 hrs from now in est" is now + 2 h, converted', () => {
+    // NOW is 10:00 IST = 04:30 UTC = 00:30 EDT
+    expect(last('2 hrs from now in est')).toBe('2:30 AM EDT');
+    expect(lastNote('2 hrs from now in est')).toContain('now + 2 h');
+    expect(last('in 3 hours est time')).toBe('3:30 AM EDT');
+    expect(last('30 min ago in tokyo')).toBe('1:00 PM JST');
+    expect(last('2 ghante baad est me kitne baje')).toBe('2:30 AM EDT');
+    expect(last('ekhon theke 2 ghonta por tokyo te koto baje')).toBe('3:30 PM JST');
+    expect(last('now + 2 hours in est')).toBe('2:30 AM EDT');
+    expect(last('6pm + 1 hour in est')).toBe('9:30 AM EDT');
+    expect(last('now in est')).toBe('12:30 AM EDT');
+  });
+
   it('single zone converts from the local zone', () => {
     expect(last('6pm to EST', { now: winter })).toBe('7:30 AM EST');
     expect(last('6pm PST', { now: winter })).toBe('7:30 AM IST');

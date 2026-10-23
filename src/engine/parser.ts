@@ -4,6 +4,7 @@ import { tokenize, significant } from './tokenizer';
 import { findUnit, unitById, MAX_UNIT_WORDS } from './units';
 import { currencyBySymbol, findCurrency } from './currency';
 import { tryParseDate, DATE_KEYWORDS } from './dates';
+import { resolveZone, MAX_ZONE_WORDS, type ZoneRef } from './timezone';
 
 export type Node =
   | { t: 'num'; v: Decimal }
@@ -25,6 +26,10 @@ export interface ConvTarget {
   unit?: string;
   currency?: string;
   percent?: boolean;
+  /** YYYY-MM-DD for a historical currency rate ("1 usd in inr 10 days ago", "… on 1 jan 2026") */
+  date?: string;
+  /** time-zone target for a time value ("now + 2 hours in EST", "6pm in Tokyo") */
+  zone?: ZoneRef;
 }
 
 export const SCALES: Record<string, string> = {
@@ -179,6 +184,13 @@ class Parser {
           this.fail(`unknown unit "${w.text}"`);
         }
         this.i += 1 + target.width;
+        if (target.target.currency) {
+          const d = this.tryRateDate();
+          if (d) {
+            target.target.date = d.date;
+            this.i += d.width;
+          }
+        }
         left = { t: 'conv', e: left, target: target.target };
         continue;
       }
@@ -189,6 +201,18 @@ class Parser {
       left = { t: 'bin', op: b.op, l: left, r: right };
     }
     return left;
+  }
+
+  /** optional date after a currency target: "10 days ago", "on 1 jan 2026", "as of yesterday", "last friday" */
+  private tryRateDate(): { date: string; width: number } | null {
+    let off = 0;
+    if (this.isWord('on') || this.isWord('at')) off = 1;
+    else if (this.isWord('as') && this.isWord('of', 1)) off = 2;
+    const d = tryParseDate(this.toks, this.i + off, this.opts.now, this.opts.zone);
+    if (!d || d.q.kind !== 'date') return null;
+    const iso = d.q.date!.toISODate();
+    if (!iso) return null;
+    return { date: iso, width: off + d.consumed };
   }
 
   private tryConvTarget(offset: number): { target: ConvTarget; width: number } | null {
@@ -204,6 +228,21 @@ class Parser {
       if (u) return { target: { unit: u.unit }, width: u.width };
       const c = this.matchCurrency(offset);
       if (c) return { target: { currency: c.code }, width: c.width };
+      // time zone: "in EST", "in new york", "in kolkata time"
+      for (let w = MAX_ZONE_WORDS; w >= 1; w--) {
+        const parts: string[] = [];
+        for (let k = 0; k < w; k++) {
+          const tk = this.peek(offset + k);
+          if (!tk || tk.type !== 'word') break;
+          parts.push(tk.value);
+        }
+        if (parts.length !== w) continue;
+        const z = resolveZone(parts.join(' '));
+        if (z) {
+          const extra = this.peek(offset + w)?.value === 'time' ? 1 : 0;
+          return { target: { zone: z }, width: w + extra };
+        }
+      }
     }
     return null;
   }
@@ -307,6 +346,15 @@ class Parser {
           continue;
         }
       }
+      // a currency symbol after a value ("rahul Rs in USD"): tags/converts it
+      if (t.type === 'currency' && this.peek(1)?.type !== 'number') {
+        const c = currencyBySymbol(t.text);
+        if (c) {
+          this.next();
+          node = { t: 'money', e: node, code: c.code };
+          continue;
+        }
+      }
       break;
     }
     return node;
@@ -340,8 +388,8 @@ class Parser {
     }
     if (t.type === 'word') {
       const w = t.value;
-      if (this.opts.variables.has(w)) {
-        // multi-word variable names (longest first)
+      {
+        // variable names, multi-word ones first ("office rent"), so a partial first word does not shadow them
         for (let n = 4; n >= 1; n--) {
           const parts: string[] = [];
           for (let k = 0; k < n; k++) {

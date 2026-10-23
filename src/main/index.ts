@@ -258,6 +258,11 @@ ipcMain.handle('rates:get', async (e, base: unknown) => {
   if (!fromWindow(e) || typeof base !== 'string' || !/^[A-Z]{3}$/.test(base)) return null;
   return rates.get(base);
 });
+ipcMain.handle('rates:getHistorical', async (e, base: unknown, date: unknown) => {
+  if (!fromWindow(e) || typeof base !== 'string' || !/^[A-Z]{3}$/.test(base)) return null;
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return rates.getHistorical(base, date);
+});
 ipcMain.on('window:hide', (e) => fromWindow(e) && win?.hide());
 ipcMain.on('window:minimize', (e) => fromWindow(e) && win?.minimize());
 ipcMain.on('window:toggleMaximize', (e) => {

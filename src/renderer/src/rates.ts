@@ -14,40 +14,48 @@ export class RendererRates implements RateProvider {
   private failed = new Map<string, number>();
   onChange: () => void = () => {};
 
-  get(from: string, to: string): RateQuote | null {
+  get(from: string, to: string, date?: string): RateQuote | null {
+    if (date) {
+      // historical tables are keyed BASE@date; cross-rate through any table of that date
+      const direct = this.tables.get(`${from}@${date}`);
+      if (direct && direct.rates[to]) return this.quote(direct, direct.rates[to], true);
+      for (const [k, t] of this.tables) {
+        if (k.endsWith(`@${date}`) && t.rates[from] && t.rates[to]) return this.quote(t, t.rates[to] / t.rates[from], true);
+      }
+      return null;
+    }
     const direct = this.tables.get(from);
     if (direct && direct.rates[to]) return this.quote(direct, direct.rates[to]);
-    // cross rate through any table containing both
-    for (const t of this.tables.values()) {
-      if (t.rates[from] && t.rates[to]) return this.quote(t, t.rates[to] / t.rates[from]);
+    for (const [k, t] of this.tables) {
+      if (!k.includes('@') && t.rates[from] && t.rates[to]) return this.quote(t, t.rates[to] / t.rates[from]);
     }
     return null;
   }
 
-  private quote(t: RateTable, rate: number): RateQuote {
-    return { rate, timestamp: t.timestamp, source: t.source, stale: Date.now() - t.fetchedAt > STALE_MS };
+  private quote(t: RateTable, rate: number, historical = false): RateQuote {
+    return { rate, timestamp: t.timestamp, source: t.source, stale: !historical && Date.now() - t.fetchedAt > STALE_MS };
   }
 
-  request(from: string, to: string): void {
+  request(from: string, to: string, date?: string): void {
     void to;
-    this.fetch(from);
+    this.fetch(from, date);
   }
 
-  fetch(base: string): void {
-    if (this.pending.has(base)) return;
-    const lastFail = this.failed.get(base);
+  fetch(base: string, date?: string): void {
+    const key = date ? `${base}@${date}` : base;
+    if (this.pending.has(key)) return;
+    const lastFail = this.failed.get(key);
     if (lastFail && Date.now() - lastFail < 30_000) return;
-    this.pending.add(base);
-    api.rates
-      .get(base)
+    this.pending.add(key);
+    (date ? api.rates.getHistorical(base, date) : api.rates.get(base))
       .then((t) => {
         if (t) {
-          this.tables.set(base, t);
-          this.failed.delete(base);
+          this.tables.set(key, t);
+          this.failed.delete(key);
           this.onChange();
-        } else this.failed.set(base, Date.now());
+        } else this.failed.set(key, Date.now());
       })
-      .catch(() => this.failed.set(base, Date.now()))
-      .finally(() => this.pending.delete(base));
+      .catch(() => this.failed.set(key, Date.now()))
+      .finally(() => this.pending.delete(key));
   }
 }

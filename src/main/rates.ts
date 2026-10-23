@@ -16,7 +16,7 @@ const SOURCES = [
   },
   {
     name: 'frankfurter.app',
-    url: (base: string) => `https://api.frankfurter.app/latest?from=${base}`,
+    url: (base: string) => `https://api.frankfurter.dev/v1/latest?from=${base}`,
     parse: (j: Record<string, unknown>, base: string): RateTable | null => {
       if (typeof j.rates !== 'object' || !j.rates || typeof j.date !== 'string') return null;
       const rates = sanitizeRates(j.rates as Record<string, unknown>);
@@ -38,10 +38,10 @@ function validateCache(raw: unknown): Record<string, RateTable> {
   if (!raw || typeof raw !== 'object') return {};
   const out: Record<string, RateTable> = {};
   for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
-    if (!/^[A-Z]{3}$/.test(k) || !v || typeof v !== 'object') continue;
+    if (!/^[A-Z]{3}(@\d{4}-\d{2}-\d{2})?$/.test(k) || !v || typeof v !== 'object') continue;
     const t = v as Record<string, unknown>;
     if (typeof t.timestamp !== 'string' || typeof t.fetchedAt !== 'number' || typeof t.rates !== 'object' || !t.rates) continue;
-    out[k] = { base: k, rates: sanitizeRates(t.rates as Record<string, unknown>), timestamp: t.timestamp, source: String(t.source ?? ''), fetchedAt: t.fetchedAt };
+    out[k] = { base: k.slice(0, 3), rates: sanitizeRates(t.rates as Record<string, unknown>), timestamp: t.timestamp, source: String(t.source ?? ''), fetchedAt: t.fetchedAt };
   }
   return out;
 }
@@ -85,6 +85,31 @@ export class RateService {
     }
     const fresh = await p;
     return fresh ?? cached ?? null;
+  }
+
+  /**
+   * Historical ECB rates (frankfurter.app) for a past date; the response carries the actual
+   * business day used, which becomes the table's timestamp. Cached forever: history does not change.
+   */
+  async getHistorical(base: string, date: string): Promise<RateTable | null> {
+    await this.loaded;
+    const key = `${base}@${date}`;
+    if (this.cache[key]) return this.cache[key];
+    let p = this.inflight.get(key);
+    if (!p) {
+      p = (async () => {
+        const json = await fetchJson(`https://api.frankfurter.dev/v1/${date}?from=${base}`);
+        if (!json || typeof json.rates !== 'object' || !json.rates || typeof json.date !== 'string') return null;
+        const rates = sanitizeRates(json.rates as Record<string, unknown>);
+        rates[base] = 1;
+        const table: RateTable = { base, rates, timestamp: json.date, source: 'frankfurter.app (ECB)', fetchedAt: Date.now() };
+        this.cache[key] = table;
+        void this.store.write(this.cache);
+        return table;
+      })().finally(() => this.inflight.delete(key));
+      this.inflight.set(key, p);
+    }
+    return p;
   }
 
   private async fetch(base: string): Promise<RateTable | null> {

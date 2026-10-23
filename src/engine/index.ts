@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 import { CalcError, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider } from './types';
 import { tokenize } from './tokenizer';
-import { parseTokens, KEYWORDS } from './parser';
+import { parseTokens, KEYWORDS, SCALES } from './parser';
 import { evaluate } from './evaluator';
 import { formatQuantity } from './format';
 import { runIntents, expressionFallback } from './nl/intents';
@@ -99,11 +99,11 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
 
   const { clean, comments } = stripQuotes(body);
   const commentRanges = comments.map((c) => ({ start: c.start + bodyOffset, end: c.end + bodyOffset }));
-  const spans = highlight(rawText, labelRange, variables, commentRanges);
-  const labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
+  let labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
+  const spans = () => highlight(rawText, labelRange, variables, commentRanges);
 
   if (clean.trim() === '') {
-    return { ok: false, display: '', isText: true, label: labelKey, spans };
+    return { ok: false, display: '', isText: true, label: labelKey, spans: spans() };
   }
 
   const parseOpts = { variables, now: ctx.now(), zone: ctx.zone };
@@ -116,6 +116,15 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   } catch (e) {
     if (e instanceof CalcError) firstError = e;
     else firstError = new CalcError(String((e as Error).message ?? e));
+  }
+  // 1b. implicit definition: "rahul Rs 100", "rent 15000", "coffee $4.5" → name = value (context from visible lines)
+  if (!value && !label) {
+    const def = tryImplicitDefinition(clean, parseOpts, ctx, variables);
+    if (def) {
+      value = def.value;
+      labelKey = def.name;
+      labelRange = { start: def.start + bodyOffset, end: def.end + bodyOffset };
+    }
   }
   // 2. natural-language intents
   let intentError: CalcError | undefined;
@@ -140,14 +149,55 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   }
 
   if (value) {
-    return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, spans };
+    return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, spans: spans() };
   }
   const err = intentError ?? firstError;
   if (looksLikeText(clean) && !intentError) {
-    return { ok: false, display: '', isText: true, label: labelKey, spans };
+    return { ok: false, display: '', isText: true, label: labelKey, spans: spans() };
   }
   const hint = err?.hint ? `${err.message} · ${err.hint}` : (err?.message ?? 'error');
-  return { ok: false, display: '', note: hint, isText: false, label: labelKey, spans };
+  return { ok: false, display: '', note: hint, isText: false, label: labelKey, spans: spans() };
+}
+
+/** words that can never be an implicit variable name */
+function isPlainName(word: string, variables: Set<string>): boolean {
+  if (!/^[\p{L}][\p{L}\p{N}_]*$/u.test(word)) return false;
+  if (variables.has(word)) return true;
+  if (KEYWORDS.has(word) || CANON_KEYWORDS.has(word) || SOURCE_WORDS.has(word)) return false;
+  if (isUnitWord(word) || isCurrencyWord(word) || isZoneWord(word)) return false;
+  if (word in SCALES || word === 'percent' || word === 'ago') return false;
+  return true;
+}
+
+/**
+ * "rahul Rs 100" → rahul = ₹100. One to three leading name words followed by something that starts
+ * with a number or currency and evaluates on its own. The name only exists while its line is visible.
+ */
+function tryImplicitDefinition(
+  clean: string,
+  parseOpts: { variables: Set<string>; now: DateTime; zone: string },
+  ctx: EvalContext,
+  variables: Set<string>,
+): { name: string; value: Quantity; start: number; end: number } | null {
+  const toks = tokenize(clean).filter((t) => t.type !== 'space');
+  let n = 0;
+  while (n < 3 && toks[n]?.type === 'word' && isPlainName(toks[n].value, variables)) n++;
+  if (n === 0 || n >= toks.length) return null;
+  const first = toks[n];
+  const startsValue = first.type === 'number' || first.type === 'currency' || (first.type === 'word' && isCurrencyWord(first.value) && toks[n + 1]?.type === 'number');
+  if (!startsValue) return null;
+  const rest = clean.slice(first.start);
+  try {
+    const value = evaluate(parseTokens(tokenize(rest), parseOpts), ctx);
+    if (value.kind === 'date' || value.kind === 'time') return null;
+    const name = toks
+      .slice(0, n)
+      .map((t) => t.value)
+      .join(' ');
+    return { name, value, start: toks[0].start, end: toks[n - 1].end };
+  } catch {
+    return null;
+  }
 }
 
 export function evaluateDocument(lines: string[], opts: DocumentOptions): LineResult[] {

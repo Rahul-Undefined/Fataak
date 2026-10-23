@@ -36,10 +36,10 @@ export interface RateQuote {
 }
 
 export interface RateProvider {
-  /** returns null when the pair is not available (offline / unknown) */
-  get(from: string, to: string): RateQuote | null;
+  /** returns null when the pair is not available (offline / unknown); `date` (YYYY-MM-DD) asks for a historical rate */
+  get(from: string, to: string, date?: string): RateQuote | null;
   /** called when a pair was requested but unavailable, so the host can fetch */
-  request?(from: string, to: string): void;
+  request?(from: string, to: string, date?: string): void;
 }
 
 export interface EvalContext {
