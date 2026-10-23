@@ -14,7 +14,16 @@ export class RendererRates implements RateProvider {
   private failed = new Map<string, number>();
   onChange: () => void = () => {};
 
-  get(from: string, to: string, date?: string): RateQuote | null {
+  get(from: string, to: string, date?: string, opts?: { cachedOnly?: boolean }): RateQuote | null {
+    if (opts?.cachedOnly && !date) {
+      // answer only from what is already held, and say so
+      const direct = this.tables.get(from);
+      if (direct && direct.rates[to]) return { ...this.quote(direct, direct.rates[to]), cached: true };
+      for (const [k, t] of this.tables) {
+        if (!k.includes('@') && t.rates[from] && t.rates[to]) return { ...this.quote(t, t.rates[to] / t.rates[from]), cached: true };
+      }
+      return null;
+    }
     if (date) {
       // historical tables are keyed BASE@date; cross-rate through any table of that date
       const direct = this.tables.get(`${from}@${date}`);

@@ -86,8 +86,31 @@ time first and then convert it.
 trail `50,000 → 55,000 → 57,750 · +7,750 (15.5%)`; `20% off then 10% off on 1000` → 720;
 `Rahul ko 150, Rohit ko 250, total kitna?` → 400 (and `rahul`, `rohit` become usable below).
 `Revenue 500000, expenses 350000, profit margin?` → 30% with the profit in the note. Numbers in words
-compose (`five hundred`, `paanch sau`, `1 lakh 20 hazaar`). `that`/`usmein`/`previous result` refer to the
-line immediately above; if that line has no result the calculator says so instead of guessing.
+compose (`five hundred`, `paanch sau`, `1 lakh 20 hazaar`). `50000 divided equally among 3 people` /
+`50000 ke 3 bhag karo` → `16,666.67 each` with the exact value in the note. `1000 including 18% GST, then
+apply 10% discount` → 900 with the discounted taxable base and GST shown.
+
+**More forms.** `840 is 12% less than what original amount?` → 954.55; `5 items cost 24.75 each, add 12% tax`
+→ 138.6 with the taxable base and tax; `10% discount on 4500, then add 18% GST` → 4,779; `10000 pe 5% byaj 2
+saal, kitna milega?` → the amount (interest in the note) while `simple interest on …` → the interest;
+`Square root of 50 rounded to 3 decimal places` → 7.071; `2.75 hours into hours and minutes` → 2 hours 45
+minutes; `days until 25 dec 2026`; `1200 er 15 percent ber kore tar sathe 80 jog koro` → 260.
+
+**Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
+or `sum in USD` converts with the rate shown.
+
+**Previous-result policy.** `that`, `usmein`, `previous result`, `prev` refer to the nearest line above
+that produced a value. Blank lines, plain text and failed lines are skipped, so a typo never replaces
+the last good result; variable lines count. A line saying `clear context`, `reset` or `sab bhool jao`
+is a hard stop: it forgets the results and variables above it, and later references say so. With no
+usable result above, the hint says "no result above this line".
+
+**Offline and cached rates.** A line containing `offline` (or `cached`) never presents a live rate: it
+answers from the cached table and labels the note `Cached rate · … · updated <time>`, or says the rate
+is unavailable offline. When a fetch fails and the on-disk cache is used, the note carries `· offline`.
+Historical conversions (`100 USD to INR using the historical rate for 1 January 2025`) show the rate,
+source and actual rate date; when the provider has no rate for that day (weekend, holiday) the previous
+business day is used and disclosed.
 
 **Time-zone abbreviations are fixed offsets.** `EST` is always UTC−5 (even in July), `PST` UTC−8,
 `CET` UTC+1; cities and regions (`New York`, `ET`, `US Eastern`, `London`) follow daylight-saving rules

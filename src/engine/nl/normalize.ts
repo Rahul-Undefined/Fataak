@@ -21,7 +21,7 @@ const PHRASES: [string, string][] = [
   ['kya hoga', 'what'], ['kya hogi', 'what'], ['kya hai', 'what'], ['kya hain', 'what'], ['kitna hoga', 'what'], ['kitna hogi', 'what'], ['kitni hogi', 'what'], ['kitna hai', 'what'],
   ['kitne hain', 'what'], ['koto hobe', 'what'], ['kato hobe', 'what'], ['koto hbe', 'what'], ['ki hobe', 'what'], ['koto ache', 'what'], ['kotota', 'what'], ['how much', 'what'], ['how many', 'what'],
   ['what is', 'what'], ['what will be', 'what'], ['what would be', 'what'], ["what's", 'what'], ['whats', 'what'], ['kitna', 'what'], ['kitni', 'what'], ['kitne', 'what'], ['kya', 'what'],
-  ['koto', 'what'], ['kato', 'what'], ['kot', 'what'], ['kto', 'what'], ['ktna', 'what'], ['kitta', 'what'],
+  ['koto', 'what'], ['kato', 'what'], ['kot', 'what'], ['kto', 'what'], ['ktna', 'what'], ['kitta', 'what'], ['kis', 'what'], ['kaunsa', 'what'], ['konsa', 'what'], ['kaunse', 'what'], ['kon', 'what'], ['konta', 'what'],
   // --- increase ---
   ['badha do', 'increase'], ['bada do', 'increase'], ['barha do', 'increase'], ['badhaa do', 'increase'], ['up by', 'increase'], ['bump up', 'increase'], ['upar karo', 'increase'], ['barhaye', 'increase'],
   ['badhao', 'increase'], ['badhado', 'increase'], ['badha', 'increase'], ['badhaye', 'increase'], ['badhana', 'increase'], ['badhane', 'increase'], ['badhakar', 'increase'], ['badhne', 'increase'], ['badhaao', 'increase'],
@@ -98,7 +98,7 @@ const PHRASES: [string, string][] = [
   ['pichla', 'last'], ['pichle', 'last'], ['pichli', 'last'], ['pichhle', 'last'], ['gelo', 'last'], ['gato', 'last'], ['goto', 'last'], ['ager', 'last'], ['previous', 'last'],
   ['ke baad', 'after'], ['ke bad', 'after'], ['er pore', 'after'], ['er por', 'after'], ['baad', 'after'], ['pore', 'after'], ['por', 'after'], ['pare', 'after'], ['later', 'after'], ['afterwards', 'after'],
   ['se pehle', 'before'], ['se pahle', 'before'], ['er age', 'before'], ['er aage', 'before'], ['pehle', 'before'], ['pahle', 'before'], ['pahele', 'before'], ['aage', 'before'], ['agey', 'before'], ['earlier', 'before'], ['ago', 'before'],
-  ['me se', 'from'], ['mein se', 'from'], ['theke', 'from'], ['thake', 'from'], ['thike', 'from'], ['thekey', 'from'], ['since', 'from'],
+  ['me se', 'from'], ['mein se', 'from'], ['theke', 'from'], ['se', 'from'], ['thake', 'from'], ['thike', 'from'], ['thekey', 'from'], ['since', 'from'],
   ['tak', 'to'], ['takk', 'to'], ['porjonto', 'to'], ['porjonta', 'to'], ['till', 'to'], ['until', 'to'], ['upto', 'to'], ['up to', 'to'], ['tok', 'to'],
   ['between', 'between'], ['beech', 'between'], ['ke beech', 'between'], ['majhe', 'between'],
   ['kitne baje', 'time'], ['kitna baje', 'time'], ['kota baje', 'time'], ['koto baje', 'time'], ['kotota baje', 'time'], ['baje', 'time'], ['samay', 'time'], ['somoy', 'time'], ["o'clock", 'time'], ['oclock', 'time'],
@@ -128,6 +128,34 @@ const PHRASES: [string, string][] = [
   ['bikri', 'revenue'], ['bikroy', 'revenue'],
   // --- sequencing ---
   ['phir', 'then'], ['fir', 'then'], ['uske baad', 'then'], ['iske baad', 'then'], ['tarpor', 'then'], ['tarpore', 'then'], ['erpor', 'then'], ['erpore', 'then'], ['after that', 'then'], ['afterwards', 'then'], ['next', 'next'],
+  ['followed by', 'then'], ['and then', 'then'], ['phir se', 'then'], ['abar', 'then'],
+  // --- division among people / parts ---
+  ['divided equally', 'divide'], ['divide equally', 'divide'], ['split equally', 'divide'], ['share equally', 'divide'], ['equally divide', 'divide'], ['split', 'divide'], ['share', 'divide'], ['shared', 'divide'],
+  ['bant', 'divide'], ['baant', 'divide'], ['baanto', 'divide'], ['banto', 'divide'], ['bant do', 'divide'], ['baat do', 'divide'], ['bhag karo', 'divide'], ['bhag koro', 'divide'], ['vaag', 'divide'], ['bhaga', 'divide'], ['bhag', 'divide'], ['bhaag', 'divide'],
+  ['equal parts', 'parts'], ['parts', 'parts'], ['part', 'parts'], ['hisse', 'parts'], ['hissa', 'parts'], ['hisson', 'parts'], ['hisso', 'parts'], ['tukde', 'parts'], ['bhager', 'parts'], ['vaage', 'parts'],
+  ['equally', 'equally'], ['equal', 'equally'], ['barabar', 'equally'], ['samaan', 'equally'], ['soman', 'equally'], ['somaan', 'equally'], ['shoman', 'equally'],
+  ['among', 'between'], ['amongst', 'between'],
+  ['people', 'people'], ['persons', 'people'], ['person', 'people'], ['logon', 'people'], ['logo', 'people'], ['jon', 'people'], ['joner', 'people'], ['janer', 'people'], ['lok', 'people'], ['loker', 'people'], ['bande', 'people'], ['bando', 'people'], ['members', 'people'], ['friends', 'people'], ['ways', 'people'],
+  ['per person', 'each'], ['per head', 'each'], ['har ek', 'each'], ['har ek ko', 'each'], ['prottek', 'each'], ['protyek', 'each'], ['each', 'each'], ['apiece', 'each'],
+  ['per item', 'each'], ['per piece', 'each'], ['per unit', 'each'], ['per pc', 'each'], ['per nos', 'each'], ['ek ka', 'each'], ['ekta', 'each'], ['ektar', 'each'], ['prati', 'each'], ['proti', 'each'],
+  ['items', 'items'], ['item', 'items'], ['pieces', 'items'], ['piece', 'items'], ['pcs', 'items'], ['nos', 'items'], ['units', 'items'], ['quantity', 'items'], ['qty', 'items'], ['tukda', 'items'], ['tukde', 'items'], ['ta', 'items'], ['gulo', 'items'],
+  // --- "with that" chaining (Bengali/Hindi) ---
+  ['tar sathe', 'that with'], ['tar shathe', 'that with'], ['tar sange', 'that with'], ['or sathe', 'that with'], ['etar sathe', 'that with'], ['setar sathe', 'that with'], ['uske saath', 'that with'], ['usme', 'that'], ['isme', 'that'],
+  // --- interest: interest earned vs amount received ---
+  ['final amount', 'total'], ['maturity amount', 'total'], ['maturity value', 'total'], ['total amount', 'total'], ['amount after', 'total'], ['amount at the end', 'total'], ['milega', 'total'], ['milenge', 'total'], ['milegi', 'total'],
+  ['pabo', 'total'], ['paben', 'total'], ['pawa jabe', 'total'], ['hoye jabe', 'total'], ['ho jayega', 'total'], ['ho jayenge', 'total'], ['ban jayega', 'total'], ['end me', 'total'], ['sheshe', 'total'], ['interest earned', 'interest'],
+  // --- math words ---
+  ['square root of', 'sqrt'], ['square root', 'sqrt'], ['sqrt of', 'sqrt'], ['vargmool', 'sqrt'], ['vargmul', 'sqrt'], ['borgomul', 'sqrt'], ['cube root of', 'cbrt'], ['cube root', 'cbrt'], ['squared', '^ 2'], ['cubed', '^ 3'],
+  ['to the power of', '^'], ['to the power', '^'], ['raised to', '^'], ['ki power', '^'], ['ka square', '^ 2'], ['ka cube', '^ 3'], ['ka varg', '^ 2'], ['er borgo', '^ 2'], ['er ghon', '^ 3'],
+  // --- reverse percentage ("840 is 12% less than what") ---
+  ['more than', 'increase than'], ['greater than', 'increase than'], ['higher than', 'increase than'], ['less than', 'decrease than'], ['lower than', 'decrease than'], ['smaller than', 'decrease than'],
+  ['se zyada', 'increase than'], ['se jyada', 'increase than'], ['se kam', 'decrease than'], ['theke beshi', 'increase than'], ['theke kom', 'decrease than'], ['original amount', 'what'], ['original number', 'what'], ['original value', 'what'], ['original', 'what'],
+  // --- "work out" verbs (no operation of their own) ---
+  ['ber koro', 'compute'], ['ber kore', 'compute'], ['ber korun', 'compute'], ['ber kor', 'compute'], ['bar koro', 'compute'], ['bair koro', 'compute'], ['nikal ke', 'compute'],
+  // --- context reset ---
+  ['clear context', 'reset'], ['reset context', 'reset'], ['clear memory', 'reset'], ['clear all', 'reset'], ['clear everything', 'reset'], ['forget everything', 'reset'], ['forget previous', 'reset'], ['forget that', 'reset'], ['forget it', 'reset'],
+  ['start over', 'reset'], ['start fresh', 'reset'], ['start afresh', 'reset'], ['context clear karo', 'reset'], ['context reset karo', 'reset'], ['context clear koro', 'reset'], ['sab bhool jao', 'reset'], ['sab bhul jao', 'reset'],
+  ['sob bhule jao', 'reset'], ['bhool jao', 'reset'], ['bhul jao', 'reset'], ['bhule jao', 'reset'], ['naya shuru', 'reset'], ['notun kore shuru', 'reset'], ['reset', 'reset'],
   ['another', 'another'], ['aur ek', 'another'], ['ek aur', 'another'], ['aro', 'another'], ['aaro', 'another'], ['further', 'another'], ['additional', 'another'],
   ['starting at', 'start'], ['starting from', 'start'], ['starting with', 'start'], ['start with', 'start'], ['start at', 'start'], ['start from', 'start'], ['initial amount', 'start'], ['initially', 'start'], ['initial', 'start'],
   ['shuruat', 'start'], ['shuru', 'start'], ['shuru me', 'start'], ['shurute', 'start'],
@@ -142,6 +170,7 @@ const FILLERS = new Set([
   'mera', 'meri', 'mere', 'mujhe', 'mujhko', 'hamara', 'hamari', 'humara', 'humari', 'hamare', 'amar', 'amader', 'tomar', 'apnar', 'apna', 'apni', 'apne', 'tumhara', 'tumhari',
   'the', 'a', 'an', 'please', 'plz', 'pls', 'zara', 'jara', 'ektu', 'thoda', 'thora', 'toh', 'tho', 'hi', 'bhi', 'o', 'ye', 'yeh', 'yah', 'wo', 'woh', 'ei', 'oi', 'ota', 'sei', 'ta', 'ti', 'ko', 'kore', 'korle',
   'take', 'taken', 'dujoner', 'duijoner', 'dono', 'donon', 'both', 'together', 'sab', 'sob', 'overall', 'offline', 'online', 'kindly', 'tell', 'me', 'ache', 'achhe', 'ache',
+  'apply', 'applied', 'applying', 'final', 'finally', 'effective', 'net', 'payable', 'calculate', 'compute', 'using', 'use', 'historical', 'historic', 'exchange', 'dated', 'wala', 'wali', 'wale',
   'hai', 'hain', 'hoga', 'hogi', 'honge', 'ho', 'hoon', 'hobe', 'hoy', 'hoye', 'hoilo', 'holo', 'hole', 'ache', 'achhe', 'thakbe', 'hoyeche', 'hoye', 'hocche', 'hochche',
   'batao', 'bata', 'bataiye', 'batana', 'bolo', 'bol', 'bolun', 'boliye', 'dekhao', 'dekha', 'dikhao', 'calculate', 'compute', 'find', 'tell', 'show', 'give', 'get', 'do', 'kar', 'karo', 'koro', 'karna', 'kori', 'kara', 'karke',
   'karne', 'karein', 'kijiye', 'korun', 'korbo', 'korben', 'korte', 'dile', 'dila', 'dilam', 'diye', 'dao', 'dau', 'deoa', 'dewa', 'dijiye', 'dedo', 'liya', 'li', 'lo', 'le', 'leke', 'niye', 'nilam', 'hisab', 'hisaab', 'hishab', 'hishaab', 'calc', 'me', 'us', 'i', 'we', 'you', 'is', 'are', 'be', 'will', 'would', 'should', 'can', 'could',
@@ -155,7 +184,7 @@ const PHRASE_LIST = PHRASES.slice().sort((a, b) => b[0].split(' ').length - a[0]
 export const CANON_KEYWORDS = new Set<string>([
   'increase', 'decrease', 'add', 'remove', 'inclusive', 'gst', 'discount', 'profit', 'loss', 'cost', 'sell', 'margin', 'markup', 'emi', 'loan', 'interest', 'simple', 'compound',
   'convert', 'change', 'what', 'after', 'before', 'between', 'with', 'without', 'yearly', 'monthly', 'quarterly', 'half-yearly', 'daily', 'time', 'now', 'today', 'tomorrow', 'yesterday', 'next', 'last', 'from', 'to', 'in', 'of', 'on', 'at', 'for',
-  'revenue', 'expenses', 'prev', 'that', 'then', 'another', 'start', 'double', 'triple', 'times', 'divide', 'minus', 'plus', 'total', 'sum',
+  'revenue', 'expenses', 'prev', 'that', 'then', 'another', 'start', 'double', 'triple', 'times', 'divide', 'minus', 'plus', 'total', 'sum', 'parts', 'equally', 'people', 'each', 'reset', 'items', 'than', 'sqrt', 'cbrt',
 ]);
 
 /** every source word/phrase the normaliser knows (for syntax highlighting of Hinglish/Bengalish verbs) */
@@ -262,13 +291,18 @@ export function normalize(text: string): Normalized {
   const notes: string[] = [];
   let s = text.toLowerCase();
   s = s.replace(/[?!¿]/g, ' ');
-  // commas separate clauses ("rahul 150, rohit 250, total") but stay inside numbers (1,00,000)
-  s = s.replace(/,(?=\s|$)/g, ' , ');
+  // commas and semicolons separate clauses ("rahul 150, rohit 250, total") but commas stay inside numbers (1,00,000)
+  s = s.replace(/,(?=\s|$)/g, ' , ').replace(/;/g, ' , ');
   s = s.replace(/(\d)\s*%/g, '$1%');
   s = s.replace(/\s+/g, ' ').trim();
   if (/\bkal\b/.test(s)) notes.push('kal = tomorrow');
   // whole numbers written in words (before phrase mapping, so "five hundred" and "paanch sau" become 500)
   s = composeNumberWords(s.split(' ')).join(' ');
+  // Hindi/Bengali order for roots: "50 ka vargmool" / "27 er ghonmul" → sqrt 50 / cbrt 27
+  s = s.replace(/(\d+(?:\.\d+)?)\s+(?:ka|ki|ke|er|r)\s+(?:vargmool|vargmul|borgomul|borgomool|square root|sqrt)\b/g, 'sqrt $1');
+  s = s.replace(/(\d+(?:\.\d+)?)\s+(?:ka|ki|ke|er|r)\s+(?:ghanmool|ghanmul|ghonmul|cube root|cbrt)\b/g, 'cbrt $1');
+  // "5% nikalo" / "5 percent ber koro" after a percentage means "work it out", not "remove it"
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(%|percent|pratishat)\s+(nikalo|nikaalo|nikal do|nikal|nikaal|ber koro|ber kore|bar koro)\b/g, '$1% compute');
   for (const [from, to] of PHRASE_LIST) {
     const re = new RegExp(`(^|[^\\p{L}\\d])${escapeRe(from)}(?=$|[^\\p{L}\\d])`, 'gu');
     s = s.replace(re, (_m, pre: string) => `${pre}${to}`);

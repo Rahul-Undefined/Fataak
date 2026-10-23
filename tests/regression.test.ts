@@ -174,15 +174,13 @@ describe('I. previous-result context', () => {
       expect(last(['55000', input])).toBe('5,500');
     },
   );
-  it('refuses when the line above has no result', () => {
-    const r = run(['55000', '', 'What is 10% of that?']);
-    expect(r[2].ok).toBe(false);
-    expect(r[2].note).toMatch(/previous result\?|that = \?/);
+  it('policy: nearest valid result above; blank/text/failed lines are skipped; nothing above → explained', () => {
+    expect(run(['55000', '', 'What is 10% of that?'])[2].display).toBe('5,500');
     const r2 = run(['meeting notes', '10% of that']);
     expect(r2[1].ok).toBe(false);
     const r3 = run('10% of the previous result');
     expect(r3[0].ok).toBe(false);
-    expect(r3[0].note).toContain('nothing above');
+    expect(r3[0].note).toContain('no result above');
   });
   it('chains on the running value', () => {
     expect(last(['55000', 'add 10% to that, then subtract 500'])).toBe('60,000');
@@ -210,13 +208,17 @@ describe('currency semantics', () => {
     };
     const r = run('Convert 100 USD to INR offline', { rates: offlineRates })[0];
     expect(r.display).toBe('₹8,400');
-    expect(r.note).toContain('cached rate, offline');
+    expect(r.note).toContain('Cached rate');
+    expect(r.note).toContain('offline');
     expect(r.note).toContain('22 Oct');
   });
   it('no rate at all → needs a rate, no number', () => {
     const r = run('Convert 100 USD to INR offline', { rates: { get: () => null } })[0];
     expect(r.ok).toBe(false);
-    expect(r.note).toContain('no rate for USD→INR');
+    expect(r.note).toContain('rate unavailable offline');
+    const live = run('Convert 100 USD to INR', { rates: { get: () => null } })[0];
+    expect(live.ok).toBe(false);
+    expect(live.note).toContain('no rate for USD→INR');
   });
   it('historical conversion shows date, source and rate; missing history is reported', () => {
     const r = run('1 usd to inr 10 days ago')[0];

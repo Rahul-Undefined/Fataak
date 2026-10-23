@@ -1,13 +1,14 @@
 import { DateTime } from 'luxon';
-import { CalcError, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider, own } from './types';
+import { CalcError, Decimal, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider, own } from './types';
 import { tokenize } from './tokenizer';
 import { parseTokens, KEYWORDS, SCALES } from './parser';
 import { evaluate } from './evaluator';
 import { formatQuantity } from './format';
 import { runIntents, expressionFallback } from './nl/intents';
-import { SOURCE_WORDS, CANON_KEYWORDS } from './nl/normalize';
+import { SOURCE_WORDS, CANON_KEYWORDS, normalize } from './nl/normalize';
 import { isUnitWord } from './units';
-import { isCurrencyWord } from './currency';
+import { isCurrencyWord, findCurrency } from './currency';
+import { formatNumber } from './format';
 import { isZoneWord } from './timezone';
 
 export * from './types';
@@ -72,6 +73,13 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   if (trimmed === '') return { ok: false, display: '', isText: true, spans: [] };
   if (trimmed.startsWith('//')) return { ok: false, display: '', isText: true, spans: [{ start: 0, end: rawText.length, cls: 'comment' }] };
   if (trimmed.startsWith('#')) return { ok: false, display: '', isText: true, spans: [{ start: 0, end: rawText.length, cls: 'label' }] };
+  if (isResetLine(trimmed)) {
+    return { ok: false, display: '', note: 'context cleared', isText: true, resetsContext: true, spans: [{ start: 0, end: rawText.length, cls: 'keyword' }] };
+  }
+  // "… offline" / "cached rate": never present a rate as live on this line
+  ctx.cachedOnly = /\b(offline|cached|cache)\b/i.test(trimmed);
+  // mixed-currency sums are only allowed when the line says which currency it wants ("sum in USD - 4%")
+  ctx.allowMixedCurrency = currencyNamed(trimmed);
 
   let label: string | undefined;
   let labelRange: { start: number; end: number } | null = null;
@@ -97,7 +105,8 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
     }
   }
 
-  const { clean, comments } = stripQuotes(body);
+  const { clean: cleanRaw, comments } = stripQuotes(body);
+  const { text: clean, places: roundTo } = extractRounding(cleanRaw);
   const commentRanges = comments.map((c) => ({ start: c.start + bodyOffset, end: c.end + bodyOffset }));
   let labelKey = isAssignment && label ? label.toLowerCase().replace(/\s+/g, ' ') : undefined;
   const spans = () => highlight(rawText, labelRange, variables, commentRanges);
@@ -160,6 +169,13 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
       if (!value.value.isFinite() || value.value.abs().gt('1e308')) {
         return { ok: false, display: '', note: 'overflow · number out of range (limit 1e308)', isText: false, label: labelKey, spans: spans() };
       }
+      if (roundTo !== undefined) {
+        // "rounded to 3 decimal places": round the stored value and show exactly that many places
+        const rounded = value.value.toDecimalPlaces(roundTo, Decimal.ROUND_HALF_UP);
+        const base: Quantity = { ...value, value: rounded, display: undefined };
+        const display = value.kind === 'number' ? formatNumber(rounded, { maxDecimals: roundTo, minDecimals: roundTo }) : formatQuantity(base);
+        value = { ...base, display, note: value.note ? `${value.note} · rounded to ${roundTo} dp` : `rounded to ${roundTo} dp` };
+      }
     }
     return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, defines, spans: spans() };
   }
@@ -169,6 +185,33 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   }
   const hint = err?.hint ? `${err.message} · ${err.hint}` : (err?.message ?? 'error');
   return { ok: false, display: '', note: hint, isText: false, label: labelKey, spans: spans() };
+}
+
+/** the currency word/code that ends a conversion phrase ("… in USD", "… to rupees"), if any */
+function currencyNamed(text: string): boolean {
+  const re = /\b(?:in|to|into|as|me|mein|te)\s+([\p{L}][\p{L} .]{1,20}?)(?=\s*(?:[-+*/?.!,]|$))/giu;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text))) {
+    const words = m[1].trim().toLowerCase().split(/\s+/);
+    for (let n = Math.min(3, words.length); n >= 1; n--) {
+      if (findCurrency(words.slice(0, n).join(' '))) return true;
+    }
+  }
+  return false;
+}
+
+/** "rounded to 3 decimal places", "to 2 dp", "2 decimals tak": strip the request and return how many places */
+const ROUND_RE = /\b(?:rounded|round(?:ed)?(?:\s+off)?|correct|accurate|upto|up\s+to)?\s*(?:to|till|tak)?\s*(\d{1,2})\s*(?:decimal\s+places?|decimals?|dp|digits?|places?)\b(?:\s+(?:tak|me|mein|e))?/i;
+export function extractRounding(text: string): { text: string; places?: number } {
+  const m = ROUND_RE.exec(text);
+  if (!m || !/\b(round|decimal|dp|digit|place|upto|up to|correct|accurate)/i.test(m[0])) return { text };
+  return { text: (text.slice(0, m.index) + ' ' + text.slice(m.index + m[0].length)).replace(/\s+/g, ' ').trim(), places: parseInt(m[1], 10) };
+}
+
+/** "clear context", "reset", "sab bhool jao": a line that stops previous-result references and forgets variables */
+export function isResetLine(text: string): boolean {
+  const { words } = normalize(text);
+  return words.length > 0 && words.length <= 3 && words.includes('reset');
 }
 
 /** words that can never be an implicit variable name */
@@ -218,6 +261,7 @@ export function evaluateDocument(lines: string[], opts: DocumentOptions): LineRe
   const variables = new Map<string, Quantity>();
   const previous: (Quantity | null)[] = [];
   let block: Quantity[] = [];
+  let contextStart = 0;
   const results: LineResult[] = [];
   for (const line of lines) {
     if (line.trim() === '') {
@@ -226,10 +270,17 @@ export function evaluateDocument(lines: string[], opts: DocumentOptions): LineRe
       results.push({ ok: false, display: '', isText: true, spans: [] });
       continue;
     }
-    const ctx: EvalContext = { variables, previous, block, rates: opts.rates, now, zone };
+    const ctx: EvalContext = { variables, previous, block, rates: opts.rates, now, zone, contextStart };
     const r = evaluateLine(line, ctx, new Set(variables.keys()));
     results.push(r);
     previous.push(r.ok ? r.value! : null);
+    if (r.resetsContext) {
+      // explicit reset: forget variables and everything above for "that"/"previous result"
+      contextStart = previous.length;
+      variables.clear();
+      block = [];
+      continue;
+    }
     if (r.ok) {
       block.push(r.value!);
       if (r.label) variables.set(r.label, r.value!);

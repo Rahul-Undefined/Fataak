@@ -30,6 +30,8 @@ export interface ConvTarget {
   date?: string;
   /** time-zone target for a time value ("now + 2 hours in EST", "6pm in Tokyo") */
   zone?: ZoneRef;
+  /** two units of one dimension, big then small ("hours and minutes", "feet and inches") */
+  compound?: [string, string];
 }
 
 export const SCALES: Record<string, string> = {
@@ -205,9 +207,10 @@ class Parser {
 
   /** optional date after a currency target: "10 days ago", "on 1 jan 2026", "as of yesterday", "last friday" */
   private tryRateDate(): { date: string; width: number } | null {
+    // "using the historical rate for 1 January 2025", "as of yesterday", "on 1 jan 2026", "dated …"
+    const skip = new Set(['on', 'at', 'as', 'of', 'using', 'use', 'the', 'historical', 'historic', 'rate', 'rates', 'exchange', 'for', 'from', 'dated', 'date', 'with', 'per']);
     let off = 0;
-    if (this.isWord('on') || this.isWord('at')) off = 1;
-    else if (this.isWord('as') && this.isWord('of', 1)) off = 2;
+    while (off < 8 && this.peek(off)?.type === 'word' && skip.has(this.peek(off)!.value)) off++;
     const d = tryParseDate(this.toks, this.i + off, this.opts.now, this.opts.zone);
     if (!d || d.q.kind !== 'date') return null;
     const iso = d.q.date!.toISODate();
@@ -225,7 +228,18 @@ class Parser {
     }
     if (t.type === 'word') {
       const u = this.matchUnit(offset);
-      if (u) return { target: { unit: u.unit }, width: u.width };
+      if (u) {
+        // "hours and minutes", "feet and inches", "hours minutes": a compound target of the same dimension
+        let off2 = offset + u.width;
+        if (this.peek(off2)?.value === 'and' || this.peek(off2)?.value === '&') off2++;
+        if (this.peek(off2)?.type === 'word') {
+          const u2 = this.matchUnit(off2);
+          if (u2 && u2.unit !== u.unit && unitById(u2.unit)!.dim === unitById(u.unit)!.dim && unitById(u.unit)!.factor.gt(unitById(u2.unit)!.factor)) {
+            return { target: { compound: [u.unit, u2.unit] }, width: off2 - offset + u2.width };
+          }
+        }
+        return { target: { unit: u.unit }, width: u.width };
+      }
       const c = this.matchCurrency(offset);
       if (c) return { target: { currency: c.code }, width: c.width };
       // time zone: "in EST", "in new york", "in kolkata time"

@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { Decimal, CalcError, own, type EvalContext, type Quantity } from './types';
+import { Decimal, CalcError, own, lastValidResult, type EvalContext, type Quantity } from './types';
 import type { Node, ConvTarget } from './parser';
 import { convertUnit, unitById } from './units';
 import { formatNumber } from './format';
@@ -42,16 +42,27 @@ export function convertMoney(q: Quantity, to: string, ctx: EvalContext, date?: s
   const histDate = date && today && date < today ? date : undefined;
   if (from === to && !histDate) return q;
   if (from === to) return { ...q, note: `same currency · ${histDate}` };
-  const quote = ctx.rates.get(from, to, histDate);
+  const quote = ctx.rates.get(from, to, histDate, { cachedOnly: !!ctx.cachedOnly });
   if (!quote) {
+    if (ctx.cachedOnly) throw new CalcError(`rate unavailable offline`, `no cached ${from}→${to} rate`);
     ctx.rates.request?.(from, to, histDate);
     if (histDate) throw new CalcError(`no ${from}→${to} rate for ${histDate}`, 'fetching… (ECB history, needs internet)');
     throw new CalcError(`no rate for ${from}→${to}`, 'fetching… (needs internet)');
   }
   const rate = new Decimal(quote.rate);
-  const when = histDate ? `on ${DateTime.fromISO(quote.timestamp).toFormat('d LLL yyyy')} · ${quote.source}` : fmtRateTime(quote.timestamp);
-  const freshness = quote.offline ? ' · cached rate, offline' : quote.stale ? ' · cached' : '';
-  const note = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to} · ${when}${freshness}`;
+  const rateText = `1 ${from} = ${formatNumber(rate, { maxDecimals: rate.lt(0.01) ? 6 : 4 })} ${to}`;
+  let note: string;
+  if (histDate) {
+    // the provider may answer with the previous business day (weekends, holidays): disclose it
+    const actual = DateTime.fromISO(quote.timestamp);
+    const requested = DateTime.fromISO(histDate);
+    const dateText = actual.toISODate() === histDate ? `on ${actual.toFormat('d LLL yyyy')}` : `on ${actual.toFormat('d LLL yyyy')} (no rate on ${requested.toFormat('d LLL yyyy')}; previous business day)`;
+    note = `${rateText} · ${dateText} · ${quote.source}`;
+  } else if (quote.cached || quote.offline || ctx.cachedOnly) {
+    note = `Cached rate · ${rateText} · updated ${fmtRateTime(quote.timestamp)}${quote.offline ? ' · offline' : ''}`;
+  } else {
+    note = `${rateText} · ${fmtRateTime(quote.timestamp)}${quote.stale ? ' · cached' : ''}`;
+  }
   return withNote({ kind: 'money', value: q.value.mul(rate), currency: to }, note);
 }
 
@@ -94,7 +105,7 @@ export function add(a: Quantity, b: Quantity, ctx: EvalContext, sign: 1 | -1 = 1
   if (b.kind === 'percent' && a.kind !== 'percent') {
     const factor = new Decimal(1).plus(b.value.mul(sign).div(100));
     if (a.kind === 'date' || a.kind === 'time') throw new CalcError("can't apply % to a date");
-    return { ...a, value: a.value.mul(factor), note: undefined };
+    return { ...a, value: a.value.mul(factor), note: undefined, display: undefined };
   }
   if (a.kind === 'percent' && b.kind === 'percent') return percent(a.value.plus(b.value.mul(sign)));
   if (a.kind === 'percent') {
@@ -122,6 +133,8 @@ export function add(a: Quantity, b: Quantity, ctx: EvalContext, sign: 1 | -1 = 1
   if (a.kind === 'money' || b.kind === 'money') {
     if (a.kind === 'money' && b.kind === 'money') {
       if (a.currency !== b.currency) {
+        // never mix currencies silently: the line must say which currency the answer is in ("… in USD")
+        if (!ctx.allowMixedCurrency) throw new CalcError(`mixed currencies ${a.currency}/${b.currency}`, `add "in ${a.currency}" to convert`);
         const conv = convertMoney(b, a.currency!, ctx);
         return withNote(money(a.value.plus(conv.value.mul(sign)), a.currency!), conv.note);
       }
@@ -147,12 +160,12 @@ export function mul(a: Quantity, b: Quantity): Quantity {
   if (a.kind === 'percent' && b.kind !== 'percent') return mul(b, a);
   if (b.kind === 'percent') {
     if (a.kind === 'percent') return percent(a.value.mul(b.value).div(100));
-    return { ...a, value: a.value.mul(b.value).div(100), note: undefined };
+    return { ...a, value: a.value.mul(b.value).div(100), note: undefined, display: undefined };
   }
   if (a.kind === 'date' || a.kind === 'time' || b.kind === 'date' || b.kind === 'time') throw new CalcError("can't multiply dates");
   if (a.kind === 'number' && b.kind === 'number') return num(a.value.mul(b.value));
-  if (a.kind === 'number') return { ...b, value: a.value.mul(b.value), note: undefined };
-  if (b.kind === 'number') return { ...a, value: a.value.mul(b.value), note: undefined };
+  if (a.kind === 'number') return { ...b, value: a.value.mul(b.value), note: undefined, display: undefined };
+  if (b.kind === 'number') return { ...a, value: a.value.mul(b.value), note: undefined, display: undefined };
   if (a.kind === 'unit' && b.kind === 'unit') {
     const ua = unitById(a.unit!)!;
     const ub = unitById(b.unit!)!;
@@ -177,7 +190,7 @@ export function div(a: Quantity, b: Quantity): Quantity {
     const divisor = b.kind === 'percent' ? b.value.div(100) : b.value;
     if (divisor.isZero()) throw new CalcError('division by zero');
     if (a.kind === 'date' || a.kind === 'time') throw new CalcError("can't divide a date");
-    return { ...a, value: a.value.div(divisor), note: undefined };
+    return { ...a, value: a.value.div(divisor), note: undefined, display: undefined };
   }
   if (b.value.isZero()) throw new CalcError('division by zero');
   if (a.kind === 'money' && b.kind === 'money') {
@@ -226,6 +239,22 @@ export function convert(q: Quantity, target: ConvTarget, ctx: EvalContext): Quan
     if (q.kind === 'number') return money(q.value, target.currency);
     throw new CalcError(`can't convert ${q.kind} to ${target.currency}`);
   }
+  if (target.compound) {
+    // "2.75 hours in hours and minutes" → 2 hours 45 minutes; "70 inches in feet and inches" → 5 ft 10 in
+    const [bigId, smallId] = target.compound;
+    const big = unitById(bigId)!;
+    const small = unitById(smallId)!;
+    if (q.kind !== 'unit' && q.kind !== 'number') throw new CalcError(`can't convert ${q.kind} to ${big.symbol} and ${small.symbol}`);
+    const from = q.kind === 'unit' ? unitById(q.unit!)! : big;
+    if (from.dim !== big.dim) throw new CalcError(`can't convert ${from.symbol} to ${big.symbol}`);
+    const inBig = convertUnit(q.value, from, big);
+    const whole = inBig.isNegative() ? inBig.ceil() : inBig.floor();
+    const rest = convertUnit(inBig.minus(whole), big, small).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const LONG: Record<string, [string, string]> = { h: ['hour', 'hours'], min: ['minute', 'minutes'], s: ['second', 'seconds'], day: ['day', 'days'], week: ['week', 'weeks'], month: ['month', 'months'], year: ['year', 'years'] };
+    const name = (u: typeof big, n: Decimal) => (own(LONG, u.id) ? LONG[u.id][n.abs().eq(1) ? 0 : 1] : u.symbol);
+    const display = `${formatNumber(whole)} ${name(big, whole)} ${formatNumber(rest)} ${name(small, rest)}`;
+    return { kind: 'unit', value: inBig, unit: big.id, display };
+  }
   if (target.unit) {
     const to = unitById(target.unit)!;
     if (q.kind === 'unit') {
@@ -254,7 +283,7 @@ function toRadians(q: Quantity): number {
 
 function callFn(fn: string, args: Quantity[]): Quantity {
   const a = args[0];
-  const keep = (v: Decimal | number): Quantity => ({ ...a, value: new Decimal(v), note: undefined });
+  const keep = (v: Decimal | number): Quantity => ({ ...a, value: new Decimal(v), note: undefined, display: undefined });
   switch (fn) {
     case 'sqrt':
       return keep(a.value.sqrt());
@@ -325,15 +354,15 @@ function callFn(fn: string, args: Quantity[]): Quantity {
 
 function aggregate(name: 'sum' | 'avg' | 'prev' | 'count', ctx: EvalContext): Quantity {
   if (name === 'prev') {
-    // strictly the line above: a blank, text or failed line in between makes the reference ambiguous
-    const p = ctx.previous[ctx.previous.length - 1];
-    if (p) return { ...p, note: undefined };
-    throw new CalcError('previous result?', ctx.previous.length === 0 ? 'nothing above this line' : 'the line above has no result');
+    const p = lastValidResult(ctx);
+    if (p) return { ...p, note: undefined, display: undefined };
+    const cleared = (ctx.contextStart ?? 0) > 0 && ctx.previous.length >= (ctx.contextStart ?? 0);
+    throw new CalcError('previous result?', cleared ? 'context was cleared; no result since then' : 'no result above this line');
   }
   const items = ctx.block.filter((q) => q.kind !== 'date' && q.kind !== 'time');
   if (name === 'count') return num(items.length);
   if (items.length === 0) throw new CalcError('nothing to sum', 'lines above this one are summed');
-  let acc: Quantity = { ...items[0], note: undefined };
+  let acc: Quantity = { ...items[0], note: undefined, display: undefined };
   for (const q of items.slice(1)) acc = add(acc, q, ctx);
   if (name === 'avg') return { ...acc, value: acc.value.div(items.length) };
   return acc;
@@ -371,7 +400,7 @@ export function evaluate(node: Node, ctx: EvalContext): Quantity {
     case 'var': {
       const v = ctx.variables.get(node.name);
       if (!v) throw new CalcError(`${node.name} = ?`, `define it above: ${node.name}: 100`);
-      return { ...v, note: undefined };
+      return { ...v, note: undefined, display: undefined };
     }
     case 'neg': {
       const inner = evaluate(node.e, ctx);
@@ -387,7 +416,7 @@ export function evaluate(node: Node, ctx: EvalContext): Quantity {
     case 'line': {
       const q = ctx.previous[node.n - 1];
       if (!q) throw new CalcError(`line ${node.n} has no result`);
-      return { ...q, note: undefined };
+      return { ...q, note: undefined, display: undefined };
     }
     case 'bin': {
       const l = evaluate(node.l, ctx);
@@ -403,26 +432,26 @@ export function evaluate(node: Node, ctx: EvalContext): Quantity {
           return div(l, r);
         case 'mod': {
           if (r.value.isZero()) throw new CalcError('division by zero');
-          return { ...l, value: l.value.mod(r.value), note: undefined };
+          return { ...l, value: l.value.mod(r.value), note: undefined, display: undefined };
         }
         case '^': {
           if (l.kind === 'date' || l.kind === 'time' || r.kind !== 'number') throw new CalcError('^ needs numbers');
-          return { ...l, value: l.value.pow(r.value), note: undefined };
+          return { ...l, value: l.value.pow(r.value), note: undefined, display: undefined };
         }
         case 'of': {
           // "20% of X" or "X ka 20%" (either order), "half of X"
-          if (l.kind === 'percent') return { ...r, value: r.value.mul(l.value).div(100), note: undefined };
-          if (r.kind === 'percent') return { ...l, value: l.value.mul(r.value).div(100), note: undefined };
-          if (l.kind === 'number') return { ...r, value: r.value.mul(l.value), note: undefined };
+          if (l.kind === 'percent') return { ...r, value: r.value.mul(l.value).div(100), note: undefined, display: undefined };
+          if (r.kind === 'percent') return { ...l, value: l.value.mul(r.value).div(100), note: undefined, display: undefined };
+          if (l.kind === 'number') return { ...r, value: r.value.mul(l.value), note: undefined, display: undefined };
           throw new CalcError('"of" needs a percentage');
         }
         case 'off': {
           if (l.kind !== 'percent') throw new CalcError('"off" needs a percentage');
-          return { ...r, value: r.value.mul(new Decimal(100).minus(l.value)).div(100), note: undefined };
+          return { ...r, value: r.value.mul(new Decimal(100).minus(l.value)).div(100), note: undefined, display: undefined };
         }
         case 'on': {
-          if (l.kind === 'percent') return { ...r, value: r.value.mul(new Decimal(100).plus(l.value)).div(100), note: undefined };
-          if (r.kind === 'percent') return { ...l, value: l.value.mul(new Decimal(100).plus(r.value)).div(100), note: undefined };
+          if (l.kind === 'percent') return { ...r, value: r.value.mul(new Decimal(100).plus(l.value)).div(100), note: undefined, display: undefined };
+          if (r.kind === 'percent') return { ...l, value: l.value.mul(new Decimal(100).plus(r.value)).div(100), note: undefined, display: undefined };
           throw new CalcError('"on" needs a percentage');
         }
       }

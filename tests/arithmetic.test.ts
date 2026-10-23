@@ -88,7 +88,8 @@ describe('arithmetic', () => {
     expect(last('$30 in Euro')).toBe('27.6 EUR');
     expect(lastNote('100 USD in INR')).toContain('1 USD = 84 INR');
     expect(lastNote('100 USD in INR')).toContain('23 Oct 00:02 UTC');
-    expect(last('$10 + 5 EUR')).toBe('$15.43');
+    expect(last('$10 + 5 EUR in USD')).toBe('$15.43');
+    expect(run('$10 + 5 EUR')[0].note).toContain('mixed currencies');
     expect(last('₹1,50,000 + 10%')).toBe('₹1,65,000');
     expect(last('100 USD in INR', { rates: { get: () => null } })).toBe('');
     expect(lastNote('100 USD in INR', { rates: { get: () => null } })).toContain('no rate');
