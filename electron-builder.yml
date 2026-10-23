@@ -1,0 +1,49 @@
+appId: com.fataak.calculator
+productName: FATAAK
+copyright: Copyright © 2026 Rahul Ojha
+directories:
+  output: release
+  buildResources: resources
+files:
+  - out/**
+  - resources/icon.png
+  - resources/icon.ico
+  - resources/tray.png
+  - package.json
+  - '!**/*.map'
+# script-only installer shipped next to FATAAK.exe inside the zip
+extraFiles:
+  - from: scripts/Install-FATAAK.cmd
+    to: Install-FATAAK.cmd
+  - from: scripts/Uninstall-FATAAK.cmd
+    to: Uninstall-FATAAK.cmd
+# asar: false keeps FATAAK.exe byte-identical to the stock Electron binary (no asar-integrity
+# resource patch). Managed laptops with endpoint security often block executables whose hash is
+# unknown; the unmodified Electron binary is already known-good on such machines.
+asar: false
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+    # plain zip of the unpacked app: extract anywhere and run FATAAK.exe (no installer, no admin)
+    - target: zip
+      arch: [x64]
+  icon: resources/icon.ico
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # no code-signing certificate on this machine
+  signAndEditExecutable: false
+nsis:
+  # per-user install (no admin / UAC prompt) — required on managed office laptops
+  perMachine: false
+  oneClick: true
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  runAfterFinish: true
+  shortcutName: FATAAK
+  artifactName: ${productName}-Setup-${version}.${ext}
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}

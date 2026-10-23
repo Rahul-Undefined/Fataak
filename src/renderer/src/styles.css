@@ -1,0 +1,319 @@
+/* FATAAK — visual reference: Numi dark theme. Compact, understated, no decoration. */
+:root {
+  --bg: #1c1c1c;
+  --title: #6b6b6b;
+  --text: #d6d6d6;
+  --number: #ededed;
+  --unit: #c3c3c3;
+  --keyword: #5fb2f1;
+  --label: #e4a73e;
+  --result: #86d94b;
+  --note: #6f6f6f;
+  --comment: #7a7a7a;
+  --hint: #8a8a8a;
+  --icon: #5c5c5c;
+  --icon-hover: #9a9a9a;
+  --caret: #e8e8e8;
+  --selection: rgba(95, 178, 241, 0.28);
+  --font: 'Cascadia Mono', 'Consolas', 'Menlo', 'DejaVu Sans Mono', monospace;
+  --size: 15px;
+  --line: 31px;
+  --pad-x: 48px;
+  --titlebar: 56px;
+  --footer: 44px;
+}
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--size);
+  overflow: hidden;
+  user-select: none;
+}
+::selection {
+  background: var(--selection);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---- title bar ---- */
+.titlebar {
+  position: relative;
+  height: var(--titlebar);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--title);
+  font-size: 14px;
+  letter-spacing: 0.02em;
+  -webkit-app-region: drag;
+}
+.lights {
+  position: absolute;
+  left: 22px;
+  top: 21px;
+  display: flex;
+  gap: 8px;
+  -webkit-app-region: no-drag;
+}
+.light {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  cursor: default;
+}
+.light.close {
+  background: #ff5f57;
+}
+.light.min {
+  background: #febc2e;
+}
+.light.max {
+  background: #28c840;
+}
+.light:focus {
+  outline: none;
+}
+
+/* ---- document ---- */
+.doc {
+  flex: 1 1 auto;
+  position: relative;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 20px;
+}
+.doc::-webkit-scrollbar {
+  width: 6px;
+}
+.doc::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+.editor {
+  position: relative;
+  min-height: calc(var(--line) * 3);
+}
+.editor textarea,
+.editor .highlight {
+  margin: 0;
+  padding: 0 var(--pad-x);
+  border: 0;
+  width: 100%;
+  font: inherit;
+  font-size: var(--size);
+  line-height: var(--line);
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  tab-size: 4;
+}
+.editor .measure {
+  position: absolute;
+  visibility: hidden;
+  white-space: pre;
+  font: inherit;
+  font-size: var(--size);
+}
+.editor .highlight {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: var(--text);
+}
+.editor textarea {
+  display: block;
+  position: relative;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--caret);
+  resize: none;
+  outline: none;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.editor textarea::selection {
+  background: var(--selection);
+  color: transparent;
+}
+
+.tok-label {
+  color: var(--label);
+}
+.tok-number {
+  color: var(--number);
+}
+.tok-keyword {
+  color: var(--keyword);
+}
+.tok-unit {
+  color: var(--unit);
+}
+.tok-op {
+  color: var(--number);
+}
+.tok-comment {
+  color: var(--comment);
+}
+.tok-text {
+  color: var(--text);
+}
+.tok-variable {
+  color: var(--number);
+}
+
+/* ---- results column ---- */
+.results {
+  position: absolute;
+  top: 0;
+  right: var(--pad-x);
+  left: var(--pad-x);
+  pointer-events: none;
+}
+.row {
+  height: var(--line);
+  line-height: var(--line);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 10px;
+  white-space: nowrap;
+}
+.row .note {
+  color: var(--note);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+.row .note.hint {
+  color: var(--hint);
+}
+.row .value {
+  color: var(--result);
+  pointer-events: auto;
+  cursor: default;
+  position: relative;
+}
+.row .value:hover {
+  text-decoration: underline;
+  text-decoration-color: rgba(134, 217, 75, 0.4);
+  text-underline-offset: 3px;
+}
+.row .value.copied::after {
+  content: 'copied';
+  position: absolute;
+  right: 0;
+  top: -16px;
+  font-size: 10px;
+  color: var(--note);
+}
+
+/* ---- footer ---- */
+.footer {
+  flex: 0 0 auto;
+  height: var(--footer);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px 0 24px;
+}
+.icon-btn {
+  background: none;
+  border: 0;
+  padding: 4px;
+  color: var(--icon);
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+}
+.icon-btn:hover,
+.icon-btn.on {
+  color: var(--icon-hover);
+}
+.icon-btn:focus {
+  outline: none;
+}
+.icon-btn svg {
+  display: block;
+}
+
+/* ---- settings popover ---- */
+.settings {
+  position: absolute;
+  right: 16px;
+  bottom: 44px;
+  background: #242424;
+  border: 1px solid #2f2f2f;
+  border-radius: 6px;
+  padding: 10px 14px;
+  min-width: 240px;
+  font-size: 12px;
+  color: #bdbdbd;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+.settings .srow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 28px;
+}
+.settings .srow.sep {
+  border-top: 1px solid #2f2f2f;
+  margin-top: 4px;
+  padding-top: 4px;
+}
+.settings input[type='text'] {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #ddd;
+  font: inherit;
+  padding: 3px 6px;
+  width: 140px;
+  border-radius: 3px;
+  outline: none;
+}
+.settings input[type='text']:focus {
+  border-color: #4a7fb0;
+}
+.settings input[type='checkbox'] {
+  accent-color: #5fb2f1;
+}
+.settings .err {
+  color: #e07a6a;
+  font-size: 11px;
+}
+.settings .link {
+  background: none;
+  border: 0;
+  color: #bdbdbd;
+  font: inherit;
+  padding: 0;
+  cursor: default;
+}
+.settings .link:hover {
+  color: #fff;
+}
+.settings .muted {
+  color: #6f6f6f;
+  font-size: 11px;
+}
