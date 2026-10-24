@@ -86,9 +86,16 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
   try {
     await rm(dir, { recursive: true, force: true });
     await mkdir(dir, { recursive: true });
-    // download
-    const res = await net.fetch(url, { headers: { 'user-agent': `FATAAK/${app.getVersion()}` } });
-    if (!res.ok || !res.body) return { ok: false, status: `download failed (HTTP ${res.status})` };
+    // download (one retry: GitHub's asset host occasionally resets the first connection)
+    let res: Response | null = null;
+    for (let attempt = 0; attempt < 2 && !res; attempt++) {
+      try {
+        res = await net.fetch(url, { headers: { 'user-agent': `FATAAK/${app.getVersion()}` } });
+      } catch (e) {
+        if (attempt === 1) throw e;
+      }
+    }
+    if (!res || !res.ok || !res.body) return { ok: false, status: `download failed (HTTP ${res?.status ?? 'no response'})` };
     const total = parseInt(res.headers.get('content-length') ?? '0', 10) || 0;
     let received = 0;
     const counter = new Readable({ read() {} });
