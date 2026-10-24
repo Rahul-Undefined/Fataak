@@ -290,6 +290,8 @@ body,
   line-height: 22px;
   margin-top: 4px;
   max-width: 55%;
+  padding: 0 7px;
+  font-weight: 700;
 }
 .row .value {
   color: var(--result);
@@ -384,6 +386,34 @@ body,
 .mini.wide {
   margin-top: 8px;
   width: 100%;
+}
+
+/* ---- status strip: the working of the current line ---- */
+.status {
+  flex: 0 0 auto;
+  height: 26px;
+  margin: 6px 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  color: var(--note);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.status .status-k {
+  color: var(--result);
+  font-family: var(--font-mono);
+  flex: 0 0 auto;
+}
+.status .status-k.muted {
+  color: var(--muted);
+  font-family: var(--font-ui);
+}
+.status .status-v {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ---- bottom bar: labelled toggles ---- */

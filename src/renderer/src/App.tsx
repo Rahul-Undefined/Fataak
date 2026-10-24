@@ -34,16 +34,13 @@ function explain(note: string): string[] {
  * One result row. Click copies the answer; double-click opens the working (every step, rate, source).
  * The note is drawn inline only when it fits between the expression and the result.
  */
-function ResultRow({ r, text, charW, width, rows, open, onCopy, onToggle }: { r: LineResult; text: string; charW: number; width: number; rows: number; open: boolean; onCopy: (t: string) => void; onToggle: () => void }) {
+function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover }: { r: LineResult; text: string; rows: number; open: boolean; onCopy: (t: string) => void; onToggle: () => void; onHover: (over: boolean) => void }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
     const t = setTimeout(() => setCopied(false), 900);
     return () => clearTimeout(t);
   }, [copied]);
-  const valueW = r.ok ? r.display.length * charW : 0;
-  const avail = rows > 1 ? 0 : width - text.length * charW - valueW - 28;
-  const showNote = !!r.note && avail > 90 && !open;
   const tip = r.note ? 'click: copy · double-click: show the working' : 'click: copy';
   const clickTimer = useRef<number | undefined>(undefined);
   const onClick = () => {
@@ -58,15 +55,10 @@ function ResultRow({ r, text, charW, width, rows, open, onCopy, onToggle }: { r:
     onToggle();
   };
   return (
-    <div className={`row${open ? ' open' : ''}`} style={{ height: rows * LINE_PX }}>
-      {showNote && (
-        <span className={`note${r.ok ? '' : ' hint'}`} style={{ maxWidth: avail }} title={r.note}>
-          {r.note}
-        </span>
-      )}
-      {!showNote && !r.ok && r.note && (
+    <div className={`row${open ? ' open' : ''}`} style={{ height: rows * LINE_PX }} onMouseEnter={() => onHover(true)} onMouseLeave={() => onHover(false)}>
+      {!r.ok && r.note && (
         <span className="note hint pill" title={r.note} onDoubleClick={onDouble}>
-          {r.note.length > 28 ? '? ' + r.note.slice(0, 26) + '…' : r.note}
+          ?
         </span>
       )}
       {r.ok && (
@@ -120,6 +112,8 @@ export function App() {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [update, setUpdate] = useState<UpdateCheck | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [caretLine, setCaretLine] = useState(0);
+  const [hoverLine, setHoverLine] = useState<number | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -328,6 +322,10 @@ export function App() {
   };
 
   const widget = settings.widgetMode;
+  const statusIdx = hoverLine ?? caretLine;
+  const statusRes = results[statusIdx];
+  const statusNote = statusRes?.note ?? null;
+  const statusLabel = statusRes?.ok ? statusRes.display : statusRes?.note ? 'not calculated' : '';
 
   return (
     <div className={`app${widget ? ' widget' : ''}`} onClick={() => openId && setOpenId(null)}>
@@ -380,6 +378,9 @@ export function App() {
             value={text}
             onChange={onChange}
             onKeyDown={onKeyDown}
+            onKeyUp={() => setCaretLine(currentLineIndex())}
+            onClick={() => setCaretLine(currentLineIndex())}
+            onSelect={() => setCaretLine(currentLineIndex())}
             onCopy={onCopy}
             spellCheck={false}
             autoCapitalize="off"
@@ -395,9 +396,8 @@ export function App() {
                 key={lines[i]?.id ?? i}
                 r={r}
                 text={texts[i]}
-                charW={metrics.charW}
-                width={metrics.width}
                 rows={layout.rows[i]}
+                onHover={(over) => setHoverLine(over ? i : null)}
                 open={openId === (lines[i]?.id ?? String(i))}
                 onCopy={copy}
                 onToggle={() => setOpenId((cur) => (cur === (lines[i]?.id ?? String(i)) ? null : (lines[i]?.id ?? String(i))))}
@@ -405,6 +405,17 @@ export function App() {
             ))}
           </div>
         </div>
+      </div>
+
+      <div className="status" title={statusNote ?? ''}>
+        {statusNote ? (
+          <>
+            <span className="status-k">{statusLabel}</span>
+            <span className="status-v">{statusNote}</span>
+          </>
+        ) : (
+          <span className="status-k muted">{texts.length > 1 || texts[0] ? 'move the cursor to a line to see how it was worked out · double-click a result for every step' : ''}</span>
+        )}
       </div>
 
       <div className="bar">
@@ -456,21 +467,6 @@ export function App() {
           <div className="srow">
             <span>Close hides to tray</span>
             <input type="checkbox" checked={settings.closeToTray} disabled={!settings.tray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
-          </div>
-          <div className="srow">
-            <span>Always on top</span>
-            <input type="checkbox" checked={settings.alwaysOnTop} disabled={widget} onChange={(e) => void updateSettings({ alwaysOnTop: e.target.checked })} />
-          </div>
-          <div className="srow">
-            <span title="Pinned to the desktop, no taskbar entry, cannot be moved, minimised or closed until turned off">Desktop widget mode</span>
-            <input type="checkbox" checked={widget} onChange={(e) => void updateSettings({ widgetMode: e.target.checked })} />
-          </div>
-          <div className="srow">
-            <span>Theme</span>
-            <select value={settings.theme} onChange={(e) => void updateSettings({ theme: e.target.value as Settings['theme'] })}>
-              <option value="dark">☾ Moon (dark)</option>
-              <option value="light">☀ Sun (light)</option>
-            </select>
           </div>
           <div className="srow sep">
             <span>Update URL</span>
