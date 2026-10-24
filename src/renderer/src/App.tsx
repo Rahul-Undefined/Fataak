@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { evaluateDocument, pruneExpired, syncLines, newId, type HistoryLine, type LineResult, type HighlightSpan } from '../../engine/index';
+import { Decimal } from '../../engine/types';
+import { formatQuantity } from '../../engine/format';
 import type { AppInfo, Settings, UpdateCheck } from '../../shared/api';
 import { DEFAULT_SETTINGS } from '../../shared/api';
 import { api, isElectron } from './bridge';
@@ -114,6 +116,7 @@ export function App() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [caretLine, setCaretLine] = useState(0);
   const [hoverLine, setHoverLine] = useState<number | null>(null);
+  const [selLines, setSelLines] = useState<[number, number] | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -234,6 +237,18 @@ export function App() {
     e.clipboardData.setData('text/plain', linesWithResults(startLine, endLine + 1));
   };
 
+  const trackSelection = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    setCaretLine(currentLineIndex());
+    if (ta.selectionStart === ta.selectionEnd) setSelLines(null);
+    else {
+      const a = text.slice(0, ta.selectionStart).split('\n').length - 1;
+      const b = text.slice(0, ta.selectionEnd).split('\n').length - 1;
+      setSelLines(a === b ? null : [a, b]);
+    }
+  };
+
   const currentLineIndex = (): number => {
     const ta = textareaRef.current;
     if (!ta) return -1;
@@ -324,8 +339,21 @@ export function App() {
   const widget = settings.widgetMode;
   const statusIdx = hoverLine ?? caretLine;
   const statusRes = results[statusIdx];
-  const statusNote = statusRes?.note ?? null;
-  const statusLabel = statusRes?.ok ? statusRes.display : statusRes?.note ? 'not calculated' : '';
+  let statusNote = statusRes?.note ?? null;
+  let statusLabel = statusRes?.ok ? statusRes.display : statusRes?.note ? 'not calculated' : '';
+  // several selected lines: their total, average and count in the strip
+  if (selLines && hoverLine === null) {
+    const vals = results.slice(selLines[0], selLines[1] + 1).filter((r) => r.ok && r.value && (r.value.kind === 'number' || r.value.kind === 'money'));
+    if (vals.length) {
+      const same = vals.every((r) => r.value!.kind === vals[0].value!.kind && r.value!.currency === vals[0].value!.currency);
+      if (same) {
+        const sum = vals.reduce((s, r) => s.plus(r.value!.value), new Decimal(0));
+        const q = { ...vals[0].value!, value: sum, note: undefined, display: undefined };
+        statusLabel = `selection: ${vals.length} values`;
+        statusNote = `sum ${formatQuantity(q)} · average ${formatQuantity({ ...q, value: sum.div(vals.length).toDecimalPlaces(2) })}`;
+      }
+    }
+  }
 
   return (
     <div className={`app${widget ? ' widget' : ''}`} onClick={() => openId && setOpenId(null)}>
@@ -378,9 +406,9 @@ export function App() {
             value={text}
             onChange={onChange}
             onKeyDown={onKeyDown}
-            onKeyUp={() => setCaretLine(currentLineIndex())}
-            onClick={() => setCaretLine(currentLineIndex())}
-            onSelect={() => setCaretLine(currentLineIndex())}
+            onKeyUp={() => trackSelection()}
+            onClick={() => trackSelection()}
+            onSelect={() => trackSelection()}
             onCopy={onCopy}
             spellCheck={false}
             autoCapitalize="off"
@@ -502,6 +530,7 @@ export function App() {
             )}
           </div>
           <div className="muted">Esc hides · click a result to copy · double-click for the working · Ctrl+Alt+C copies all · lines expire after 24h</div>
+          <div className="muted credit">Made by Rahul</div>
         </div>
       )}
 

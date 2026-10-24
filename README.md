@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine/app tests + 892-case reliability benchmark (tests/benchmark.test.ts), 1,515 tests
+npm test           # vitest: engine/app tests + 974-case reliability benchmark (tests/benchmark.test.ts), 1,685 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -137,6 +137,21 @@ labelled toggles for **On top**, **Widget** mode (pinned to the desktop, no task
 closed until turned off) and the **Moon/Sun** theme (dark/light); **? Help** replays the animated tutorial that autoplays on first
 run; **Settings** shows the version and build date and can check an update URL you set (a JSON file with `version` and
 `url`); nothing is downloaded or installed automatically.
+
+**Version 1.0 everyday calculators.** Money: `income tax on 15 lakh salary` (FY 2025-26, new regime by default, `old regime`
+on request), `ctc 12 lakh in hand`, `sip 5000 at 12% for 10 years`, `how much monthly sip for 50 lakh in 10 years at 12%`,
+`lumpsum 1 lakh at 10% for 15 years`, `fd 2 lakh at 7.1% for 3 years`, `rd 5000 for 2 years at 6.5%`, `emi 30 lakh 8.5% 20
+years, prepay 2 lakh after 2 years`, `paisa double at 9%`, `10 lakh today in 10 years at 6% inflation`, `rent 25000 with 10
+months deposit`, `bill 4800, rahul 2 items, priya 1 item`. Daily life: `250 g flour in cups`, `uk 9 shoe in us`, `shirt size
+for 40 inch chest`, `ideal weight for 175 cm`, `delhi to jaipur at 15 km/l petrol 105`, `1.5 ton ac 8 hours a day for 30 days
+at 8 per unit`, `days to diwali 2026`, `next birthday if born 15 aug 1990`, `week number of 15 nov 2026`, `9:30 to 18:45
+minus 45 min, 22 days`, `time left until 5pm`, `5 kg at 450 vs 2 kg at 190`, `12,34,567 in words`, `2026 in roman`, `255 in
+hex`, `0b1010 + 5`. Health and study: `bmr 70 kg 175 cm 30 male`, `tdee … moderate`, `calories to lose 0.5 kg a week`,
+`water intake 70 kg`, `10000 steps in km`, `5 km in 28 minutes pace`, `grade for 86%`, `average of 78 82 91 then what for
+85 average`, `12 workers 8 days, 16 workers how many days`, `train 300 m at 72 km/h crosses platform 200 m`. Deeper:
+variables keep their units, `2x + 5 = 17` and `x% of 80 = 20` are solved, `std / variance / range / 90th percentile of …`,
+`x = 1 to 12`, `emi 5 lakh at 9% for 1 to 5 years` gives one answer per year, and selecting several lines shows their sum
+and average in the strip under the editor.
 
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.

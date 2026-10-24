@@ -1,5 +1,5 @@
 /**
- * Reliability benchmark: 892 cases with independently computed answers (hand-worked or Python decimal),
+ * Reliability benchmark: 974 cases with independently computed answers (hand-worked or Python decimal),
  * never taken from the engine. NOW = Fri 23 Oct 2026 10:00 IST; test rates USD base (INR 84, EUR 0.92,
  * GBP 0.78, JPY 150, AED 3.67, SGD 1.34; historical 13 Oct 2026 INR 80).
  *
@@ -15,7 +15,7 @@ const GROUP: Record<string, 'core' | 'intent' | 'nl' | 'negative'> = {
   arithmetic: 'core', arithmetic2: 'core',
   percent: 'intent', percent2: 'intent', gst_tax: 'intent', gst2: 'intent', discount_profit: 'intent', profit2: 'intent', interest_emi: 'intent', interest2: 'intent',
   units: 'intent', units2: 'intent', dates: 'intent', dates2: 'intent', times: 'intent', times2: 'intent', currency: 'intent', currency2: 'intent', variables: 'intent', context2: 'intent',
-  hinglish: 'nl', hinglish2: 'nl', nonsense: 'negative', data3: 'intent', facts3: 'intent', everyday3: 'nl',
+  hinglish: 'nl', hinglish2: 'nl', nonsense: 'negative', data3: 'intent', facts3: 'intent', everyday3: 'nl', money4: 'intent', life4: 'nl', health4: 'intent', deeper4: 'core',
 };
 const M: Record<string, Case[]> = {
   arithmetic: [
@@ -106,7 +106,7 @@ const M: Record<string, Case[]> = {
     ['aaj se 45 din baad', 'Mon, 7 Dec 2026'], ['kal ke 10 din baad', 'Tue, 3 Nov 2026'], ['aaj kaunsa din hai', 'Friday, 23 Oct 2026'], ['15 aug 2026 ko kya din hai', 'Saturday, 15 Aug 2026'],
     ['1 jan 2027 se 31 jan 2027 tak kaam ke din kitne', '21 weekdays'], ['days from 23 oct 2026 to 25 dec 2026', '63 days'], ['2026-12-25 - today', '63 days'], ['25 dec 2026 - 23 oct 2026', '63 days'],
     ['weeks between 1 jan 2026 and 1 mar 2026', '8.43 weeks'], ['date 90 days before 1 jan 2027', 'Sat, 3 Oct 2026'], ['2 weeks after 15 nov 2026', 'Sun, 29 Nov 2026'], ['first day of next month', 'Sun, 1 Nov 2026'],
-    ['end of this month', 'Sat, 31 Oct 2026'], ['how many days till christmas 2026', 'ERR'], ['30 feb 2026', 'ERR'], ['days between 1 jan and', 'ERR'], ['1 jan 2026 + 5 kg', 'ERR'],
+    ['end of this month', 'Sat, 31 Oct 2026'], ['how many days till christmas 2026', '63 days'], ['30 feb 2026', 'ERR'], ['days between 1 jan and', 'ERR'], ['1 jan 2026 + 5 kg', 'ERR'],
     ['which day was 26 jan 1950', 'Thursday, 26 Jan 1950'], ['number of days in 2024', '366 days'], ['today in 3 months', 'Sat, 23 Jan 2027'], ['6 months ago', '23 Apr 2026'],
   ],
   times: [
@@ -207,7 +207,7 @@ const M: Record<string, Case[]> = {
   dates2: [
     ['days between 29 feb 2024 and 1 mar 2024', '1 day'], ['29 feb 2023', 'ERR'], ['31 apr 2026', 'ERR'], ['weeks from 1 jan 2026 to 31 dec 2026', '52 weeks'], ['how many weekends in nov 2026', '9 weekend days'],
     ['date 1 year after 29 feb 2024', 'Fri, 28 Feb 2025'], ['today + 1 year', '23 Oct 2027'], ['days until end of year', '69 days'], ['working days between 1 dec 2026 and 31 dec 2026', '23 weekdays'],
-    ['what date is 45 days before today', 'Tue, 8 Sep 2026'], ['15 aug 2026 is what day', 'Saturday, 15 Aug 2026'], ['diwali 2026', '2,026'], ['1 jan 2000 + 10000 days', '19 May 2027'],
+    ['what date is 45 days before today', 'Tue, 8 Sep 2026'], ['15 aug 2026 is what day', 'Saturday, 15 Aug 2026'], ['diwali 2026', 'Sun, 8 Nov 2026'], ['1 jan 2000 + 10000 days', '19 May 2027'],
     ['2026-10-23 + 1 week', '30 Oct 2026'], ['end of next month', 'Mon, 30 Nov 2026'], ['aaj se 3 mahine baad kaunsi tarikh', 'Sat, 23 Jan 2027'], ['2 saal pehle ki date', 'Wed, 23 Oct 2024'],
     ['days from today to 1 jan 2027', '70 days'], ['how many days between 15 aug 2026 and 2 oct 2026', '48 days'], ['3 months after 30 nov 2026', 'Sun, 28 Feb 2027'], ['1 jan 2027 - 1 day', '31 Dec 2026'],
     ['age on 23 oct 2026 if born 23 oct 2000', '26 years'], ['is 1900 a leap year', '1900: not a leap year'], ['is 2000 a leap year', '2000: leap year'], ['next monday + 3 days', '29 Oct 2026'],
@@ -267,6 +267,34 @@ const M: Record<string, Case[]> = {
     ['1 million in lakhs', '10 lakh'], ['age in days if born 1 jan 2000', '9,792 days'], ['percentage of 45 out of 60', '75%'], ['9pm to 5am', '8 hours'],
     ['7 am ist to pst', '5:30 PM PST'], ['1200 per day monthly', '36,000'], ['interest on 1 lakh at 7% for 90 days simple', '1,726.03'], ['si 1 lakh 7% 90 days', '1,726.03'],
     ['what is 2 power 10 minus 24', '1,000'], ['average of 85, 90, 78 and 92', '86.25'], ['rounded to 1 dp 2 / 3', '0.7'], ['10 crore / 7', '14,285,714.2857'],
+  ],
+  money4: [
+    ['15 lakh salary pe income tax kitna lagega', '97,500'], ['tax on 25 lakh income', '343,200'], ['mera package 12 lakh hai, in hand kitna milega', '87,800/month'], ['income tax 15 lakh old regime salaried', '257,400'],
+    ['tax slab for 12.6 lakh', '62,400'], ['income tax on 7 lakh', '0'], ['sip 5000 monthly at 12% for 10 years', '1,161,695.38'], ['5000 ka sip 12% pe 10 saal', '1,161,695.38'],
+    ['monthly sip needed for 50 lakh in 10 years at 12%', '21,520.27/month'], ['50 lakh target 10 years 12% sip kitna', '21,520.27/month'], ['fd of 1 lakh for 3 years at 7%', '123,143.93'],
+    ['2 lakh fd 7.1% 3 saal maturity', '247,015'], ['rd 5000 monthly 2 years 6.5%', '128,425.3'], ['home loan 30 lakh 8.5% 20 years prepay 2 lakh after 24 months', '17 years 5 months'],
+    ['at 8% money doubles in how many years', '9 years'], ['9% pe paisa kitne saal me double hoga', '8 years'], ['10 lakh after 10 years at 6% inflation', '1,790,847.7'], ['what 10 lakh buys after 10 years at 6% inflation', '558,394.78'],
+    ['deposit for rent 25000 with 10 months', '250,000'], ['rent 25000 hike 5% for 3 years', '28,940.63'], ['bill 4800 rahul 2 items priya 1 item', '3,200 / 1,600'], ['sip 5000 for 10 years', 'ERR'], ['fd 2 lakh 3 years', 'ERR'],
+    ['income tax', 'ERR'], ['lumpsum 2 lakh at 8% for 5 years', '293,865.62'],
+  ],
+  life4: [
+    ['250 grams flour kitne cups', '2.08 cups'], ['1 cup sugar in grams', '200 g'], ['half cup butter in g', '113.5 g'], ['uk 8 in us shoe', 'US 9'], ['eu 43 shoe in uk', 'UK 10'], ['chest 42 inch shirt size', 'XL'],
+    ['ideal weight 180 cm male', '75 kg'], ['delhi se mumbai 15 kmpl petrol 100', '7,654'], ['300 km at 20 km/l diesel 92', '1,380'], ['2 ton ac 6 hours daily 30 days at 7 per unit', '3,024'], ['100 watt bulb 10 hours 30 days units', '30 units'],
+    ['days to holi 2027', '150 days'], ['diwali kab hai', 'Sun, 8 Nov 2026'], ['christmas', 'Fri, 25 Dec 2026'], ['independence day 2027', 'Sun, 15 Aug 2027'], ['next birthday if born 23 oct 2000', 'Fri, 23 Oct 2026'],
+    ['week number', 'week 43'], ['10am to 7pm minus 1 hour, 26 days', '208 h'], ['time left until 11:30pm', '13 h 30 min'], ['3 kg at 300 vs 5 kg at 450', '5 kg at 450 is cheaper'],
+    ['1 crore in words', 'one crore'], ['2500000 in words', 'twenty-five lakh'], ['999 in roman', 'CMXCIX'], ['roman MMXXIV', '2024'], ['4096 in hex', '0x1000'], ['255 in binary', '0b11111111'], ['0x10 * 2', '32'],
+    ['5000 in roman', 'ERR'], ['-5 in binary', 'ERR'],
+  ],
+  health4: [
+    ['bmr for 80 kg 180 cm 40 years male', '1,730 kcal/day'], ['tdee 1649 active', '2,845 kcal/day'], ['calories to lose 1 kg a week', '1,100 kcal/day deficit'], ['daily water for 60 kg', '2.1 l/day'],
+    ['8000 steps in km', '6.1 km'], ['10 km in 55 minutes pace', '5:30 min/km'], ['pace 6:00 for 21.1 km', '2 h 7 min'], ['grade for 72%', 'B1'], ['grade 33%', 'D'],
+    ['scores 78 82 91, what for 85 average', '89'], ['8 workers 12 days, 6 workers how many days', '16 days'], ['3 pens cost 45, 7 pens?', '105'], ['train 200 m at 36 km/h crosses platform 100 m', '30 s'],
+    ['bmr 70 kg', 'ERR'],
+  ],
+  deeper4: [
+    [['rate = 5%', 'amount = 2000', 'amount * rate'], '100'], [['d = 120 km', 't = 2 hours', 'd / t'], '60 km/h'], ['5x - 3 = 2x + 9', 'x = 4'], ['x/4 = 25', 'x = 100'], ['20% of x = 50', 'x = 250'], ['x + x = 10', 'x = 5'],
+    ['x^2 = 9', 'ERR'], ['std of 2, 4, 4, 4, 5, 5, 7, 9', '2'], ['variance of 1, 2, 3, 4, 5', '2'], ['range of 7, 3, 9', '6'], ['50th percentile of 1, 2, 3, 4, 5', '3'],
+    ['x = 10 to 1', '10, 9, 8, 7, 6, 5, 4, 3, 2, 1'], ['n = 0 to 20 step 5', '0, 5, 10, 15, 20'], ['si 10000 at 8% for 1 to 3 years', '1y: 800 · 2y: 1,600 · 3y: 2,400'],
   ],
 };
 

@@ -141,3 +141,14 @@ desktop widget mode (pinned, no taskbar entry, not movable, minimisable or closa
 not placed behind desktop icons, which Windows does not allow without native code). Widget mode and the update check
 were implemented in the main process and type-checked but not exercised at runtime in this session, because the
 installed FATAAK instance holds the single-instance lock.
+
+## Version 1.0 (24 Oct 2026)
+
+Twenty-nine everyday calculators in `src/engine/extras.ts` (Indian income tax FY 2025-26, CTC to in-hand, SIP and
+goal SIP, lump sum, FD/RD, loan prepayment, doubling time, inflation, rent, bill shares, cooking measures, shoe and
+shirt sizes, ideal weight, fuel cost, electricity, festivals 2026–2028, birthdays, week numbers, shift hours, time
+left, unit-price comparison, number words, roman/hex/binary, BMR/TDEE, calories, water, steps, pace, grades, marks
+needed, proportion problems, linear equations in x, statistics, ranges). Each states its formula and assumptions in
+the note (basic = 50% of CTC, 1 ton of AC ≈ 1.2 kW, 7,700 kcal per kg, Devine ideal weight, Mifflin-St Jeor BMR,
+CBSE grade bands, 240 ml cup). Round four of adversarial questions (82 cases) passes; the benchmark holds 974 cases
+and the suite 1,685 tests. Festival dates follow the Indian national calendar and should be confirmed locally.

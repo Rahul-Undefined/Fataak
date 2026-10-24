@@ -11,6 +11,7 @@ import { isCurrencyWord, findCurrency } from './currency';
 import { formatNumber } from './format';
 import { isZoneWord } from './timezone';
 import { factPhrases, lookupFact } from './facts';
+import { intentEquation, intentRangeList, FESTIVALS } from './extras';
 
 export * from './types';
 export { formatQuantity } from './format';
@@ -82,6 +83,35 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   ctx.cachedOnly = /\b(offline|cached|cache)\b/i.test(trimmed);
   // mixed-currency sums are only allowed when the line says which currency it wants ("sum in USD - 4%")
   ctx.allowMixedCurrency = currencyNamed(trimmed);
+  // "2x + 5 = 17" and "x = 1 to 5" before the "name = value" reading of a line
+  if (trimmed.includes('=')) {
+    try {
+      const single = (trimmed.match(/=/g) ?? []).length === 1 && !/,|\band\b/i.test(trimmed);
+      const definition = /^\s*[\p{L}_][\p{L}\p{N}_ ]*\s*=/u.test(trimmed);
+      const eq = intentRangeList(trimmed) ?? (single && !definition && /(^|[^a-z])x([^a-z]|$)/i.test(trimmed) && /\d/.test(trimmed) ? intentEquation(trimmed, ctx) : null);
+      if (eq) return { ok: true, value: eq, display: formatQuantity(eq), note: eq.note, isText: false, spans: highlight(rawText, null, variables, []) };
+    } catch (e) {
+      if (e instanceof CalcError) return { ok: false, display: '', note: e.hint ? `${e.message} · ${e.hint}` : e.message, isText: false, spans: highlight(rawText, null, variables, []) };
+    }
+  }
+  // "emi 5 lakh at 9% for 1 to 5 years": one answer per value of the range
+  const range = /\b(\d+)\s+to\s+(\d+)\s+(years?|months?)\b/i.exec(trimmed);
+  if (range && !/\bx\s*=/.test(trimmed)) {
+    const [a, b] = [parseInt(range[1], 10), parseInt(range[2], 10)];
+    if (a < b && b - a <= 11) {
+      const unit = range[3];
+      const parts: string[] = [];
+      let lastValue: Quantity | undefined;
+      for (let v = a; v <= b; v++) {
+        const line = trimmed.replace(range[0], `${v} ${unit}`);
+        const r = evaluateLine(line, ctx, variables);
+        if (!r.ok) return r;
+        parts.push(`${v}${unit === '%' ? '%' : unit.startsWith('y') ? 'y' : 'm'}: ${r.display}`);
+        lastValue = r.value;
+      }
+      return { ok: true, value: lastValue!, display: parts.join(' · '), note: `${b - a + 1} values, ${a} to ${b} ${unit}`, isText: false, spans: highlight(rawText, null, variables, []) };
+    }
+  }
   // "x = 375 and y = 28% of x, calculate x + y, x - y and x * y": definitions and expressions on one line
   if (trimmed.includes('=') && /,|\band\b|\bthen\b/i.test(trimmed)) {
     const multi = tryMultiStatement(rawText, ctx, variables);
@@ -382,6 +412,9 @@ function tryImplicitDefinition(
   let n = 0;
   while (n < 3 && toks[n]?.type === 'word' && isPlainName(toks[n].value, variables)) n++;
   if (n === 0 || n >= toks.length) return null;
+  // "diwali 2026" is a date question, "water intake 70 kg" a calculator, not definitions
+  if (own(FESTIVALS, toks.slice(0, n).map((t) => t.value).join(' '))) return null;
+  if (/\b(water|intake|bmr|tdee|sip|fd|rd|ctc|shoe|shirt|ideal|grade|pace|steps|std|variance|percentile|calories|lumpsum|prepay|inflation|petrol|diesel|cgpa|mileage|heater|watt|watts)\b/i.test(clean)) return null;
   const first = toks[n];
   const startsValue = first.type === 'number' || first.type === 'currency' || (first.type === 'word' && isCurrencyWord(first.value) && toks[n + 1]?.type === 'number');
   if (!startsValue) return null;

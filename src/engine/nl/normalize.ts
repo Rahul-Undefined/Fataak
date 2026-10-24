@@ -59,7 +59,9 @@ const PHRASES: [string, string][] = [
   ['average speed', 'speed'], ['time to travel', 'time'], ['time to cover', 'time'], ['time to drive', 'time'], ['time to reach', 'time'], ['to travel', ''], ['to cover', ''], ['to drive', ''], ['to reach', ''],
   ['fuel needed for', ''], ['petrol needed for', ''], ['diesel needed for', ''], ['fuel for', ''], ['petrol for', ''], ['diesel for', ''], ['fuel required for', ''], ['peeche', 'behind'], ['piche', 'behind'], ['pichhe', 'behind'], ['time gap', 'difference'], ['time difference', 'difference'], ['how long will it take', 'what time'], ['how long does it take', 'what time'], ['how long', 'what time'], ['kitna time lagega', 'what time'], ['kitna samay lagega', 'what time'], ['kitna time', 'what time'], ['half a', '0.5'], ['half an', '0.5'], ['quarter of a', '0.25'], ['find the number', 'what'], ['find the value', 'what'], ['find the amount', 'what'], ['find x', 'what'], ['find it', 'what'], ['old salary', 'what'], ['old price', 'what'], ['old value', 'what'], ['old amount', 'what'],
   ['previous salary', 'what'], ['purani salary', 'what'], ['purana price', 'what'], ['purani price', 'what'], ['maturity', 'total'], ['kaunsi', 'what'], ['konsi', 'what'], ['kitne bajenge', 'time'], ['bajenge', 'time'],
-  ['midnight', '12:00 am'], ['noon', '12:00 pm'], ['midday', '12:00 pm'], ['sabse pehle', ''], ['tds', 'decrease'], ['income tax', 'decrease'], ['tax deducted', 'decrease'], ['tax deduction', 'decrease'],
+  ['midnight', '12:00 am'], ['noon', '12:00 pm'], ['midday', '12:00 pm'], ['sabse pehle', ''], ['tds', 'decrease'], ['income tax', 'itax'], ['tax on salary', 'itax'], ['salary tax', 'itax'], ['tax slab', 'itax'], ['it return', 'itax'], ['new regime', 'newregime'], ['old regime', 'oldregime'],
+  ['in hand', 'inhand'], ['take home', 'inhand'], ['inhand', 'inhand'], ['takehome', 'inhand'], ['lump sum', 'lumpsum'], ['one time investment', 'lumpsum'], ['lumpsum', 'lumpsum'], ['prepayment', 'prepay'], ['part payment', 'prepay'], ['pre payment', 'prepay'], ['prepay', 'prepay'],
+  ['per unit', 'perunit'], ['fuel cost', 'fuelcost'], ['rule of 72', '72'], ['week number', 'week weeknum'], ['versus', 'vs'], ['which is cheaper', 'cheaper'], ['better deal', 'cheaper'], ['marks needed', 'what'], ['marks required', 'what'], ['standard deviation', 'std'], ['stdev', 'std'], ['std dev', 'std'], ['tax deducted', 'decrease'], ['tax deduction', 'decrease'],
   ['katke', 'decrease'], ['kaatke', 'decrease'], ['kat ke', 'decrease'], ['kaat ke', 'decrease'], ['kaat lo', 'decrease'], ['kaat do', 'decrease'], ['kaato', 'decrease'], ['katao', 'decrease'], ['kaat kar', 'decrease'], ['katne ke baad', 'decrease'],
   ['into', 'in'], ['off on', 'off'], ['out of', 'of'], ['service charge', ''], ['service tax', 'gst'], ['gst amount', 'gst what'], ['tax amount', 'gst what'],
   ['in a day', 'in 1 day'], ['in an hour', 'in 1 hour'], ['in a minute', 'in 1 minute'], ['in a week', 'in 1 week'], ['in a month', 'in 1 month'], ['in a year', 'in 1 year'], ['per day', 'daily'],
@@ -164,7 +166,7 @@ const PHRASES: [string, string][] = [
   ['bhool jao', 'reset'], ['bhul jao', 'reset'], ['naya shuru', 'reset'], ['reset', 'reset'],
   ['another', 'another'], ['aur ek', 'another'], ['ek aur', 'another'], ['further', 'another'], ['additional', 'another'],
   ['starting at', 'start'], ['starting from', 'start'], ['starting with', 'start'], ['start with', 'start'], ['start at', 'start'], ['start from', 'start'], ['initial amount', 'start'], ['initially', 'start'], ['initial', 'start'],
-  ['shuruat', 'start'], ['shuru', 'start'], ['shuru me', 'start'], ['double', 'double'], ['dugna', 'double'], ['dugna karo', 'double'], ['twice', 'double'], ['triple', 'triple'], ['tigna', 'triple'], ['guna', 'times'], ['multiply', 'times'], ['multiplied', 'times'], ['bhag', 'divide'], ['bhaag', 'divide'], ['divided', 'divide'], ['subtract', 'minus'], ['ghata ke', 'minus'], ['kam karke', 'minus'],
+  ['shuruat', 'start'], ['shuru', 'start'], ['shuru me', 'start'], ['double', 'double'], ['doubles', 'double'], ['doubling', 'double'], ['dugna hoga', 'double'], ['dugna', 'double'], ['dugna karo', 'double'], ['twice', 'double'], ['triple', 'triple'], ['tigna', 'triple'], ['guna', 'times'], ['multiply', 'times'], ['multiplied', 'times'], ['bhag', 'divide'], ['bhaag', 'divide'], ['divided', 'divide'], ['subtract', 'minus'], ['ghata ke', 'minus'], ['kam karke', 'minus'],
   // --- currency words with Hindi suffixes ---
   ['rupayer', 'rupaye'], 
 ];
@@ -177,7 +179,7 @@ const FILLERS = new Set([
   'karne', 'karein', 'kijiye', 'dijiye', 'dedo', 'liya', 'li', 'lo', 'le', 'leke', 'hisab', 'hisaab', 'calc', 'me', 'us', 'i', 'we', 'you', 'are', 'be', 'will', 'would', 'should', 'can', 'could',
   'if', 'agar', 'so', 'ok', 'just', 'par', 'lagega', 'lagegi', 'dena', 'dene', 'hoga',
   'has', 'kiye', 'kiya', 'kiyi', 'kia', 'set', 'let', 'define', 'assume', 'given', 'suppose', 'holds', 'hold', 'contains', 'contain', 'earns', 'earn',
-  'approximately', 'approx', 'decimal', 'equivalent', 'respectively', 'simplify', 'simplified', 'simplest', 'there', 'are', 'was', 'were', 'date', 'journey', 'needed', 'required', 'mileage', 'download', 'downloading', 'downloaded', 'upload', 'uploading', 'transfer', 'transferring', 'file', 'files', 'internet', 'connection', 'network', 'wifi', 'data', 'movie', 'video', 'song', 'backup', 'weight', 'height', 'vajan', 'wazan', 'lambai', 'temperature', 'length', 'about', 'roughly', 'around', 'speed', 'distance', 'marks', 'score', 'scored',
+  'approximately', 'approx', 'decimal', 'equivalent', 'respectively', 'simplify', 'simplified', 'simplest', 'there', 'are', 'was', 'were', 'date', 'heater', 'bulb', 'fan', 'fridge', 'geyser', 'running', 'runs', 'crosses', 'cross', 'crossing', 'oven', 'baking', 'journey', 'needed', 'required', 'mileage', 'download', 'downloading', 'downloaded', 'upload', 'uploading', 'transfer', 'transferring', 'file', 'files', 'internet', 'connection', 'network', 'wifi', 'data', 'movie', 'video', 'song', 'backup', 'weight', 'height', 'vajan', 'wazan', 'lambai', 'temperature', 'length', 'about', 'roughly', 'around', 'speed', 'distance', 'marks', 'score', 'scored',
   'amount', 'value', 'result', 'answer', 'figure', 'number', 'price', 'rakam', 'daam', 'dam', 'paisa', 'paise', 'rupay', 'wala', 'wali', 'wale', ]);
 
 const PHRASE_LIST = PHRASES.slice().sort((a, b) => b[0].split(' ').length - a[0].split(' ').length || b[0].length - a[0].length);
@@ -330,6 +332,11 @@ export function normalize(text: string): Normalized {
   s = s.replace(/\bke baad\s+(?=(?:gst|tax|discount|chhoot|chhut|phir|\d+(?:\.\d+)?\s*(?:%|percent|pratishat)))/g, 'then ');
   // "divide 100 by 8", "multiply 12 by 12", "subtract 15 from 100" → plain arithmetic
   s = s.replace(/\bdivide\s+(\d[\d.,]*)\s+by\s+(\d[\d.,]*)/g, '$1 / $2').replace(/\bmultiply\s+(\d[\d.,]*)\s+by\s+(\d[\d.,]*)/g, '$1 * $2').replace(/\bsubtract\s+(\d[\d.,]*)\s+from\s+(\d[\d.,]*)/g, '$2 - $1');
+  // "us 10" / "in us" shoe sizes: keep the country word (it is otherwise a filler)
+  s = s.replace(/\bus\b(?=\s+\d)|(?<=\d\s)us\b|\bin us\b/g, (m) => (m === 'in us' ? 'in ussize' : 'ussize'));
+  // hex / binary / octal literals, "90th percentile"
+  s = s.replace(/\b0x([0-9a-f]+)\b/g, (_m, h: string) => String(parseInt(h, 16))).replace(/\b0b([01]+)\b/g, (_m, b: string) => String(parseInt(b, 2))).replace(/\b0o([0-7]+)\b/g, (_m, o: string) => String(parseInt(o, 8)));
+  s = s.replace(/\b(\d+)\s*(?:st|nd|rd|th)\s+percentile\b/g, '$1 percentile');
   // "3 dozen" → 36, "half a dozen" → 6
   s = s.replace(/\b(\d+(?:\.\d+)?)\s+dozen\b/g, (_m, n: string) => String(parseFloat(n) * 12)).replace(/\b(?:a |one )?dozen\b/g, '12').replace(/\bhalf (?:a )?12\b/g, '6');
   // "cgpa 8.2 to percentage" → 77.9% (CBSE: CGPA × 9.5)

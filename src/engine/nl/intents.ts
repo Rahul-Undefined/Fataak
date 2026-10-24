@@ -29,6 +29,7 @@ import { tryParseDate } from '../dates';
 import { isCurrencyWord, currencyBySymbol, findCurrency } from '../currency';
 import { isUnitWord, findUnit } from '../units';
 import { lookupFact } from '../facts';
+import { extraIntents } from '../extras';
 import { div as divQ, mul as mulQ } from '../evaluator';
 import { KEYWORDS } from '../parser';
 import { CANON_KEYWORDS, SOURCE_WORDS } from './normalize';
@@ -40,7 +41,7 @@ const CONNECTORS = new Set(['of', 'on', 'in', 'to', 'from', 'for', 'at', 'by', '
 const VERBS = new Set([
   'increase', 'decrease', 'add', 'remove', 'inclusive', 'without', 'gst', 'discount', 'profit', 'loss', 'cost', 'sell', 'margin', 'markup', 'emi', 'loan', 'interest', 'simple', 'compound', 'convert', 'change',
   'revenue', 'expenses', 'double', 'triple', 'divide', 'total', 'sum', 'base', 'parts', 'reset', 'ratio', 'average', 'median', 'max', 'min', 'flat', 'reverse', 'age', 'born', 'leap', 'weekday', 'weekdays', 'weekends',
-  'owes', 'pays', 'cogs', 'received', 'had', 'return', 'lcm', 'gcd', 'mode', 'remaining',
+  'owes', 'pays', 'cogs', 'received', 'had', 'return', 'lcm', 'gcd', 'mode', 'remaining', 'itax', 'sip', 'fd', 'rd', 'ctc', 'inhand', 'lumpsum', 'prepay', 'inflation', 'deposit', 'bill', 'bmr', 'tdee', 'std', 'variance', 'percentile',
 ]);
 const SCALE_WORDS = new Set(['k', 'thousand', 'hazaar', 'hazar', 'hajar', 'lakh', 'lakhs', 'lac', 'lacs', 'crore', 'crores', 'cr', 'koti', 'lokkho', 'million', 'mn', 'billion', 'bn', 'hundred']);
 const SEQUENCE_SPLIT = new Set([',', 'then', 'and', 'that', 'after']);
@@ -59,7 +60,7 @@ export interface Parsed {
   isStartLike?: boolean;
 }
 
-function analyse(words: string[], notes: string[]): Parsed {
+export function analyse(words: string[], notes: string[]): Parsed {
   const pcts: number[] = [];
   const nums: number[] = [];
   words.forEach((w, i) => {
@@ -74,7 +75,7 @@ function pctAt(p: Parsed, i: number): Decimal {
 }
 
 /** Evaluate a sub-expression made of the given words through the normal parser. */
-function evalWords(words: string[], ctx: EvalContext): Quantity {
+export function evalWords(words: string[], ctx: EvalContext): Quantity {
   const text = words.join(' ');
   if (!text.trim()) throw new CalcError('amount?', 'add the amount');
   const node = parse(text, { variables: new Set(ctx.variables.keys()), now: ctx.now(), zone: ctx.zone });
@@ -82,7 +83,7 @@ function evalWords(words: string[], ctx: EvalContext): Quantity {
 }
 
 /** A number token (possibly with currency symbol / following scale word / currency word / unit) → Quantity. */
-function numberAt(p: Parsed, i: number, ctx: EvalContext): { q: Quantity; used: Set<number> } {
+export function numberAt(p: Parsed, i: number, ctx: EvalContext): { q: Quantity; used: Set<number> } {
   const used = new Set<number>([i]);
   const parts = [p.words[i]];
   let j = i + 1;
@@ -251,7 +252,7 @@ function remainingBase(p: Parsed, used: Set<number>, ctx: EvalContext): Quantity
   return evalWords(keep, ctx);
 }
 
-function moneyOrNumber(v: Decimal, like: Quantity): Quantity {
+export function moneyOrNumber(v: Decimal, like: Quantity): Quantity {
   return like.kind === 'money' ? { kind: 'money', value: v, currency: like.currency } : like.kind === 'unit' ? { kind: 'unit', value: v, unit: like.unit } : { kind: 'number', value: v };
 }
 
@@ -2065,9 +2066,14 @@ export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
   // "distance from earth to moon", "everest ki height", "speed of light": reference facts (before zones: "great wall of china")
   const fact = lookupFact(raw);
   if (fact) return fact.q;
+  const { words, notes } = normalize(raw);
+  // everyday calculators (tax, SIP, festivals, equations, …) see the raw line and the words
+  if (words.length) {
+    const ex = extraIntents(raw, analyse(words, notes), ctx, (ws) => intentTimeSpan(analyse(ws, []), ctx));
+    if (ex) return ex;
+  }
   const tz = intentTimezone(raw, ctx);
   if (tz) return tz;
-  const { words, notes } = normalize(raw);
   return runIntentWords(words, notes, ctx);
 }
 

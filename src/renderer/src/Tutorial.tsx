@@ -68,6 +68,46 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    title: 'Tax, salary, SIP, FD.',
+    caption: 'Indian income tax for FY 2025-26 (new regime unless you say old), CTC to in-hand, SIP and lump-sum growth, FD and RD maturity, loan prepayment, inflation. Every answer lists the assumptions it used.',
+    lines: [
+      { text: 'income tax on 15 lakh salary', result: '97,500', note: 'new regime' },
+      { text: 'ctc 12 lakh in hand', result: '87,800/month' },
+      { text: 'sip 5000 at 12% for 10 years', result: '1,161,695.38' },
+      { text: 'fd 2 lakh at 7.1% for 3 years', result: '247,015' },
+    ],
+  },
+  {
+    title: 'Everyday life.',
+    caption: 'Kitchen measures, shoe and shirt sizes, fuel for a trip, the electricity bill, festival dates and birthdays, shift hours, price per kilo, numbers in words, roman, hex and binary.',
+    lines: [
+      { text: '250 g flour in cups', result: '2.08 cups' },
+      { text: 'delhi to jaipur at 15 km/l petrol 105', result: '1,647.1' },
+      { text: '1.5 ton ac 8 hours a day for 30 days at 8 per unit', result: '3,456' },
+      { text: 'days to diwali 2026', result: '16 days' },
+      { text: '12,34,567 in words', result: 'twelve lakh thirty-four thousand…' },
+    ],
+  },
+  {
+    title: 'Health and study.',
+    caption: 'BMR and daily calories, how much to cut to lose weight, water intake, steps to km, running pace, CBSE grades, the marks you still need, workers-and-days and train problems.',
+    lines: [
+      { text: 'bmr 70 kg 175 cm 30 male', result: '1,649 kcal/day' },
+      { text: '5 km in 28 minutes pace', result: '5:36 min/km' },
+      { text: 'marks needed for 85 average with 78, 82, 91', result: '89' },
+      { text: '12 workers 8 days, 16 workers how many days', result: '6 days' },
+    ],
+  },
+  {
+    title: 'Equations, statistics, ranges.',
+    caption: 'Solve for x, get standard deviation and percentiles, or run one question over a range of years. Select several lines and the strip under the editor shows their sum and average.',
+    lines: [
+      { text: '2x + 5 = 17', result: 'x = 6' },
+      { text: 'std of 4, 8, 15, 16', result: '4.9687' },
+      { text: 'emi 5 lakh at 9% for 1 to 3 years', result: '1y: 43,725.74 · 2y: 22,842.37 · 3y: 15,899.87' },
+    ],
+  },
+  {
     title: 'How to ask, and how not to.',
     caption: 'Do: one question per line, say the unit or currency, say which tax or interest. Don\'t: chat, ask opinions, or mix two questions in one line. When FATAAK is not sure, it says so instead of guessing.',
     lines: [

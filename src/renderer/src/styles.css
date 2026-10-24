@@ -556,6 +556,12 @@ body,
   color: var(--muted);
   font-size: 11px;
 }
+.settings .credit {
+  margin-top: 6px;
+  text-align: right;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
 
 /* ---- tutorial ---- */
 .tutorial {
