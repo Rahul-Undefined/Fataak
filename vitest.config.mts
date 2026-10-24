@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // the metamorphic and generated suites run thousands of evaluations per test; CI runners are several times slower than a laptop
+    testTimeout: 120000,
   },
 });
