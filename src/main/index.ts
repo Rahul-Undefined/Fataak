@@ -8,7 +8,7 @@ import { unansweredCsv, mergeUnanswered, sanitizeUnanswered } from '../engine/un
 import { pruneExpired, sanitizeLines, type HistoryLine } from '../engine/history';
 import { JsonStore } from './store';
 import { RateService } from './rates';
-import { checkGithub, installUpdate, DEFAULT_REPO } from './updater';
+import { checkGithub, installUpdate, updateAftermath, DEFAULT_REPO } from './updater';
 
 const isDev = !app.isPackaged && !!process.env['ELECTRON_RENDERER_URL'];
 const APP_ID = 'com.fataak.calculator';
@@ -320,6 +320,8 @@ function applySettings(): SettingsResult {
 }
 
 // ---------------------------------------------------------------- app info & updates
+let lastUpdate: string | undefined;
+
 function appInfo(): AppInfo {
   let buildDate = '';
   try {
@@ -327,7 +329,7 @@ function appInfo(): AppInfo {
   } catch {
     buildDate = '';
   }
-  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged };
+  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged, lastUpdate };
 }
 
 /** reads the latest GitHub release of the configured repository; never installs anything by itself */
@@ -440,6 +442,7 @@ app.whenReady().then(async () => {
   if (SHORTCUTS_MODE) return;
   app.setAppUserModelId(APP_ID);
   settings = await settingsStore.read();
+  lastUpdate = await updateAftermath();
   ensureStartMenuShortcut();
 
   // Restrictive CSP for the packaged renderer (dev needs Vite's inline/HMR scripts).

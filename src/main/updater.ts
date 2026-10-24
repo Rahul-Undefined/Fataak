@@ -11,7 +11,7 @@
 import { app, net, type BrowserWindow } from 'electron';
 import { spawn } from 'node:child_process';
 import { createWriteStream } from 'node:fs';
-import { mkdir, rm, stat, writeFile, access } from 'node:fs/promises';
+import { mkdir, rm, stat, writeFile, access, readFile, readdir, unlink } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -79,12 +79,13 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
   const progress = (received: number, total: number, phase: string) => {
     if (win && !win.isDestroyed()) win.webContents.send('app:updateProgress', { received, total, phase });
   };
-  const dir = join(app.getPath('userData'), 'updates');
+  // a fresh folder per attempt: a leftover from an earlier attempt may still be locked by its own script
+  const root = join(app.getPath('userData'), 'updates');
+  const dir = join(root, `${version}-${Date.now()}`);
   const zip = join(dir, `FATAAK-${version}-x64.zip`);
   const extract = join(dir, `FATAAK-${version}`);
   const installDir = dirname(process.execPath);
   try {
-    await rm(dir, { recursive: true, force: true });
     await mkdir(dir, { recursive: true });
     // download (one retry: GitHub's asset host occasionally resets the first connection)
     let res: Response | null = null;
@@ -128,13 +129,16 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
     // copy the new files over the install folder, clear the "from the internet" mark, start FATAAK again
     const ps1 = join(dir, 'apply-update.ps1');
     const vbs = join(dir, 'apply-update.vbs');
-    const log = join(dir, 'apply-update.log');
+    const log = join(root, 'apply-update.log');
+    const result = join(root, 'result.json');
     const q = (x: string) => `'${x.replace(/'/g, "''")}'`;
     const script = [
       `$src = ${q(extract)}`,
       `$dst = ${q(installDir)}`,
       `$log = ${q(log)}`,
       `$oldPid = ${process.pid}`,
+      `$version = ${q(version)}`,
+      `$result = ${q(result)}`,
       `"waiting for FATAAK (pid $oldPid) to exit" | Out-File -FilePath $log -Encoding utf8`,
       'for ($i = 0; $i -lt 40; $i++) {',
       '  if (-not (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) { break }',
@@ -147,13 +151,17 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
       '}',
       // any helper process of the old instance (gpu, renderer) ends with the main process; give them a moment
       'Start-Sleep -Milliseconds 800',
-      '$r = Start-Process -FilePath robocopy.exe -ArgumentList @("`"$src`"", "`"$dst`"", "/E", "/R:5", "/W:1", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP") -Wait -PassThru -WindowStyle Hidden',
+      // scripts of the old cmd-based updater (1.1.1) could loop forever; end them before touching the install folder
+      'Get-CimInstance Win32_Process -Filter "Name = \'cmd.exe\'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*apply-update.cmd*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }',
+      '$r = Start-Process -FilePath robocopy.exe -ArgumentList @("`"$src`"", "`"$dst`"", "/E", "/R:30", "/W:1", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP") -Wait -PassThru -WindowStyle Hidden',
       '"robocopy exit $($r.ExitCode)" | Out-File -FilePath $log -Append -Encoding utf8',
       'if ($r.ExitCode -ge 8) {',
       '  "update could not be applied" | Out-File -FilePath $log -Append -Encoding utf8',
+      '  @{ version = $version; ok = $false; message = "files could not be copied (robocopy $($r.ExitCode))" } | ConvertTo-Json | Out-File -FilePath $result -Encoding utf8',
       '  Start-Process -FilePath (Join-Path $dst "FATAAK.exe")',
       '  exit 1',
       '}',
+      '@{ version = $version; ok = $true; message = "" } | ConvertTo-Json | Out-File -FilePath $result -Encoding utf8',
       'Get-ChildItem -LiteralPath $dst -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue',
       'Start-Process -FilePath (Join-Path $dst "FATAAK.exe")',
       'Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue',
@@ -165,8 +173,20 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
     const launcher = `CreateObject("WScript.Shell").Run "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File ""${ps1}""", 0, False\r\n`;
     await writeFile(vbs, launcher, 'utf8');
     progress(size, size, 'restarting');
-    const child = spawn('wscript.exe', ['//B', '//Nologo', vbs], { detached: true, stdio: 'ignore', windowsHide: true, cwd: dir });
-    child.unref();
+    // wscript (a windowed program) starts PowerShell with its window hidden, so nothing flashes; where Windows
+    // Script Host is disabled by policy, PowerShell is started directly (it may show a console for a moment)
+    const psArgs = ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-File', ps1];
+    await new Promise<void>((resolve) => {
+      const child = spawn('wscript.exe', ['//B', '//Nologo', vbs], { detached: true, stdio: 'ignore', windowsHide: true, cwd: root });
+      child.once('error', () => {
+        const fallback = spawn('powershell.exe', psArgs, { detached: true, stdio: 'ignore', windowsHide: true, cwd: root });
+        fallback.once('error', () => resolve());
+        fallback.once('spawn', () => resolve());
+        fallback.unref();
+      });
+      child.once('spawn', () => resolve());
+      child.unref();
+    });
     // leave the event loop: quit normally, and if anything holds the process open, exit outright
     setTimeout(() => {
       quit();
@@ -176,4 +196,39 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
   } catch (e) {
     return { ok: false, status: `update failed: ${(e as Error).message}` };
   }
+}
+
+/**
+ * At start-up: the outcome of the previous update (written by the apply script), then the leftovers are removed.
+ * Also ends any script of the old cmd-based updater (FATAAK 1.1.1) that may still be looping in a console window.
+ */
+export async function updateAftermath(): Promise<string | undefined> {
+  const root = join(app.getPath('userData'), 'updates');
+  let message: string | undefined;
+  try {
+    const j = JSON.parse(await readFile(join(root, 'result.json'), 'utf8')) as { version?: unknown; ok?: unknown; message?: unknown };
+    if (typeof j.version === 'string') message = j.ok ? `updated to ${j.version}` : `update to ${j.version} failed: ${typeof j.message === 'string' ? j.message : 'see updates\\apply-update.log'}`;
+    await unlink(join(root, 'result.json'));
+  } catch {
+    /* no previous update */
+  }
+  try {
+    for (const name of await readdir(root)) {
+      if (name === 'apply-update.log') continue;
+      await rm(join(root, name), { recursive: true, force: true }).catch(() => undefined);
+    }
+  } catch {
+    /* nothing staged */
+  }
+  if (process.platform === 'win32' && app.isPackaged) {
+    const ps = 'Get-CimInstance Win32_Process -Filter "Name = \'cmd.exe\'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -like "*apply-update.cmd*" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }';
+    try {
+      const c = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-WindowStyle', 'Hidden', '-Command', ps], { stdio: 'ignore', windowsHide: true });
+      c.once('error', () => undefined);
+      c.unref();
+    } catch {
+      /* best effort */
+    }
+  }
+  return message;
 }

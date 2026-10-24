@@ -54,6 +54,8 @@ export interface AppInfo {
   platform: string;
   /** true when running packaged (not from source) */
   packaged: boolean;
+  /** outcome of the update that restarted this instance ("updated to 1.2.0"), once */
+  lastUpdate?: string;
 }
 
 export interface UpdateCheck {

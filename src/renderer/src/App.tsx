@@ -115,6 +115,7 @@ export function App() {
   const [progress, setProgress] = useState<UpdateProgress | null>(null);
   const [installMsg, setInstallMsg] = useState('');
   const [info, setInfo] = useState<AppInfo | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [update, setUpdate] = useState<UpdateCheck | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [caretLine, setCaretLine] = useState(0);
@@ -148,7 +149,13 @@ export function App() {
       setSettingsLoaded(true);
       if (!r.settings.tutorialSeen) setShowTutorial(true);
     });
-    void api.app.info().then((i) => setInfo(i));
+    void api.app.info().then((i) => {
+      setInfo(i);
+      if (i?.lastUpdate) {
+        setToast(i.lastUpdate);
+        window.setTimeout(() => setToast(null), 20000);
+      }
+    });
     void api.teach.load().then(setRules);
     void api.unanswered.load().then(setUnanswered);
     // a quiet check once at start-up (installed app only); an update shows as a chip in the title bar
@@ -430,6 +437,11 @@ export function App() {
           <span className="wordmark">FATAAK</span>
           {info && <span className="version" title={`build ${info.buildDate}`}>v{info.version}</span>}
           {widget && <span className="chip" title="Widget mode: pinned to the desktop, no taskbar entry, cannot be moved or minimised. Turn it off in the bar below.">widget</span>}
+          {toast && (
+            <span className={`chip${toast.includes('failed') ? ' bad' : ' good'}`} title={toast}>
+              {toast.includes('failed') ? '✕' : '✓'} {toast}
+            </span>
+          )}
           {update?.url && !widget && (
             <button className="chip update" title={`FATAAK ${update.latest} is available. Click to install.`} onClick={() => setShowSettings(true)} tabIndex={-1}>
               ↑ {update.latest} ready

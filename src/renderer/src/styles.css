@@ -1063,3 +1063,15 @@ body,
 .settings .primary.small:disabled {
   opacity: 0.5;
 }
+
+.chip.good {
+  color: var(--result);
+  border-color: var(--result);
+  margin-left: 6px;
+  animation: chip-in 300ms ease-out both;
+}
+.chip.bad {
+  color: #e07a6a;
+  border-color: #e07a6a;
+  margin-left: 6px;
+}
