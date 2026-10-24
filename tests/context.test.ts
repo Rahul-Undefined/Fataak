@@ -47,7 +47,7 @@ describe('dated currency conversion', () => {
     expect(r[0].note).toContain('2026-10-20');
   });
   it('"N days ago" also works as a plain date', () => {
-    expect(last('10 days ago')).toBe('13 Oct 2026');
-    expect(last('2 weeks ago + 1 day')).toBe('10 Oct 2026');
+    expect(last('10 days ago')).toBe('Tue, 13 Oct 2026');
+    expect(last('2 weeks ago + 1 day')).toBe('Sat, 10 Oct 2026');
   });
 });

@@ -93,12 +93,12 @@ describe('finance via natural language', () => {
     expect(last('10000 pe 5% chakravriddhi byaj 2 saal monthly')).toBe('1,049.41');
   });
   it('date arithmetic', () => {
-    expect(last('today + 30 days')).toBe('22 Nov 2026');
+    expect(last('today + 30 days')).toBe('Sun, 22 Nov 2026');
     expect(last('aaj se 45 din baad')).toBe('Mon, 7 Dec 2026');
     expect(last('aaj ke 45 din baad')).toBe('Mon, 7 Dec 2026');
     expect(last('days between 1 jan 2026 and 15 mar 2026')).toBe('73 days');
     expect(last('1 jan 2026 se 15 mar 2026 tak kitne din')).toBe('73 days');
-    expect(last('next friday + 2 weeks')).toBe('13 Nov 2026');
+    expect(last('next friday + 2 weeks')).toBe('Fri, 13 Nov 2026');
     expect(last('15 mar 2026 - 1 jan 2026')).toBe('73 days');
     expect(last('today - 2026-01-01')).toBe('295 days');
   });

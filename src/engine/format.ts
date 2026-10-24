@@ -61,7 +61,7 @@ export function formatMoney(value: Decimal, code: string): string {
 
 export function formatDate(q: Quantity): string {
   const d = q.date!;
-  return d.toFormat('d LLL yyyy');
+  return d.toFormat('ccc, d LLL yyyy');
 }
 
 export function formatTime(q: Quantity): string {
@@ -90,8 +90,9 @@ export function formatQuantity(q: Quantity): string {
         return `${n} ${q.value.abs().eq(1) ? singular : plural}`;
       }
       if (u?.dim === 'temperature') return u.id === 'k' ? `${n} K` : `${n}${sym}`;
+      if (u?.id === 'cup') return `${n} ${q.value.abs().eq(1) ? 'cup' : 'cups'}`;
       // "0.1 TB" reads better as "100 GB"
-      if (u?.dim === 'data' && q.value.abs().lt(1) && !q.value.isZero()) {
+      if (u?.dim === 'data' && q.value.abs().lt(1) && !q.value.isZero() && !q.exactUnit) {
         const ladder = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB'];
         const at = ladder.indexOf(u.id);
         if (at > 0) {

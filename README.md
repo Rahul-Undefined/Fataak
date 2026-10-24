@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine/app tests + 974-case reliability benchmark (tests/benchmark.test.ts), 1,685 tests
+npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,369 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -152,6 +152,12 @@ hex`, `0b1010 + 5`. Health and study: `bmr 70 kg 175 cm 30 male`, `tdee … mode
 variables keep their units, `2x + 5 = 17` and `x% of 80 = 20` are solved, `std / variance / range / 90th percentile of …`,
 `x = 1 to 12`, `emi 5 lakh at 9% for 1 to 5 years` gives one answer per year, and selecting several lines shows their sum
 and average in the strip under the editor.
+
+**Version 1.0.1 (QA round).** Income tax knows FY 2023-24, 2024-25 and 2025-26 (`income tax on 15 lakh salary fy
+2024-25`, `… ay 2025-26`) and applies surcharge above 50 lakh with marginal relief; unknown years are refused. Lists
+keep negative numbers (`std of 4, -8, 15`), spans written in 24-hour form cross midnight (`10:30 to 00:15` → 13 h 45
+min), a discount-GST chain can end in `/ 3`, `split 3 ways` or `between 3 people`, every date answer shows its
+weekday, and durations print as `8 h 30 min`. See docs/QA-REPORT.md for the full defect list and test method.
 
 **Currencies are never mixed silently.** `$100 + ₹500` is an error asking for a target; `$100 + ₹500 in USD`
 or `sum in USD` converts with the rate shown.

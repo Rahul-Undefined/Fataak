@@ -152,3 +152,13 @@ needed, proportion problems, linear equations in x, statistics, ranges). Each st
 the note (basic = 50% of CTC, 1 ton of AC ≈ 1.2 kW, 7,700 kcal per kg, Devine ideal weight, Mifflin-St Jeor BMR,
 CBSE grade bands, 240 ml cup). Round four of adversarial questions (82 cases) passes; the benchmark holds 974 cases
 and the suite 1,685 tests. Festival dates follow the Indian national calendar and should be confirmed locally.
+
+## Version 1.0.1 (24 Oct 2026, QA round)
+
+A seeded adversarial generator with an independent Python oracle (`tests/gen/generate.py`, 4,619 cases across 55
+sub-categories), a metamorphic/fuzz suite (22 properties) and 44 regression cases found 19 defects in 1.0.0, all fixed:
+negative numbers dropped from lists, 24-hour spans not crossing midnight, missing surcharge and single-year tax slabs,
+impossible textual dates accepted, trailing divisors and parentheses lost in discount-GST chains, Hinglish step
+markers dropped, an amount-over-years question answered with a date, "very active" TDEE, and several display and
+phrasing gaps. Final run: generated benchmark 4,619/4,619, whole suite 6,369 tests passing, type-check clean.
+Full method, root causes, files and remaining limitations: `docs/QA-REPORT.md`.

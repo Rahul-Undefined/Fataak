@@ -175,6 +175,13 @@ export function mul(a: Quantity, b: Quantity): Quantity {
       if (ua.id === 'km') return unitQ(convertUnit(sqm, unitById('sqm')!, unitById('sqkm')!), 'sqkm');
       return unitQ(sqm, 'sqm');
     }
+    // "2 m * 3 m * 4 m": area × length = volume (m³, or ft³ for feet)
+    if (ua.dim === 'area' && ub.dim === 'length') {
+      const m3 = a.value.mul(ua.factor).mul(convertUnit(b.value, ub, unitById('m')!));
+      if (ua.id === 'sqft' || ub.id === 'ft' || ub.id === 'inch') return unitQ(convertUnit(m3, unitById('m3')!, unitById('ft3')!), 'ft3');
+      return unitQ(m3, 'm3');
+    }
+    if (ua.dim === 'length' && ub.dim === 'area') return mul(b, a);
     if (ua.dim === 'speed' && ub.dim === 'time') {
       const metres = a.value.mul(ua.factor).mul(b.value.mul(ub.factor));
       return unitQ(ua.id === 'mph' ? convertUnit(metres, unitById('m')!, unitById('mile')!) : convertUnit(metres, unitById('m')!, unitById('km')!), ua.id === 'mph' ? 'mile' : 'km');
@@ -242,7 +249,8 @@ export function div(a: Quantity, b: Quantity): Quantity {
       return unitQ(convertUnit(mps, unitById('mps')!, unitById('kmh')!), 'kmh');
     }
     if (ua.dim === 'length' && ub.dim === 'speed') {
-      const secs = a.value.mul(ua.factor).div(b.value.mul(ub.factor));
+      // 90 km at 90 km/h is exactly one hour: round away the 1/3.6 representation error before choosing the unit
+      const secs = a.value.mul(ua.factor).div(b.value.mul(ub.factor)).toDecimalPlaces(6);
       if (secs.lt(60)) return unitQ(secs, 's');
       if (secs.lt(3600)) return unitQ(secs.div(60), 'min');
       if (secs.gte(86400)) return { ...unitQ(secs.div(3600), 'h'), display: durationDisplay(secs) };
@@ -321,9 +329,9 @@ export function convert(q: Quantity, target: ConvTarget, ctx: EvalContext): Quan
     if (q.kind === 'unit') {
       const from = unitById(q.unit!)!;
       if (from.dim !== to.dim) throw new CalcError(`can't convert ${from.symbol} to ${to.symbol}`);
-      return unitQ(convertUnit(q.value, from, to), to.id);
+      return { ...unitQ(convertUnit(q.value, from, to), to.id), exactUnit: true };
     }
-    if (q.kind === 'number') return unitQ(q.value, to.id);
+    if (q.kind === 'number') return { ...unitQ(q.value, to.id), exactUnit: true };
     throw new CalcError(`can't convert ${q.kind} to ${to.symbol}`);
   }
   throw new CalcError('convert to what?');

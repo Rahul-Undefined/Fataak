@@ -160,6 +160,7 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       }
       const d = DateTime.fromObject({ year, month: MONTHS[w], day }, { zone });
       if (d.isValid && day >= 1 && day <= 31) return { q: dateQuantity(d), consumed: j - i };
+      if (day >= 1 && day <= 31) throw new CalcError(`${w} ${day} ${year} is not a valid date`, `${w} ${year} has ${DateTime.fromObject({ year, month: MONTHS[w], day: 1 }, { zone }).daysInMonth} days`);
       return null;
     }
     return null;
@@ -202,7 +203,8 @@ export function tryParseDate(tokens: Token[], i: number, now: DateTime, zone: st
       }
       const d = DateTime.fromObject({ year, month: MONTHS[t1.value], day }, { zone });
       if (d.isValid) return { q: dateQuantity(d), consumed: j - i };
-      return null;
+      // "31 feb 2026": a day the month does not have is an error, never "31" and "feb 2026" read separately
+      throw new CalcError(`${t0.value} ${t1.value} ${year} is not a valid date`, `${t1.value} ${year} has ${DateTime.fromObject({ year, month: MONTHS[t1.value], day: 1 }, { zone }).daysInMonth} days`);
     }
     // 2026-08-14 / 2026/08/14 — written without spaces ("10 - 2 - 3" is arithmetic)
     const tight = (n: number) => tokens.slice(i, i + n).every((t, k) => k === 0 || tokens[i + k - 1].end === t.start);

@@ -20,10 +20,10 @@ const matrix: Record<string, [string[], string]> = {
   'named total': [['Rahul ko 150, Rohit ko 250, total kitna', 'Rahul 150, Rohit 250, total', 'rahul 150 and rohit 250, sum', 'Rohit ke 250, Rahul ke 150, dono ka total kitna'], '400'],
   'currency': [['100 usd in inr', '100 dollars in rupees', '100 dollar kitne rupaye', '100 dollar ko rupee me', 'convert 100 usd to inr', '$100 in inr', '100 dollar rupaye me kitna'], '₹8,400'],
   'units': [['5 km in miles', '5 km ko miles me badlo', 'convert 5 km to miles', '5 kilometres in miles', '5 km kitne miles'], '3.11 mi'],
-  'date after': [['today + 45 days', 'aaj se 45 din baad', '45 days from today', '45 days after today', 'aaj ke 45 din baad'], '7 Dec 2026'],
+  'date after': [['today + 45 days', 'aaj se 45 din baad', '45 days from today', '45 days after today', 'aaj ke 45 din baad'], 'Mon, 7 Dec 2026'],
   'time zone': [['6pm IST to EST', '6pm IST ko EST me convert karo', '6 pm ist me kitne baje honge est me', '6pm IST se EST'], '7:30 AM EST'],
   'weekday': [['what day is 15 aug 2026', '15 aug 2026 ko kaunsa din hai', '15 aug 2026 ki bar', '15 aug 2026 kya din hai'], 'Saturday, 15 Aug 2026'],
-  'time span': [['hours between 9am and 5pm', '9am to 5pm', '9 baje se 5 baje tak kitne ghante', 'subah 9 baje se sham 5 baje tak kitne ghante'], '8 hours'],
+  'time span': [['hours between 9am and 5pm', '9am to 5pm', '9 baje se 5 baje tak kitne ghante', 'subah 9 baje se sham 5 baje tak kitne ghante'], '8 h'],
 };
 
 describe('paraphrases agree across English and Hinglish', () => {

@@ -46,8 +46,22 @@ function yrs(v: Decimal): string {
 }
 
 // ---------------------------------------------------------------- A. money and tax
-const NEW_SLABS: [number, number][] = [[400000, 0], [800000, 5], [1200000, 10], [1600000, 15], [2000000, 20], [2400000, 25], [Infinity, 30]];
 const OLD_SLABS: [number, number][] = [[250000, 0], [500000, 5], [1000000, 20], [Infinity, 30]];
+/** new-regime slabs by financial year (FY 2025-26 = 2025), with the 87A rebate limit and the salaried standard deduction */
+const NEW_REGIME: Record<number, { slabs: [number, number][]; rebate: number; stdDed: number; label: string }> = {
+  2023: { slabs: [[300000, 0], [600000, 5], [900000, 10], [1200000, 15], [1500000, 20], [Infinity, 30]], rebate: 700000, stdDed: 50000, label: 'FY 2023-24' },
+  2024: { slabs: [[300000, 0], [700000, 5], [1000000, 10], [1200000, 15], [1500000, 20], [Infinity, 30]], rebate: 700000, stdDed: 75000, label: 'FY 2024-25' },
+  2025: { slabs: [[400000, 0], [800000, 5], [1200000, 10], [1600000, 15], [2000000, 20], [2400000, 25], [Infinity, 30]], rebate: 1200000, stdDed: 75000, label: 'FY 2025-26' },
+};
+export const DEFAULT_FY = 2025;
+/** surcharge on income above 50 lakh (new regime capped at 25%; old regime 37% above 5 crore) */
+function surchargeRate(income: Decimal, old: boolean): number {
+  if (income.gt(50000000)) return old ? 37 : 25;
+  if (income.gt(20000000)) return 25;
+  if (income.gt(10000000)) return 15;
+  if (income.gt(5000000)) return 10;
+  return 0;
+}
 
 function slabTax(taxable: Decimal, slabs: [number, number][]): Decimal {
   let tax = D(0);
@@ -61,16 +75,33 @@ function slabTax(taxable: Decimal, slabs: [number, number][]): Decimal {
   return tax;
 }
 
-/** Indian income tax FY 2025-26: new regime by default, old regime on request; rebate 87A, marginal relief, 4% cess */
-export function incomeTax(income: Decimal, opts: { old?: boolean; salaried?: boolean }): { tax: Decimal; taxable: Decimal; slab: Decimal; cess: Decimal; deduction: Decimal; regime: string } {
-  const deduction = opts.salaried ? D(opts.old ? 50000 : 75000) : D(0);
+/**
+ * Indian income tax: new regime by default (FY 2025-26 unless another known year is named), old regime on request.
+ * Rebate 87A with marginal relief, surcharge above 50 lakh with marginal relief, 4% cess.
+ */
+export function incomeTax(income: Decimal, opts: { old?: boolean; salaried?: boolean; fy?: number }): { tax: Decimal; taxable: Decimal; slab: Decimal; surcharge: Decimal; cess: Decimal; deduction: Decimal; regime: string } {
+  const fy = opts.fy ?? DEFAULT_FY;
+  const year = NEW_REGIME[fy];
+  if (!year) throw new CalcError(`tax slabs for FY ${fy}-${String(fy + 1).slice(2)} are not loaded`, 'FY 2023-24, 2024-25 and 2025-26 are known');
+  const deduction = opts.salaried ? D(opts.old ? 50000 : year.stdDed) : D(0);
   const taxable = Decimal.max(0, income.minus(deduction));
-  let slab = slabTax(taxable, opts.old ? OLD_SLABS : NEW_SLABS);
-  const rebateLimit = opts.old ? D(500000) : D(1200000);
+  const slabs = opts.old ? OLD_SLABS : year.slabs;
+  let slab = slabTax(taxable, slabs);
+  const rebateLimit = opts.old ? D(500000) : D(year.rebate);
   if (taxable.lte(rebateLimit)) slab = D(0);
-  else if (!opts.old) slab = Decimal.min(slab, taxable.minus(rebateLimit)); // marginal relief just above 12 lakh
-  const cess = slab.mul(4).div(100);
-  return { tax: money2(slab.plus(cess)), taxable, slab, cess, deduction, regime: opts.old ? 'old regime' : 'new regime' };
+  else if (!opts.old) slab = Decimal.min(slab, taxable.minus(rebateLimit)); // marginal relief just above the rebate limit
+  // surcharge with marginal relief: tax + surcharge never exceeds what is due at the threshold plus the income above it
+  const rate = surchargeRate(taxable, !!opts.old);
+  let surcharge = slab.mul(rate).div(100);
+  if (rate > 0) {
+    const threshold = [50000000, 20000000, 10000000, 5000000].find((t) => taxable.gt(t))!;
+    const atThreshold = slabTax(D(threshold), slabs);
+    const dueAtThreshold = atThreshold.plus(atThreshold.mul(surchargeRate(D(threshold), !!opts.old)).div(100));
+    const excess = taxable.minus(threshold);
+    if (slab.plus(surcharge).minus(dueAtThreshold).gt(excess)) surcharge = dueAtThreshold.plus(excess).minus(slab);
+  }
+  const cess = slab.plus(surcharge).mul(4).div(100);
+  return { tax: money2(slab.plus(surcharge).plus(cess)), taxable, slab, surcharge, cess, deduction, regime: `${opts.old ? 'old regime' : 'new regime'} ${year.label}` };
 }
 
 function intentIncomeTax(p: Parsed, ctx: EvalContext): Quantity | null {
@@ -80,11 +111,14 @@ function intentIncomeTax(p: Parsed, ctx: EvalContext): Quantity | null {
   const income = amounts.reduce((m, q) => (q.value.gt(m.value) ? q : m));
   const old = p.has('oldregime');
   const salaried = p.has('salary') || p.has('ctc') || p.has('salaried');
-  const r = incomeTax(income.value, { old, salaried });
+  const fyWords = p.words.filter((w) => /^fy\d{4}$/.test(w));
+  if (new Set(fyWords).size > 1) throw new CalcError('which financial year?', 'name one year, e.g. fy 2024-25');
+  const fyWord = fyWords[0];
+  const r = incomeTax(income.value, { old, salaried, fy: fyWord ? parseInt(fyWord.slice(2), 10) : undefined });
   const money = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), income));
   return {
     ...moneyOrNumber(r.tax, income),
-    note: `${r.regime} FY 2025-26 · taxable ${money(r.taxable)}${r.deduction.gt(0) ? ` after ${money(r.deduction)} standard deduction` : ''} · slab tax ${money(r.slab)} + 4% cess ${money(r.cess)} · ${money(r.tax.div(12))} per month`,
+    note: `${r.regime} · taxable ${money(r.taxable)}${r.deduction.gt(0) ? ` after ${money(r.deduction)} standard deduction` : ''} · slab tax ${money(r.slab)}${r.surcharge.gt(0) ? ` + surcharge ${money(r.surcharge)}` : ''} + 4% cess ${money(r.cess)} · ${money(r.tax.div(12))} per month`,
   };
 }
 
@@ -223,6 +257,10 @@ function intentDoubling(p: Parsed): Quantity | null {
 
 /** "10 lakh today in 10 years at 6% inflation" → future cost; "value of 10 lakh after 10 years at 6% inflation" → purchasing power */
 function intentInflation(p: Parsed, ctx: EvalContext): Quantity | null {
+  // "10 lakh today in 10 years": an amount projected over years needs a rate; never a bare date
+  if (!p.has('inflation') && p.has('today') && (p.has('years') || p.has('year')) && p.pcts.length === 0 && nums(p, ctx).some((q) => q.kind === 'money' || (q.kind === 'number' && q.value.gte(1000)))) {
+    throw new CalcError('inflation rate?', 'e.g. 10 lakh today in 10 years at 6% inflation');
+  }
   if (!p.has('inflation')) return null;
   const rate = pcts(p)[0];
   const years = tenureYears(p);
@@ -308,7 +346,8 @@ function intentSizes(p: Parsed, ctx: EvalContext): Quantity | null {
     if (!n) throw new CalcError('shoe size?', 'e.g. uk 9 shoe in us');
     const i = p.nums[0];
     const sz = (w: string | undefined) => (w === 'ussize' ? 'us' : w);
-    const from = ['uk', 'us', 'eu'].find((s) => sz(p.words[i - 1]) === s || sz(p.words[i + 1]) === s) ?? 'uk';
+    const from = ['uk', 'us', 'eu'].find((s) => sz(p.words[i - 1]) === s || sz(p.words[i + 1]) === s);
+    if (!from) throw new CalcError('UK, US or EU size?', 'e.g. uk 9 shoe in us');
     const to = ['uk', 'us', 'eu'].find((s) => s !== from && p.words.some((w) => sz(w) === s)) ?? (from === 'uk' ? 'us' : 'uk');
     const women = p.has('women') || p.has('ladies') || p.has('female');
     let uk = n.value;
@@ -599,7 +638,7 @@ function intentHealth(p: Parsed, ctx: EvalContext): Quantity | null {
     const height = nums(p, ctx).find((q) => q.kind === 'unit' && findUnit(q.unit!)?.dim === 'length');
     const age = p.nums.map((i) => ({ i, w: p.words[i + 1] })).find((x) => x.w === 'years' || x.w === 'year' || x.w === 'saal' || (!findUnit(x.w ?? '') && !PCT_RE.test(p.words[x.i])));
     const female = p.has('female') || p.has('women') || p.has('woman') || p.has('girl') || p.has('mahila');
-    const level = (['sedentary', 'light', 'moderate', 'active', 'very'] as const).find((l) => p.has(l));
+    const level = (['very', 'sedentary', 'light', 'moderate', 'active'] as const).find((l) => p.has(l));
     const mult: Record<string, number> = { sedentary: 1.2, light: 1.375, moderate: 1.55, active: 1.725, very: 1.9 };
     let bmr: Decimal;
     if (mass && height && age) {

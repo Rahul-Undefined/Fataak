@@ -120,7 +120,7 @@ describe('dates and zones', () => {
     expect(d('10 days ago')).toBe('2026-10-13');
     expect(d('3 days before')).toBe('2026-10-20');
     expect(d('february 2028')).toBe('2028-02-01');
-    expect(d('31 feb 2026')).toBeUndefined();
+    expect(() => d('31 feb 2026')).toThrow(/not a valid date/);
   });
   it('parses times incl. o’clock forms', () => {
     const t = (s: string) => tryParseDate(toks(s), 0, NOW, 'Asia/Kolkata')?.q.date?.toFormat('HH:mm');

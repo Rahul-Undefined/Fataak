@@ -25,6 +25,8 @@ export interface Quantity {
   note?: string;
   /** pre-formatted display override (finance breakdowns) */
   display?: string;
+  /** the unit was asked for explicitly ("in mb"): never re-scaled for display */
+  exactUnit?: boolean;
 }
 
 export interface RateQuote {

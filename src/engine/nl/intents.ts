@@ -35,7 +35,7 @@ import { KEYWORDS } from '../parser';
 import { CANON_KEYWORDS, SOURCE_WORDS } from './normalize';
 
 const PCT_RE = /^(\d+(?:\.\d+)?)%$/;
-const NUM_RE = /^[₹$€£¥৳]?\d[\d,]*(?:\.\d+)?$/;
+const NUM_RE = /^-?[₹$€£¥৳]?\d[\d,]*(?:\.\d+)?$/;
 const TIME_UNITS = new Set(['years', 'months', 'weeks', 'days', 'hours', 'minutes']);
 const CONNECTORS = new Set(['of', 'on', 'in', 'to', 'from', 'for', 'at', 'by', 'and', 'with', 'what', 'after', 'before', 'between', 'is', 'than', 'then', 'now', 'time', ',', 'another', 'that', 'start', 'each', 'equally', 'people', 'compute']);
 const VERBS = new Set([
@@ -634,7 +634,65 @@ function targetUnitWord(p: Parsed, fromUnit: string): string | null {
   return null;
 }
 
+/** "6196 - 10% + 18% gst / 3", "(… ) / 3", "… split 3 ways", "… divided by 3": the divisor applies to the whole chain */
+function trailingDivisor(words: string[]): { inner: string[]; divisor: string; label: string } | null {
+  const w = words.slice();
+  let divisor: string | null = null;
+  let label = '';
+  const n = w.length;
+  if (n >= 3 && w[n - 1] === 'ways' && NUM_RE.test(w[n - 2]) && (w[n - 3] === 'split' || w[n - 3] === 'in')) {
+    divisor = w[n - 2];
+    label = `split ${divisor} ways`;
+    w.splice(n - 3, 3);
+  } else if (n >= 4 && (w[n - 1] === 'people' || w[n - 1] === 'persons' || w[n - 1] === 'friends' || w[n - 1] === 'parts') && NUM_RE.test(w[n - 2]) && ['between', 'among', 'in', 'by', '/', 'divide', 'split'].includes(w[n - 3])) {
+    divisor = w[n - 2];
+    label = `÷ ${divisor} people`;
+    w.splice(n - 3, 3);
+    if (w[w.length - 1] === 'split' || w[w.length - 1] === 'divide' || w[w.length - 1] === 'divided') w.pop();
+  } else if (n >= 3 && NUM_RE.test(w[n - 1]) && (w[n - 2] === '/' || w[n - 2] === 'by') && (w[n - 2] === '/' || w[n - 3] === 'divide' || w[n - 3] === 'divided')) {
+    divisor = w[n - 1];
+    label = `÷ ${divisor}`;
+    w.splice(w[n - 2] === '/' ? n - 2 : n - 3, w[n - 2] === '/' ? 2 : 3);
+  }
+  if (!divisor) return null;
+  const inner = stripOuterParens(w);
+  if (!inner) return null;
+  return { inner, divisor, label };
+}
+
+/** "(6196 - 10% + 18% gst)" → the words inside; null when parentheses nest or sit elsewhere */
+function stripOuterParens(words: string[]): string[] | null {
+  const text = words.join(' ');
+  const opens = (text.match(/\(/g) ?? []).length;
+  const closes = (text.match(/\)/g) ?? []).length;
+  if (opens === 0 && closes === 0) return words;
+  if (opens !== 1 || closes !== 1) return null;
+  const w = words.slice();
+  if (!w[0]?.startsWith('(') || !w[w.length - 1]?.endsWith(')')) return null;
+  w[0] = w[0].slice(1);
+  w[w.length - 1] = w[w.length - 1].slice(0, -1);
+  return w.filter(Boolean);
+}
+
 function intentChain(p: Parsed, ctx: EvalContext): IntentResult | null {
+  // a chain wrapped in one pair of parentheses is the same chain
+  if (p.words[0]?.startsWith('(') && p.words[p.words.length - 1]?.endsWith(')')) {
+    const inner = stripOuterParens(p.words);
+    if (inner && inner.length < p.words.length + 1 && inner.join(' ') !== p.words.join(' ')) return intentChain(analyse(inner, p.notes), ctx);
+  }
+  const tail = trailingDivisor(p.words);
+  if (tail && tail.inner.some((w) => PCT_RE.test(w))) {
+    const inner = analyse(tail.inner, p.notes);
+    const base = intentChain(inner, ctx) ?? intentGst(inner, ctx) ?? intentDiscount(inner, ctx) ?? intentIncreaseDecrease(inner, ctx);
+    if (base) {
+      const dv = new Decimal(tail.divisor.replace(/,/g, ''));
+      if (dv.isZero()) throw new CalcError('division by zero');
+      const q: Quantity = { ...base, value: base.value.div(dv), display: undefined, note: `${formatQuantity({ ...base, display: undefined })} ${tail.label}${base.note ? ' · ' + base.note : ''}` };
+      // a share per person reads "345 each"
+      if (tail.label !== `÷ ${tail.divisor}`) q.display = `${formatQuantity(q)} each`;
+      return q;
+    }
+  }
   // a question about one amount and one percentage ("what becomes 3910 after a 15% increase?") is never a chain
   // ("pichle mahine 45000 kamaye, is mahine 20% zyada, kitna" is a chain: an amount received/spent, then a step)
   if (p.has('what') && p.nums.length === 1 && p.pcts.length === 1 && !p.has('received') && !p.has('expenses')) return null;
@@ -912,7 +970,7 @@ function intentTimezone(raw: string, ctx: EvalContext): Quantity | null {
       const minutes = end.diff(start, 'minutes').minutes;
       const h = Math.floor(minutes / 60);
       const m = Math.round(minutes - h * 60);
-      return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display: m === 0 ? `${h} hours` : `${h} hours ${m} minutes`, note: `${start.toFormat('h:mm a')} ${zones[0].ref.label} → ${end.toFormat('h:mm a')} ${zones[1].ref.label}` };
+      return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display: m === 0 ? `${h} h` : `${h} h ${m} min`, note: `${start.toFormat('h:mm a')} ${zones[0].ref.label} → ${end.toFormat('h:mm a')} ${zones[1].ref.label}` };
     }
     // "what time in sydney when it is 9am in mumbai": the zone nearest the clock time is the source
     const timeWord = wordList.findIndex((w) => /^\d{1,2}(?::\d{2})?(?:am|pm)?$/.test(w) && parseInt(w, 10) % 12 === time!.hour % 12);
@@ -971,8 +1029,14 @@ function intentTimeSpan(p: Parsed, ctx: EvalContext): Quantity | null {
   if (times.length !== 2) return null;
   if (!(p.has('to') || p.has('between') || p.has('from') || p.has('and') || p.has('-'))) return null;
   let [start, end] = times;
-  // "10 baje se 5 baje tak": an end before the start on a 12-hour clock means the afternoon
-  if (end <= start && end.plus({ hours: 12 }) > start && end.hour < 12) end = end.plus({ hours: 12 });
+  // "10 baje se 5 baje tak": an end before the start on a 12-hour clock means the afternoon — unless the end was
+  // written unambiguously ("00:15", "05:00", "6am"), in which case it is the next day
+  const timeWords = w.filter((x, k) => /^\d{1,2}(?::\d{2})?(?:am|pm)?$/.test(x) && (x.includes(':') || /am|pm/.test(x) || ['am', 'pm', 'baje', "o'clock"].includes(w[k + 1] ?? '')));
+  const endWord = timeWords[1] ?? '';
+  const startWord = timeWords[0] ?? '';
+  const explicit24 = (x: string) => /^0\d:/.test(x) || (/^\d{2}:\d{2}$/.test(x) && parseInt(x, 10) >= 13);
+  const endExplicit = /am|pm/.test(endWord) || /am|pm/.test(w[w.indexOf(endWord) + 1] ?? '') || explicit24(endWord) || explicit24(startWord);
+  if (end <= start && !endExplicit && end.plus({ hours: 12 }) > start && end.hour < 12) end = end.plus({ hours: 12 });
   if (end <= start) end = end.plus({ days: 1 });
   let minutes = end.diff(start, 'minutes').minutes;
   // "minus 30 min break"
@@ -987,8 +1051,8 @@ function intentTimeSpan(p: Parsed, ctx: EvalContext): Quantity | null {
   }
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes - h * 60);
-  const display = m === 0 ? `${h} hours` : `${h} hours ${m} minutes`;
-  return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display, note: `${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}` };
+  const display = m === 0 ? `${h} h` : `${h} h ${m} min`;
+  return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display, note: `${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}${end.ordinal !== start.ordinal ? ' next day' : ''}` };
 }
 
 const MONTH_NAMES = new Set(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december']);
@@ -1843,7 +1907,18 @@ function intentConvert(p: Parsed, ctx: EvalContext): Quantity | null {
     q = evalWords([q.value.toString(), p.words[after]], ctx);
     used.add(after);
   }
-  const targets = p.words.map((w, i) => ({ w, i })).filter(({ w, i }) => !used.has(i) && (isCurrencyWord(w) || isUnitWord(w) || currencyBySymbol(w)));
+  let targets = p.words.map((w, i) => ({ w, i })).filter(({ w, i }) => !used.has(i) && (isCurrencyWord(w) || isUnitWord(w) || currencyBySymbol(w)));
+  for (let k = 0; k < p.words.length; k++) {
+    for (const len of [3, 2]) {
+      const phrase = p.words.slice(k, k + len).join(' ');
+      if (k + len <= p.words.length && !used.has(k) && isUnitWord(phrase) && !isUnitWord(p.words[k]) === false ? false : k + len <= p.words.length && !used.has(k) && isUnitWord(phrase)) {
+        targets = [{ w: phrase, i: k }];
+        k += len - 1;
+        break;
+      }
+    }
+    if (targets.length === 1 && targets[0].w.includes(' ')) break;
+  }
   if (targets.length !== 1) {
     const rest = p.words.filter((w, i) => !used.has(i) && !VERBS.has(w) && !CONNECTORS.has(w)).join(' ');
     if (!rest && p.has('convert')) throw new CalcError('convert to what?', 'e.g. 5 kg in lbs, 100 usd in inr');

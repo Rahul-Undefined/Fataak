@@ -59,7 +59,7 @@ const PHRASES: [string, string][] = [
   ['average speed', 'speed'], ['time to travel', 'time'], ['time to cover', 'time'], ['time to drive', 'time'], ['time to reach', 'time'], ['to travel', ''], ['to cover', ''], ['to drive', ''], ['to reach', ''],
   ['fuel needed for', ''], ['petrol needed for', ''], ['diesel needed for', ''], ['fuel for', ''], ['petrol for', ''], ['diesel for', ''], ['fuel required for', ''], ['peeche', 'behind'], ['piche', 'behind'], ['pichhe', 'behind'], ['time gap', 'difference'], ['time difference', 'difference'], ['how long will it take', 'what time'], ['how long does it take', 'what time'], ['how long', 'what time'], ['kitna time lagega', 'what time'], ['kitna samay lagega', 'what time'], ['kitna time', 'what time'], ['half a', '0.5'], ['half an', '0.5'], ['quarter of a', '0.25'], ['find the number', 'what'], ['find the value', 'what'], ['find the amount', 'what'], ['find x', 'what'], ['find it', 'what'], ['old salary', 'what'], ['old price', 'what'], ['old value', 'what'], ['old amount', 'what'],
   ['previous salary', 'what'], ['purani salary', 'what'], ['purana price', 'what'], ['purani price', 'what'], ['maturity', 'total'], ['kaunsi', 'what'], ['konsi', 'what'], ['kitne bajenge', 'time'], ['bajenge', 'time'],
-  ['midnight', '12:00 am'], ['noon', '12:00 pm'], ['midday', '12:00 pm'], ['sabse pehle', ''], ['tds', 'decrease'], ['income tax', 'itax'], ['tax on salary', 'itax'], ['salary tax', 'itax'], ['tax slab', 'itax'], ['it return', 'itax'], ['new regime', 'newregime'], ['old regime', 'oldregime'],
+  ['midnight', '12:00 am'], ['noon', '12:00 pm'], ['midday', '12:00 pm'], ['sabse pehle', ''], ['tds', 'decrease'], ['income tax', 'itax'], ['tax on salary', 'itax salary'], ['salary tax', 'itax salary'], ['tax on my salary', 'itax salary'], ['financial year', 'fy'], ['assessment year', 'ay'], ['tax slab', 'itax'], ['it return', 'itax'], ['new regime', 'newregime'], ['old regime', 'oldregime'],
   ['in hand', 'inhand'], ['take home', 'inhand'], ['inhand', 'inhand'], ['takehome', 'inhand'], ['lump sum', 'lumpsum'], ['one time investment', 'lumpsum'], ['lumpsum', 'lumpsum'], ['prepayment', 'prepay'], ['part payment', 'prepay'], ['pre payment', 'prepay'], ['prepay', 'prepay'],
   ['per unit', 'perunit'], ['fuel cost', 'fuelcost'], ['rule of 72', '72'], ['week number', 'week weeknum'], ['versus', 'vs'], ['which is cheaper', 'cheaper'], ['better deal', 'cheaper'], ['marks needed', 'what'], ['marks required', 'what'], ['standard deviation', 'std'], ['stdev', 'std'], ['std dev', 'std'], ['tax deducted', 'decrease'], ['tax deduction', 'decrease'],
   ['katke', 'decrease'], ['kaatke', 'decrease'], ['kat ke', 'decrease'], ['kaat ke', 'decrease'], ['kaat lo', 'decrease'], ['kaat do', 'decrease'], ['kaato', 'decrease'], ['katao', 'decrease'], ['kaat kar', 'decrease'], ['katne ke baad', 'decrease'],
@@ -119,7 +119,7 @@ const PHRASES: [string, string][] = [
   ['revenue', 'revenue'], ['revenues', 'revenue'], ['sales', 'revenue'], ['turnover', 'revenue'], ['income', 'revenue'], ['aay', 'revenue'], ['aamdani', 'revenue'], ['amdani', 'revenue'], ['kamai', 'revenue'], ['expenses', 'expenses'], ['expense', 'expenses'], ['expenditure', 'expenses'], ['spending', 'expenses'], ['spent', 'expenses'], ['kharcha', 'expenses'], ['kharch', 'expenses'], ['kharche', 'expenses'], // --- references to a running / previous value ---
   ['previous result', 'prev'], ['last result', 'prev'], ['the result', 'prev'], ['previous answer', 'prev'], ['last answer', 'prev'], ['previous value', 'prev'], ['last value', 'prev'], ['pichla result', 'prev'], ['pichla answer', 'prev'],
   ['pichle wala', 'prev'], ['upar wala', 'prev'], ['result above', 'prev'], ['the above', 'prev'], ['above', 'prev'],
-  ['new amount', 'that'], ['previous amount', 'that'], ['naya amount', 'that'], ['usmein', 'that'], ['usme', 'that'], ['us me', 'that'], ['us mein', 'that'], ['isme', 'that'], ['ismein', 'that'], ['is me', 'that'],
+  ['total me add', 'that add'], ['total mein add', 'that add'], ['total me jod', 'that add'], ['total mein jod', 'that add'], ['new amount', 'that'], ['previous amount', 'that'], ['naya amount', 'that'], ['usmein', 'that'], ['usme', 'that'], ['us me', 'that'], ['us mein', 'that'], ['isme', 'that'], ['ismein', 'that'], ['is me', 'that'],
   ['usko', 'that'], ['isko', 'that'], ['usse', 'that'], ['isse', 'that'], ['uske', 'that'], ['iske', 'that'], ['uska', 'that'], ['iska', 'that'], ['uski', 'that'], ['iski', 'that'],
   ['that', 'that'], ['it', 'that'],
   ['bikri', 'revenue'], // --- sequencing ---
@@ -159,7 +159,7 @@ const PHRASES: [string, string][] = [
   ['more than', 'increase than'], ['greater than', 'increase than'], ['higher than', 'increase than'], ['less than', 'decrease than'], ['lower than', 'decrease than'], ['smaller than', 'decrease than'],
   ['se zyada', 'increase than'], ['se jyada', 'increase than'], ['se kam', 'decrease than'], ['original amount', 'what'], ['original number', 'what'], ['original value', 'what'], ['original', 'what'],
   // --- "work out" verbs (no operation of their own) ---
-  ['nikal ke', 'compute'],
+  ['nikal ke', 'then'], ['nikal kar', 'then'], ['nikalke', 'then'], ['nikalkar', 'then'], ['nikaal ke', 'then'], ['nikaal kar', 'then'], ['nikaalke', 'then'], ['nikaalkar', 'then'], ['laga ke', 'then'], ['laga kar', 'then'], ['lagake', 'then'], ['lagakar', 'then'], ['lagao', 'add'], ['laga do', 'add'], ['lagado', 'add'], ['laga', 'add'],
   // --- context reset ---
   ['clear context', 'reset'], ['reset context', 'reset'], ['clear memory', 'reset'], ['clear all', 'reset'], ['clear everything', 'reset'], ['forget everything', 'reset'], ['forget previous', 'reset'], ['forget that', 'reset'], ['forget it', 'reset'],
   ['start over', 'reset'], ['start fresh', 'reset'], ['start afresh', 'reset'], ['context clear karo', 'reset'], ['context reset karo', 'reset'], ['sab bhool jao', 'reset'], ['sab bhul jao', 'reset'],
@@ -319,7 +319,15 @@ export function normalize(text: string): Normalized {
   // whole numbers written in words (before phrase mapping, so "five hundred" and "paanch sau" become 500)
   s = composeNumberWords(s.split(' ')).join(' ');
   // Hindi "450 mile" (received) in a money sentence; "5 mile" elsewhere stays miles
-  if (/\b(?:paas|kharch|kharcha|bach[ae]|bacha|mila|baki|baaki)\b/.test(s)) s = s.replace(/(\d[\d.,]*)\s+mile\b/g, '$1 received');
+  if (/\b(?:paas|kharch|kharcha|bach[ae]|bacha|mila|baki|baaki)\b/.test(s)) s = s.replace(/(\d[\d.,]*)\s+(?:aur\s+)?mile\b/g, '$1 received');
+  // "24425 me se 10% nikal ke": take the percentage off the amount, then continue
+  s = s.replace(/(\d[\d.,]*)\s+(?:me se|mein se|se)\s+(\d+(?:\.\d+)?%)\s+(?:nikal ke|nikal kar|nikalke|nikalkar|hata ke|hata kar|hatake|hatakar|ghata ke|ghata kar|kam karke|kam kar ke)\b/g, '$1 - $2 then');
+  // "fy 2024-25" / "f.y. 2024-25" / "ay 2025-26" → one token the tax calculator reads (assessment year = the year after)
+  s = s.replace(/\b(?:fy|f\.y\.)\s*(\d{4})\s*[-–/]\s*\d{2,4}\b/g, (_m, y: string) => `fy${y}`).replace(/\b(?:ay|a\.y\.)\s*(\d{4})\s*[-–/]\s*\d{2,4}\b/g, (_m, y: string) => `fy${parseInt(y, 10) - 1}`);
+  // "72 km/h for 2.5 hours": speed for a time = distance
+  s = s.replace(/(\d[\d.,]*\s*(?:km\/h|kmph|kph|kmh|mph|m\/s|knots|knot))\s+for\s+(\d[\d.,]*\s*(?:hours|hour|hrs|hr|h|minutes|minute|mins|min|seconds|second|sec|s))\b/g, '$1 * $2');
+  // in a list ("std of 4, -8, 15", "range of 97 67 39 -5 97") a minus right before a number is its sign
+  if (/\b(?:average|avg|mean|median|sum|max|min|range|std|variance|percentile|mode|deviation|lcm|gcd)\b/.test(s)) s = s.replace(/(^|\b(?:of|and)|,|\d)(\s+)-\s*(\d)/g, '$1$2-$3');
   // "2 successive discounts of 10% on 500": one rate applied N times
   s = s.replace(/\b(\d+)\s+(?:successive|consecutive)\s+discounts?\s+of\s+(\d+(?:\.\d+)?%)(?!\s*(?:,|and|then))/g, (_m, n: string, pct: string) => `${Array.from({ length: Math.min(parseInt(n, 10), 10) }, () => pct).join(' then ')} discount`);
   // "3 successive discounts of 10% and 20%": the count of operations is not an amount
@@ -340,7 +348,7 @@ export function normalize(text: string): Normalized {
   // "3 dozen" → 36, "half a dozen" → 6
   s = s.replace(/\b(\d+(?:\.\d+)?)\s+dozen\b/g, (_m, n: string) => String(parseFloat(n) * 12)).replace(/\b(?:a |one )?dozen\b/g, '12').replace(/\bhalf (?:a )?12\b/g, '6');
   // "cgpa 8.2 to percentage" → 77.9% (CBSE: CGPA × 9.5)
-  s = s.replace(/\bcgpa\s+(\d+(?:\.\d+)?)\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 95) / 10}%`).replace(/\b(\d+(?:\.\d+)?)\s+cgpa\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 95) / 10}%`);
+  s = s.replace(/\bcgpa\s+(\d+(?:\.\d+)?)\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 950) / 100}%`).replace(/\b(\d+(?:\.\d+)?)\s+cgpa\s+(?:to|in|me|mein)\s+(?:percentage|percent|%)/g, (_m, x: string) => `${Math.round(parseFloat(x) * 950) / 100}%`);
   if (/\bcgpa\b/.test(text.toLowerCase())) notes.push('CGPA × 9.5 (CBSE)');
   // "450 km at 60 km/h" → time; "600 km at 15 km/l" → litres; "2.5 hours at 80 km/h" → distance
   s = s.replace(/(\d[\d.,]*\s*(?:km|kilometres|kilometers|kilometre|kilometer|miles|mile|mi|m|metres|meters))\s+at\s+(\d[\d.,]*\s*(?:km\/h|kmph|kph|kmh|mph|m\/s|km\/l|kmpl|mpg|km per hour|km per litre))\b/g, '$1 / $2');
@@ -371,7 +379,7 @@ export function normalize(text: string): Normalized {
   // "5 percentage points" → a percent value flagged as points
   s = s.replace(/\b(\d+(?:\.\d+)?)\s*(percentage points|percent points|pp)\b/g, '$1% points');
   // "5% nikalo" / "5 percent ber koro" after a percentage means "work it out", not "remove it"
-  s = s.replace(/(\d+(?:\.\d+)?)\s*(%|percent|pratishat)\s+(nikalo|nikaalo|nikal do|nikal|nikaal)\b/g, '$1% compute');
+  s = s.replace(/(\d+(?:\.\d+)?)\s*(%|percent|pratishat)\s+(nikalo|nikaalo|nikal do|nikal|nikaal)\b(?!\s+(?:ke|kar|karke)\b)/g, '$1% compute');
   for (const [from, to] of PHRASE_LIST) {
     const re = new RegExp(`(^|[^\\p{L}\\d])${escapeRe(from)}(?=$|[^\\p{L}\\d])`, 'gu');
     s = s.replace(re, (_m, pre: string) => `${pre}${to}`);
