@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.2.2',
+    date: '24 Oct 2026',
+    fixed: ['Narrow windows: the bottom bar keeps its icons and drops the words, the status strip trims with an ellipsis, and the placeholder shortens instead of breaking mid-word'],
+  },
+  {
     version: '1.2.1',
     date: '24 Oct 2026',
     added: ['This panel: what changed, after every update (also under Settings → What’s new)', 'A note that FATAAK is still learning and can make mistakes'],

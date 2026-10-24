@@ -508,7 +508,7 @@ export function App() {
             autoCorrect="off"
             autoComplete="off"
             autoFocus
-            placeholder={texts.length === 1 && !texts[0] ? 'type a calculation… e.g. 25% of 480, 2 gb at 50 mbps, 100 usd in inr' : undefined}
+            placeholder={texts.length === 1 && !texts[0] ? (metrics.width < 380 ? 'type a calculation…' : 'type a calculation… e.g. 25% of 480, 2 gb at 50 mbps, 100 usd in inr') : undefined}
             style={textStyle}
           />
           <div className="results">
@@ -552,7 +552,7 @@ export function App() {
             tabIndex={-1}
           >
             <span className="knob" />
-            <span className="lbl">On top</span>
+            <span className="lbl txt">On top</span>
           </button>
           <button
             className={`toggle${widget ? ' on' : ''}`}
@@ -561,18 +561,24 @@ export function App() {
             tabIndex={-1}
           >
             <span className="knob" />
-            <span className="lbl">Widget</span>
+            <span className="lbl txt">Widget</span>
           </button>
           <button className="toggle plain" title="Theme" onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : settings.theme === 'light' ? 'star' : 'dark' })} tabIndex={-1}>
-            <span className="lbl">{settings.theme === 'dark' ? '☾ Moon' : settings.theme === 'light' ? '☀ Sun' : '✦ Star'}</span>
+            <span className="lbl">
+              <span className="ico">{settings.theme === 'dark' ? '☾' : settings.theme === 'light' ? '☀' : '✦'}</span> <span className="txt">{settings.theme === 'dark' ? 'Moon' : settings.theme === 'light' ? 'Sun' : 'Star'}</span>
+            </span>
           </button>
         </div>
         <div className="bar-right">
           <button className="toggle plain" title="Watch the tutorial again" onClick={() => setShowTutorial(true)} tabIndex={-1}>
-            <span className="lbl">? Help</span>
+            <span className="lbl">
+              <span className="ico">?</span> <span className="txt">Help</span>
+            </span>
           </button>
           <button className={`toggle plain${showSettings ? ' on' : ''}`} title="Settings" onClick={() => setShowSettings((s) => !s)} tabIndex={-1}>
-            <span className="lbl">⚙ Settings</span>
+            <span className="lbl">
+              <span className="ico">⚙</span> <span className="txt">Settings</span>
+            </span>
           </button>
         </div>
       </div>

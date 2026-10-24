@@ -479,8 +479,16 @@ body,
   font-family: var(--font-ui);
 }
 .status .status-v {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.status .status-k {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
 }
 
 /* ---- bottom bar: labelled toggles ---- */
@@ -1267,4 +1275,31 @@ body,
 .wn-group li {
   margin: 2px 0;
   line-height: 1.4;
+}
+
+/* ---- narrow windows: the bar keeps its icons, the words go ---- */
+.toggle .lbl {
+  white-space: nowrap;
+}
+.bar-left,
+.bar-right {
+  min-width: 0;
+}
+.bar {
+  gap: 6px;
+  overflow: hidden;
+}
+@media (max-width: 440px) {
+  .toggle .txt {
+    display: none;
+  }
+  .toggle {
+    padding: 4px 8px 4px 6px;
+  }
+  .toggle.plain {
+    padding: 4px 8px;
+  }
+  .editor textarea::placeholder {
+    font-size: 13px;
+  }
 }
