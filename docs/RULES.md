@@ -30,6 +30,19 @@ figure; `src/engine/fixed.ts` and `src/engine/extras.ts` read from this table.
 4. Never guess. If a source is ambiguous or the change has not taken effect yet, leave the figure, note the
    pending change in this file under "Pending", and let a human decide.
 
+## How the weekly review runs
+
+- **On the maintainer's laptop:** double-click `scripts\Register-WeeklyRulesReview.cmd` once. It registers a
+  per-user Windows scheduled task (no admin) that runs `scripts\weekly-rules-review.ps1` every Monday at 09:00. The
+  script pulls `main`, then runs Claude Code headless (the `claude.exe` on PATH, or the copy shipped with the Claude
+  desktop app) with the procedure above as its prompt; Claude checks the sources, edits only on a confirmed change,
+  runs the tests, and pushes a tagged release. Logs: `%LOCALAPPDATA%\FATAAK-rules-revieweview-<date>.log`.
+  One-time setup: run `claude.exe` in a terminal, type `/login`, finish in the browser, `/exit`.
+- **On GitHub:** `.github/workflows/rules-reminder.yml` opens (or refreshes) one `rules-review` issue every Monday
+  with the checklist above, so a missed week is visible even when the laptop was off. Close it when done.
+- **Cloud routine (optional):** the same prompt can run as a claude.ai routine once the GitHub connection is
+  allowed for the account; the laptop task does the same job without it.
+
 ## Pending
 
 (none)

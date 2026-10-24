@@ -1,0 +1,48 @@
+# Every Monday: open (or refresh) one issue that lists the sources to check for tax/finance rule changes, so the
+# weekly review is never forgotten even when the laptop that runs it is off. Closing the issue = reviewed.
+name: rules-reminder
+
+on:
+  schedule:
+    - cron: '0 4 * * 1' # Monday 09:30 IST
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: read the rules date
+        id: rules
+        run: echo "asof=$(grep -oP "asOf: '\K[^']+" src/engine/rules.ts)" >> "$GITHUB_OUTPUT"
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const asOf = '${{ steps.rules.outputs.asof }}';
+            const title = 'Weekly tax & finance rules review';
+            const body = [
+              `Rules table last reviewed: **${asOf}** (\`src/engine/rules.ts\`). Procedure: \`docs/RULES.md\`.`,
+              '',
+              'Check for changes since then:',
+              '- [ ] Income-tax slabs, 87A rebate, standard deduction, surcharge, cess — incometaxindia.gov.in / CBDT / Finance Act',
+              '- [ ] TDS thresholds (interest, rent), capital-gains rates — CBDT',
+              '- [ ] GST slab structure — gstcouncil.gov.in',
+              '- [ ] EPF rates, EPS wage ceiling, EPFO interest — epfindia.gov.in',
+              '- [ ] PPF rate — Ministry of Finance small-savings notification',
+              '- [ ] ESI rates, wage ceiling — esic.gov.in',
+              '- [ ] DICGC limit, section 269ST cash limit',
+              '',
+              'No change: bump `asOf` and commit `rules: reviewed <date>, no change`. A change: follow docs/RULES.md and release a patch.',
+              '',
+              'The scheduled task "FATAAK rules review" on the maintainer\'s laptop runs this automatically through Claude Code; close this issue once the review for the week is done.',
+            ].join('\n');
+            const { data: open } = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: 'rules-review' });
+            if (open.length) {
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: open[0].number, body });
+              return;
+            }
+            await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: ['rules-review'] });
