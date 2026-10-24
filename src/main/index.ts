@@ -10,6 +10,7 @@ import { JsonStore } from './store';
 import { RateService } from './rates';
 import { checkGithub, installUpdate, updateAftermath, DEFAULT_REPO } from './updater';
 import { FONTS, HEX_RE } from '../shared/fonts';
+import { compareVersions } from '../shared/changelog';
 import { rulesAsOfText } from '../engine/rules';
 import { release } from 'node:os';
 
@@ -296,19 +297,31 @@ function registerHotkey(accel: string): string | undefined {
   }
 }
 
-/** Register the configured hotkey, falling back to the first free launcher-style key. */
+/**
+ * Register the configured hotkey, falling back to the first free launcher-style key for this run only.
+ * The chosen key stays in the settings, so it is tried again at the next start (an app that held it may be gone).
+ */
 function registerHotkeyWithFallback(): string | undefined {
   const err = registerHotkey(settings.hotkey);
   if (!err) return undefined;
   for (const alt of FALLBACK_HOTKEYS) {
     if (alt === settings.hotkey) continue;
-    if (!registerHotkey(alt)) {
-      settings = { ...settings, hotkey: alt };
-      void settingsStore.write(settings);
-      return `${err}; using ${alt}`;
-    }
+    if (!registerHotkey(alt)) return `${err}; using ${alt} until the next start`;
   }
   return err;
+}
+
+/**
+ * Versions before 1.3.5 saved the fallback key over the chosen one, so a user whose Alt+Space was busy once
+ * (PowerToys Run, say) kept Control+Alt+Space or Control+Alt+F for good. On the first start of a newer version,
+ * when the saved key is one of those two and the default is free again, go back to the default.
+ */
+function repairFallbackHotkey(): void {
+  if (settings.lastSeenVersion && compareVersions(settings.lastSeenVersion, '1.3.5') >= 0) return;
+  if (!FALLBACK_HOTKEYS.slice(1).includes(settings.hotkey)) return;
+  if (registerHotkey(DEFAULT_SETTINGS.hotkey)) return; // still busy: keep what works
+  settings = { ...settings, hotkey: DEFAULT_SETTINGS.hotkey };
+  void settingsStore.write(settings);
 }
 
 const ICON_ICO = join(__dirname, '../../resources/icon.ico');
@@ -589,6 +602,7 @@ app.whenReady().then(async () => {
   session.defaultSession.setPermissionRequestHandler((_wc, _perm, cb) => cb(false));
 
   win = createWindow();
+  repairFallbackHotkey();
   const r = applySettings();
   if (r.hotkeyError) console.warn(r.hotkeyError);
   // development only: open the quick launcher right away so it can be looked at without the hotkey

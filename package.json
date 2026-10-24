@@ -1,7 +1,7 @@
 {
   "name": "fataak",
   "productName": "FATAAK",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "Think it. Type it. Fataak. A Windows smart calculator.",
   "main": "./out/main/index.js",
   "author": "Rahul Ojha",

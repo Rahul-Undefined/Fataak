@@ -6,7 +6,7 @@ A Windows 10/11 smart calculator: type a line, the answer appears on the right. 
 Hinglish, Indian finance and tax, currencies, units, dates and time zones, health and study maths. Deterministic,
 offline and free: no AI, no account, no data leaves the laptop.
 
-Built with Electron, React, TypeScript and Vite. Current version: **1.3.4**.
+Built with Electron, React, TypeScript and Vite. Current version: **1.3.5**.
 
 ## Download and install
 

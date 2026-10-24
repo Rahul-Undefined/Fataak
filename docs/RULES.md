@@ -36,7 +36,7 @@ figure; `src/engine/fixed.ts` and `src/engine/extras.ts` read from this table.
   per-user Windows scheduled task (no admin) that runs `scripts\weekly-rules-review.ps1` every Monday at 09:00. The
   script pulls `main`, then runs Claude Code headless (the `claude.exe` on PATH, or the copy shipped with the Claude
   desktop app) with the procedure above as its prompt; Claude checks the sources, edits only on a confirmed change,
-  runs the tests, and pushes a tagged release. Logs: `%LOCALAPPDATA%\FATAAK-rules-revieweview-<date>.log`.
+  runs the tests, and pushes a tagged release. Logs: `%LOCALAPPDATA%\FATAAK-rules-review\review-<date>.log`.
   One-time setup: run `claude.exe` in a terminal, type `/login`, finish in the browser, `/exit`.
 - **On GitHub:** `.github/workflows/rules-reminder.yml` opens (or refreshes) one `rules-review` issue every Monday
   with the checklist above, so a missed week is visible even when the laptop was off. Close it when done.

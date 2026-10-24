@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.5',
+    date: '24 Oct 2026',
+    fixed: ['Hotkey: when the chosen key was busy at start (another app held it), the spare key FATAAK used was saved over your choice for good, so Alt+Space stopped opening the launcher. The spare key is now used for that run only, the chosen key is tried again at every start, and a saved spare key from older versions goes back to Alt+Space once it is free'],
+  },
+  {
     version: '1.3.4',
     date: '24 Oct 2026',
     changed: ['All tax and finance figures now come from one dated rules table; Settings shows "rules as of …". A weekly review updates the table and ships the change as a normal update'],
