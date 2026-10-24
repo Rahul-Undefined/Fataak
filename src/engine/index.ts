@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { CalcError, Decimal, type EvalContext, type HighlightSpan, type LineResult, type Quantity, type RateProvider, own } from './types';
 import { tokenize } from './tokenizer';
 import { parseTokens, KEYWORDS, SCALES } from './parser';
-import { evaluate, add } from './evaluator';
+import { evaluate, add, traced } from './evaluator';
 import { formatQuantity } from './format';
 import { runIntents, expressionFallback } from './nl/intents';
 import { SOURCE_WORDS, CANON_KEYWORDS, normalize } from './nl/normalize';
@@ -165,9 +165,10 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   let value: Quantity | undefined;
   let firstError: CalcError | undefined;
 
-  // 1. plain expression
+  // 1. plain expression, with its working
   try {
-    value = evaluate(parseTokens(tokenize(clean), parseOpts), ctx);
+    const t = traced(() => evaluate(parseTokens(tokenize(clean), parseOpts), ctx));
+    value = t.steps.length ? { ...t.value, steps: t.steps } : t.value;
     // "10 + 5 multiplied by 0" is the whole sum times 0; "10 + 5 * 0" keeps ordinary precedence. Say which was used.
     if (value && /(multiplied (?:by|with)|divided by)/i.test(clean) && /[+-]/.test(clean)) value = { ...value, note: `spelled-out "${/multiplied/i.test(clean) ? 'multiplied by' : 'divided by'}" applies to everything before it; a symbol (* or /) binds tighter${value.note ? ' · ' + value.note : ''}` };
   } catch (e) {
@@ -257,7 +258,7 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
         value = { ...base, display, note: value.note ? `${value.note} · rounded to ${roundTo} dp` : `rounded to ${roundTo} dp` };
       }
     }
-    return { ok: true, value, display: formatQuantity(value), note: value.note, isText: false, label: labelKey, defines, spans: spans() };
+    return { ok: true, value, display: formatQuantity(value), note: value.note, steps: value.steps, isText: false, label: labelKey, defines, spans: spans() };
   }
   const err = intentError ?? firstError;
   if (looksLikeText(clean) && !intentError) {
@@ -341,7 +342,7 @@ function tryMultiStatement(rawText: string, ctx: EvalContext, variables: Set<str
   const value = results.length ? results[results.length - 1] : local.get(lineNames[lineNames.length - 1])!;
   const display = results.length ? results.map((q) => formatQuantity(q)).join(' · ') : formatQuantity(value);
   const note = notes.length ? notes.join(' · ') : results.length ? undefined : lineNames.map((n) => `${n} ${formatQuantity(local.get(n)!)}`).join(' · ');
-  return { ok: true, value, display, note, isText: false, defines, spans: spans() };
+  return { ok: true, value, display, note, steps: value.steps, isText: false, defines, spans: spans() };
 }
 
 let FACT_PHRASES: ReturnType<typeof factPhrases> | null = null;

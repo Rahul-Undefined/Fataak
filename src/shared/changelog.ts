@@ -9,6 +9,12 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.2.4',
+    date: '24 Oct 2026',
+    added: ['Step by step: double-click a result and the card shows every operation in order (10 + 5 = 15, 15 × 0 = 0), slab-by-slab income tax, and the formulas with numbers for EMI, interest, SIP, lump sum, FD, RD and GST'],
+    changed: ['The strip under the editor is gone; selecting several lines shows their sum and average in a small pill instead'],
+  },
+  {
     version: '1.2.3',
     date: '24 Oct 2026',
     changed: ['The strip under the editor appears only when a line has a working to show; click it to open every step', 'Scrollbars are thin and follow the theme', 'Softer, slightly longer motion curves', 'This panel appears once per new version and then stays away'],

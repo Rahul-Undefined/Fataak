@@ -20,7 +20,7 @@ import { DateTime } from 'luxon';
 import { Decimal, CalcError, lastValidResult, own, type EvalContext, type Quantity } from '../types';
 import { normalize } from './normalize';
 import { parse } from '../parser';
-import { evaluate, convertMoney, add as addQuantities } from '../evaluator';
+import { evaluate, convertMoney, add as addQuantities, traced } from '../evaluator';
 import * as fin from '../finance';
 import { formatQuantity, formatNumber } from '../format';
 import { findZones, convertTime, tzResultQuantity, nowInZone, type ZoneRef } from '../timezone';
@@ -1223,11 +1223,25 @@ function intentEmi(p: Parsed, ctx: EvalContext): Quantity | null {
   const emiQ = moneyOrNumber(r.emi, principal);
   const totalQ = moneyOrNumber(r.totalPayment, principal);
   const interestQ = moneyOrNumber(r.totalInterest, principal);
+  const rm = rate.div(1200);
+  const fq = (v: Decimal) => formatQuantity(moneyOrNumber(fin.money2(v), principal));
+  const steps = flat
+    ? [`flat rate: interest = P × r × years = ${fq(principal.value)} × ${formatNumber(rate)}% × ${formatNumber(new Decimal(n).div(12))} = ${fq(r.totalInterest)}`, `total = ${fq(principal.value)} + ${fq(r.totalInterest)} = ${fq(r.totalPayment)}`, `EMI = ${fq(r.totalPayment)} ÷ ${n} = ${fq(r.emi)}`]
+    : [
+        `monthly rate r = ${formatNumber(rate)}% ÷ 12 = ${formatNumber(rm.mul(100), { maxDecimals: 4 })}%`,
+        `months n = ${n}`,
+        `EMI = P × r × (1 + r)^n ÷ ((1 + r)^n − 1)`,
+        `(1 + r)^n = ${formatNumber(new Decimal(1).plus(rm).pow(n), { maxDecimals: 4 })}`,
+        `EMI = ${fq(principal.value)} × ${formatNumber(rm, { maxDecimals: 6 })} × ${formatNumber(new Decimal(1).plus(rm).pow(n), { maxDecimals: 4 })} ÷ ${formatNumber(new Decimal(1).plus(rm).pow(n).minus(1), { maxDecimals: 4 })} = ${fq(r.emi)}`,
+        `total paid = ${fq(r.emi)} × ${n} = ${fq(r.totalPayment)}`,
+        `interest = ${fq(r.totalPayment)} − ${fq(principal.value)} = ${fq(r.totalInterest)}`,
+      ];
   // answer what is asked: total interest, total payment, or the instalment
-  if (p.has('interest')) return { ...interestQ, note: `total interest · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · total ${formatQuantity(totalQ)}` };
-  if (p.has('total')) return { ...totalQ, note: `total payment · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · interest ${formatQuantity(interestQ)}` };
+  if (p.has('interest')) return { ...interestQ, steps, note: `total interest · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · total ${formatQuantity(totalQ)}` };
+  if (p.has('total')) return { ...totalQ, steps, note: `total payment · ${method} · ${n} months · EMI ${formatQuantity(emiQ)} · interest ${formatQuantity(interestQ)}` };
   return {
     ...emiQ,
+    steps,
     display: `${formatQuantity(emiQ)}/month`,
     note: `${method} · ${n} months · total ${formatQuantity(totalQ)} · interest ${formatQuantity(interestQ)}`,
   };
@@ -1271,12 +1285,22 @@ function intentInterest(p: Parsed, ctx: EvalContext): Quantity | null {
     label = 'simple interest';
   }
   const tenure = `${formatNumber(principal.value)} @ ${formatNumber(rate)}% · ${formatNumber(years)} yr`;
+  const fq = (v: Decimal) => formatQuantity(moneyOrNumber(fin.money2(v), principal));
+  let steps: string[];
+  if (kind === 'compound') {
+    const per: Record<string, number> = { yearly: 1, 'half-yearly': 2, quarterly: 4, monthly: 12, daily: 365 };
+    const k = per[label.replace('compound ', '')] ?? 1;
+    const factor = new Decimal(1).plus(rate.div(100).div(k)).pow(years.mul(k));
+    steps = [`A = P × (1 + r/${k})^(${k} × t)`, `(1 + ${formatNumber(rate)}%/${k})^(${k} × ${formatNumber(years)}) = ${formatNumber(factor, { maxDecimals: 6 })}`, `A = ${fq(principal.value)} × ${formatNumber(factor, { maxDecimals: 6 })} = ${fq(total)}`, `interest = ${fq(total)} − ${fq(principal.value)} = ${fq(interest)}`];
+  } else {
+    steps = [`interest = P × r × t`, `= ${fq(principal.value)} × ${formatNumber(rate)}% × ${formatNumber(years)} = ${fq(interest)}`, `amount = ${fq(principal.value)} + ${fq(interest)} = ${fq(total)}`];
+  }
   if (wantsTotal) {
     const q = moneyOrNumber(total, principal);
-    return { ...q, note: `amount after ${label} · interest ${formatQuantity(moneyOrNumber(interest, principal))} · ${tenure}` };
+    return { ...q, steps, note: `amount after ${label} · interest ${formatQuantity(moneyOrNumber(interest, principal))} · ${tenure}` };
   }
   const q = moneyOrNumber(interest, principal);
-  return { ...q, note: `${label} · total ${formatQuantity(moneyOrNumber(total, principal))} · ${tenure}` };
+  return { ...q, steps, note: `${label} · total ${formatQuantity(moneyOrNumber(total, principal))} · ${tenure}` };
 }
 
 /** "50000 divided equally among 3 people", "50000 ke 3 bhag karo", "50000 ko 3 logon mein divide karo" */
@@ -1696,17 +1720,20 @@ function intentGst(p: Parsed, ctx: EvalContext): Quantity | null {
     return { ...moneyOrNumber(net, base), note: `tax ${formatQuantity(moneyOrNumber(base.value.mul(rate).div(100), base))} deducted @ ${rateText} · from ${formatQuantity(base)}` };
   }
   const reverse = p.has('remove') || p.has('reverse') || p.has('inclusive') || p.has('without') || p.has('-') || (p.has('base') && !ctx.variables.has('base')) || p.has('minus') || containsGst || (p.has('from') && !addMode);
+  const gq = (v: Decimal) => formatQuantity(moneyOrNumber(fin.money2(v), base));
   if (reverse) {
     const r = fin.gstRemove(base.value, rate);
     // the stored value keeps full precision (later "10% of that" uses it); the display is the rounded money amount
     const exact = base.value.div(new Decimal(1).plus(rate.div(100)));
-    if (wantsTax) return { ...moneyOrNumber(r.tax, base), note: `GST @ ${rateText} · before GST ${formatQuantity(moneyOrNumber(r.base, base))} · total ${formatQuantity(base)}` };
-    return { ...moneyOrNumber(exact, base), display: formatQuantity(moneyOrNumber(r.base, base)), note: `before GST · GST ${formatQuantity(moneyOrNumber(r.tax, base))} · total ${formatQuantity(base)} @ ${rateText}` };
+    const steps = [`price before GST = total ÷ (1 + ${formatNumber(rate)}%)`, `= ${gq(base.value)} ÷ ${formatNumber(new Decimal(1).plus(rate.div(100)), { maxDecimals: 4 })} = ${gq(r.base)}`, `GST = ${gq(base.value)} − ${gq(r.base)} = ${gq(r.tax)}`];
+    if (wantsTax) return { ...moneyOrNumber(r.tax, base), steps, note: `GST @ ${rateText} · before GST ${formatQuantity(moneyOrNumber(r.base, base))} · total ${formatQuantity(base)}` };
+    return { ...moneyOrNumber(exact, base), steps, display: formatQuantity(moneyOrNumber(r.base, base)), note: `before GST · GST ${formatQuantity(moneyOrNumber(r.tax, base))} · total ${formatQuantity(base)} @ ${rateText}` };
   }
   const r = fin.gstAdd(base.value, rate);
-  if (wantsTax) return { ...moneyOrNumber(r.tax, base), note: `GST @ ${rateText} · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
-  if (addMode) return { ...moneyOrNumber(r.total, base), note: `incl. GST ${formatQuantity(moneyOrNumber(r.tax, base))} @ ${rateText}` };
-  return { ...moneyOrNumber(r.tax, base), note: `GST @ ${rateText} · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
+  const steps = [`GST = ${gq(base.value)} × ${rateText} = ${gq(r.tax)}`, `total = ${gq(base.value)} + ${gq(r.tax)} = ${gq(r.total)}`];
+  if (wantsTax) return { ...moneyOrNumber(r.tax, base), steps, note: `GST @ ${rateText} · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
+  if (addMode) return { ...moneyOrNumber(r.total, base), steps, note: `incl. GST ${formatQuantity(moneyOrNumber(r.tax, base))} @ ${rateText}` };
+  return { ...moneyOrNumber(r.tax, base), steps, note: `GST @ ${rateText} · total ${formatQuantity(moneyOrNumber(r.total, base))}` };
 }
 
 function intentDiscount(p: Parsed, ctx: EvalContext): Quantity | null {
@@ -2163,7 +2190,8 @@ export function runIntentWords(words: string[], notes: string[], ctx: EvalContex
   // plain arithmetic in words ("what 35% of 840 add 12% of 1250", "2 ^ 15") goes straight to the parser
   const pure = pureExpression(words, ctx);
   if (pure) {
-    const q = evalWords([pure], ctx);
+    const t = traced(() => evalWords([pure], ctx));
+    const q: Quantity = t.steps.length ? { ...t.value, steps: t.steps } : t.value;
     return notes.length ? { ...q, note: q.note ? `${q.note} · ${notes.join(' · ')}` : notes.join(' · ') } : q;
   }
   // "40% of x is 80, x?": an undefined x stands for the unknown

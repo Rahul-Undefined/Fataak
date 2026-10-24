@@ -87,13 +87,28 @@ function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover }: { r: Line
               </button>
             </div>
           )}
-          <ul className="details-steps">
-            {(r.note ? explain(r.note) : [r.ok ? 'direct evaluation, nothing to explain' : 'could not be calculated']).map((s, i) => (
-              <li key={i}>{s}</li>
-            ))}
-          </ul>
-          {r.note && (
-            <button className="mini wide" onClick={() => onCopy(`${text} = ${r.display}\n${explain(r.note!).join('\n')}`)}>
+          {r.steps && r.steps.length > 0 && (
+            <>
+              <div className="details-title">Step by step</div>
+              <ol className="details-steps numbered">
+                {r.steps.map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ol>
+            </>
+          )}
+          {(r.note || !r.steps?.length) && (
+            <>
+              {r.steps && r.steps.length > 0 && <div className="details-title">Summary</div>}
+              <ul className="details-steps">
+                {(r.note ? explain(r.note) : [r.ok ? 'a single value, nothing to work out' : 'could not be calculated']).map((s, i) => (
+                  <li key={i}>{s}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          {(r.note || r.steps?.length) && (
+            <button className="mini wide" onClick={() => onCopy(`${text} = ${r.display}\n${[...(r.steps ?? []), ...(r.note ? explain(r.note) : [])].join('\n')}`)}>
               copy the working
             </button>
           )}
@@ -423,18 +438,16 @@ export function App() {
   const widget = settings.widgetMode;
   const statusIdx = hoverLine ?? caretLine;
   const statusRes = results[statusIdx];
-  let statusNote = statusRes?.note ?? null;
-  let statusLabel = statusRes?.ok ? statusRes.display : statusRes?.note ? 'not calculated' : '';
-  // several selected lines: their total, average and count in the strip
+  // several selected lines: their total and average in a small pill over the editor
+  let selection: string | null = null;
   if (selLines && hoverLine === null) {
     const vals = results.slice(selLines[0], selLines[1] + 1).filter((r) => r.ok && r.value && (r.value.kind === 'number' || r.value.kind === 'money'));
-    if (vals.length) {
+    if (vals.length > 1) {
       const same = vals.every((r) => r.value!.kind === vals[0].value!.kind && r.value!.currency === vals[0].value!.currency);
       if (same) {
         const sum = vals.reduce((s, r) => s.plus(r.value!.value), new Decimal(0));
         const q = { ...vals[0].value!, value: sum, note: undefined, display: undefined };
-        statusLabel = `selection: ${vals.length} values`;
-        statusNote = `sum ${formatQuantity(q)} · average ${formatQuantity({ ...q, value: sum.div(vals.length).toDecimalPlaces(2) })}`;
+        selection = `${vals.length} values · sum ${formatQuantity(q)} · avg ${formatQuantity({ ...q, value: sum.div(vals.length).toDecimalPlaces(2) })}`;
       }
     }
   }
@@ -531,19 +544,7 @@ export function App() {
       {statusRes && !statusRes.ok && !statusRes.isText && (texts[statusIdx]?.trim().length ?? 0) >= 3 && hoverLine === null ? (
         <SuggestChips line={texts[statusIdx]} onPick={(t) => replaceLine(statusIdx, t)} onTeach={() => setTeachFor(texts[statusIdx])} />
       ) : null}
-      <div
-        className={`status${statusNote ? '' : ' empty'}`}
-        title={statusNote ? 'click to see every step' : ''}
-        onClick={() => statusNote && lines[statusIdx] && setOpenId((cur) => (cur === lines[statusIdx].id ? null : lines[statusIdx].id))}
-      >
-        {statusNote && (
-          <>
-            <span className="status-k">{statusLabel}</span>
-            <span className="status-v">{statusNote}</span>
-            <span className="status-more">▸</span>
-          </>
-        )}
-      </div>
+      {selection && <div className="sel-pill">{selection}</div>}
 
       <div className="bar">
         <div className="bar-left">

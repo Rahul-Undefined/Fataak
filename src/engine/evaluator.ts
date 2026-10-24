@@ -2,7 +2,7 @@ import { DateTime } from 'luxon';
 import { Decimal, CalcError, own, lastValidResult, type EvalContext, type Quantity } from './types';
 import type { Node, ConvTarget } from './parser';
 import { convertUnit, unitById } from './units';
-import { formatNumber } from './format';
+import { formatNumber, formatQuantity } from './format';
 import { zoneAbbrev } from './timezone';
 
 const CALENDAR_UNITS: Record<string, 'days' | 'weeks' | 'months' | 'years' | 'hours' | 'minutes' | 'seconds' | 'milliseconds'> = {
@@ -477,7 +477,52 @@ function aggregate(name: 'sum' | 'avg' | 'prev' | 'count', ctx: EvalContext): Qu
   return acc;
 }
 
+/** while set, every operation evaluated appends one line of working here */
+let TRACE: string[] | null = null;
+const show = (q: Quantity): string => formatQuantity({ ...q, display: q.kind === 'unit' || q.kind === 'date' || q.kind === 'time' ? q.display : undefined });
+const SYM: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷', '^': '^', mod: 'mod', of: 'of', off: 'off', on: 'on' };
+
+/** evaluate with the working collected: one line per operation, in the order they happen */
+export function traced<T>(fn: () => T): { value: T; steps: string[] } {
+  const outer = TRACE;
+  const steps: string[] = [];
+  TRACE = steps;
+  LAST = new WeakMap<Node, Quantity>();
+  try {
+    const value = fn();
+    return { value, steps };
+  } finally {
+    TRACE = outer;
+  }
+}
+
 export function evaluate(node: Node, ctx: EvalContext): Quantity {
+  const q = evaluateNode(node, ctx);
+  if (TRACE) {
+    if (node.t === 'bin') {
+      const l = (node as { l: Node }).l;
+      const r = (node as { r: Node }).r;
+      const lv = LAST.get(l);
+      const rv = LAST.get(r);
+      if (lv && rv) TRACE.push(`${show(lv)} ${SYM[node.op] ?? node.op} ${show(rv)} = ${show(q)}`);
+    } else if (node.t === 'conv') {
+      const inner = LAST.get((node as { e: Node }).e);
+      if (inner && show(inner) !== show(q)) TRACE.push(`${show(inner)} → ${show(q)}`);
+    } else if (node.t === 'call') {
+      const args = (node as { args: Node[] }).args.map((a) => LAST.get(a)).filter((x): x is Quantity => !!x);
+      TRACE.push(`${(node as { fn: string }).fn}(${args.map(show).join(', ')}) = ${show(q)}`);
+    } else if (node.t === 'scale') {
+      const inner = LAST.get((node as { e: Node }).e);
+      if (inner) TRACE.push(`${show(inner)} × ${(node as { mult: Decimal }).mult.toString()} = ${show(q)}`);
+    }
+    LAST.set(node, q);
+  }
+  return q;
+}
+/** values of already-evaluated nodes, for the trace (the map is replaced on every traced run) */
+let LAST = new WeakMap<Node, Quantity>();
+
+function evaluateNode(node: Node, ctx: EvalContext): Quantity {
   switch (node.t) {
     case 'num':
       return num(node.v);

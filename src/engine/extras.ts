@@ -116,8 +116,29 @@ function intentIncomeTax(p: Parsed, ctx: EvalContext): Quantity | null {
   const fyWord = fyWords[0];
   const r = incomeTax(income.value, { old, salaried, fy: fyWord ? parseInt(fyWord.slice(2), 10) : undefined });
   const money = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), income));
+  // slab by slab
+  const fyKey = fyWord ? parseInt(fyWord.slice(2), 10) : DEFAULT_FY;
+  const slabs = old ? OLD_SLABS : NEW_REGIME[fyKey]?.slabs ?? NEW_REGIME[DEFAULT_FY].slabs;
+  const steps: string[] = [];
+  if (r.deduction.gt(0)) steps.push(`taxable income: ${money(income.value)} − ${money(r.deduction)} standard deduction = ${money(r.taxable)}`);
+  else steps.push(`taxable income: ${money(r.taxable)}`);
+  let lower = D(0);
+  for (const [upper, rate] of slabs) {
+    if (r.taxable.lte(lower)) break;
+    const part = Decimal.min(r.taxable, upper).minus(lower);
+    if (rate === 0) steps.push(`up to ${money(D(upper))}: 0%`);
+    else steps.push(`${money(lower)} to ${upper === Infinity ? 'above' : money(D(upper))}: ${money(part)} × ${rate}% = ${money(part.mul(rate).div(100))}`);
+    lower = D(upper);
+  }
+  const rawSlab = slabTax(r.taxable, slabs);
+  if (r.slab.lt(rawSlab)) steps.push(r.slab.isZero() ? `rebate 87A: taxable income within the limit, tax = 0` : `marginal relief: tax capped at income above the limit = ${money(r.slab)}`);
+  else steps.push(`slab tax = ${money(r.slab)}`);
+  if (r.surcharge.gt(0)) steps.push(`surcharge = ${money(r.surcharge)}`);
+  steps.push(`cess: ${money(r.slab.plus(r.surcharge))} × 4% = ${money(r.cess)}`);
+  steps.push(`total tax = ${money(r.tax)} (${money(r.tax.div(12))} per month)`);
   return {
     ...moneyOrNumber(r.tax, income),
+    steps,
     note: `${r.regime} · taxable ${money(r.taxable)}${r.deduction.gt(0) ? ` after ${money(r.deduction)} standard deduction` : ''} · slab tax ${money(r.slab)}${r.surcharge.gt(0) ? ` + surcharge ${money(r.surcharge)}` : ''} + 4% cess ${money(r.cess)} · ${money(r.tax.div(12))} per month`,
   };
 }
@@ -167,7 +188,17 @@ function intentSip(p: Parsed, ctx: EvalContext): Quantity | null {
   if (!monthly) throw new CalcError('monthly SIP amount?', 'e.g. sip 5000 at 12% for 10 years');
   const fv = money2(sipValue(monthly.value, rate, months));
   const invested = monthly.value.mul(months);
-  return { ...moneyOrNumber(fv, monthly), note: `invested ${formatQuantity(moneyOrNumber(invested, monthly))} · gain ${formatQuantity(moneyOrNumber(money2(fv.minus(invested)), monthly))} · ${formatNumber(rate)}% a year compounded monthly, ${months} instalments` };
+  const rm = rate.div(1200);
+  const fm = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), monthly));
+  const sipSteps = [
+    `monthly rate r = ${formatNumber(rate)}% ÷ 12 = ${formatNumber(rm.mul(100), { maxDecimals: 4 })}%`,
+    `months n = ${months}`,
+    `FV = P × ((1 + r)^n − 1) ÷ r × (1 + r)`,
+    `(1 + r)^n = ${formatNumber(D(1).plus(rm).pow(months), { maxDecimals: 4 })}`,
+    `FV = ${fm(monthly.value)} × ${formatNumber(D(1).plus(rm).pow(months).minus(1).div(rm).mul(D(1).plus(rm)), { maxDecimals: 4 })} = ${fm(fv)}`,
+    `invested ${fm(invested)} · gain ${fm(fv.minus(invested))}`,
+  ];
+  return { ...moneyOrNumber(fv, monthly), steps: sipSteps, note: `invested ${formatQuantity(moneyOrNumber(invested, monthly))} · gain ${formatQuantity(moneyOrNumber(money2(fv.minus(invested)), monthly))} · ${formatNumber(rate)}% a year compounded monthly, ${months} instalments` };
 }
 
 /** "lumpsum 1 lakh at 10% for 15 years" → yearly compounding */
@@ -178,7 +209,8 @@ function intentLumpsum(p: Parsed, ctx: EvalContext): Quantity | null {
   const amount = nums(p, ctx).find((q, k) => !['years', 'months'].includes(p.words[p.nums[k] + 1]));
   if (!rate || !years || !amount) throw new CalcError('amount, rate and years?', 'e.g. lumpsum 1 lakh at 10% for 15 years');
   const fv = money2(amount.value.mul(D(1).plus(rate.div(100)).pow(years.toNumber())));
-  return { ...moneyOrNumber(fv, amount), note: `${formatQuantity(amount)} at ${formatNumber(rate)}% a year compounded yearly for ${yrs(years)} · gain ${formatQuantity(moneyOrNumber(fv.minus(amount.value), amount))}` };
+  const lsSteps = [`FV = P × (1 + r)^t`, `(1 + ${formatNumber(rate)}%)^${formatNumber(years)} = ${formatNumber(D(1).plus(rate.div(100)).pow(years.toNumber()), { maxDecimals: 4 })}`, `FV = ${formatQuantity(amount)} × ${formatNumber(D(1).plus(rate.div(100)).pow(years.toNumber()), { maxDecimals: 4 })} = ${formatQuantity(moneyOrNumber(fv, amount))}`];
+  return { ...moneyOrNumber(fv, amount), steps: lsSteps, note: `${formatQuantity(amount)} at ${formatNumber(rate)}% a year compounded yearly for ${yrs(years)} · gain ${formatQuantity(moneyOrNumber(fv.minus(amount.value), amount))}` };
 }
 
 /** FD: quarterly compounding; RD: each monthly instalment compounded quarterly for its remaining term (bank method) */
@@ -204,8 +236,12 @@ function intentDeposit(p: Parsed, ctx: EvalContext): Quantity | null {
   }
   maturity = money2(maturity);
   const interest = maturity.minus(invested);
+  const fq = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), amount));
+  const depSteps = fd
+    ? [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `quarters = ${formatNumber(years)} × 4 = ${formatNumber(years.mul(4))}`, `maturity = P × (1 + q)^quarters = ${fq(amount.value)} × ${formatNumber(D(1).plus(q).pow(years.mul(4).toNumber()), { maxDecimals: 4 })} = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`]
+    : [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `each instalment compounds quarterly for its remaining months (bank method)`, `invested = ${fq(amount.value)} × ${Math.round(years.mul(12).toNumber())} = ${fq(invested)}`, `maturity = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`];
   const tds = interest.gt(40000) ? ` · interest above ₹40,000: bank deducts 10% TDS (₹50,000 for seniors)` : '';
-  return { ...moneyOrNumber(maturity, amount), note: `${fd ? 'FD' : 'RD'} ${formatQuantity(amount)}${rd ? '/month' : ''} at ${formatNumber(rate)}% for ${yrs(years)}, quarterly compounding · interest ${formatQuantity(moneyOrNumber(interest, amount))} on ${formatQuantity(moneyOrNumber(invested, amount))}${tds}` };
+  return { ...moneyOrNumber(maturity, amount), steps: depSteps, note: `${fd ? 'FD' : 'RD'} ${formatQuantity(amount)}${rd ? '/month' : ''} at ${formatNumber(rate)}% for ${yrs(years)}, quarterly compounding · interest ${formatQuantity(moneyOrNumber(interest, amount))} on ${formatQuantity(moneyOrNumber(invested, amount))}${tds}` };
 }
 
 /** EMI with a prepayment: same EMI continues, tenure shortens */

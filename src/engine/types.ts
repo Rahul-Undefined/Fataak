@@ -27,6 +27,8 @@ export interface Quantity {
   display?: string;
   /** the unit was asked for explicitly ("in mb"): never re-scaled for display */
   exactUnit?: boolean;
+  /** the working, one calculation per line ("10 + 5 = 15") */
+  steps?: string[];
 }
 
 export interface RateQuote {
@@ -112,6 +114,8 @@ export interface LineResult {
   display: string;
   /** muted annotation (rate timestamp, zone, breakdown) */
   note?: string;
+  /** step-by-step working when the engine can give one */
+  steps?: string[];
   /** true if the line was treated as plain text / comment */
   isText: boolean;
   label?: string;
