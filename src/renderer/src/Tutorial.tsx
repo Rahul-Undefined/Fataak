@@ -109,11 +109,20 @@ const SCENES: Scene[] = [
   },
   {
     title: 'When FATAAK does not understand.',
-    caption: 'A line it cannot answer gets chips under the editor: click one to use that form. ✎ Teach FATAAK saves your own phrasing (numbers become blanks) so it works from then on. Every unanswered question is also kept on your laptop; Settings → Unanswered exports them as a CSV you can send to Rahul for the next version.',
+    caption: 'A line it cannot answer gets chips under the editor: click one to use that form. ✎ Teach FATAAK (also in Settings) opens a three-step panel: type the question your way, pick the form FATAAK knows, check both answers match, save. Numbers become blanks, so one lesson covers every amount. Every unanswered question is also kept on your laptop; Settings → Unanswered exports them as a CSV to send to Rahul for the next version.',
     lines: [
       { text: 'mera tax kitna 15 lakh', result: '', note: 'did you mean: income tax on 15 lakh salary' },
       { text: 'teach: mera tax kitna 15 lakh → income tax on 15 lakh salary', result: 'saved' },
       { text: 'mera tax kitna 9 lakh', result: '0', note: 'taught' },
+    ],
+  },
+  {
+    title: 'Make it yours.',
+    caption: 'The bar at the bottom switches between Moon, Sun and Star. Star turns FATAAK into tinted glass over your desktop; Settings → Appearance picks the tint, the interface font and the editor font. Everything is saved for next time.',
+    lines: [
+      { text: 'Moon · Sun · Star', result: 'theme' },
+      { text: 'Settings → Appearance → Glass tint', result: '● ● ● ● ●' },
+      { text: 'Settings → Appearance → fonts', result: 'Inter · Sora · Fira Code …' },
     ],
   },
   {

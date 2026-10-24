@@ -24,7 +24,9 @@
   --selection: rgba(124, 199, 255, 0.25);
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Cascadia Mono', 'Consolas', 'DejaVu Sans Mono', monospace;
-  --font-ui: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-ui: 'Inter', 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --tint: #7c5cff;
+  --glass-blur: none;
   --size: 15px;
   --line: 31px;
   --pad-x: 36px;
@@ -55,6 +57,70 @@
   --caret: #d98a00;
   --selection: rgba(11, 111, 194, 0.2);
   --shadow: 0 10px 30px rgba(20, 30, 45, 0.15);
+}
+
+/* Star: glass over the desktop (acrylic drawn by Windows behind a transparent window), tinted by --tint */
+:root[data-theme='star'] {
+  --bg: transparent;
+  --bg-top: transparent;
+  --surface: color-mix(in srgb, var(--tint) 10%, rgba(16, 20, 30, 0.66));
+  --surface-2: color-mix(in srgb, var(--tint) 16%, rgba(22, 27, 40, 0.72));
+  --border: color-mix(in srgb, var(--tint) 35%, rgba(255, 255, 255, 0.14));
+  --title: color-mix(in srgb, var(--tint) 30%, #c7cfdc);
+  --text: #eef1f7;
+  --muted: color-mix(in srgb, var(--tint) 20%, #9aa6b8);
+  --number: #ffffff;
+  --unit: #c9d2e0;
+  --keyword: color-mix(in srgb, var(--tint) 55%, #9fd3ff);
+  --label: #ffb08a;
+  --variable: color-mix(in srgb, var(--tint) 40%, #e4d6ff);
+  --result: #8af0c2;
+  --result-bg: rgba(138, 240, 194, 0.14);
+  --note: #a3adbd;
+  --comment: #8390a3;
+  --hint: #f0c070;
+  --hint-bg: rgba(240, 192, 112, 0.16);
+  --accent: color-mix(in srgb, var(--tint) 70%, #ffffff);
+  --caret: var(--accent);
+  --selection: color-mix(in srgb, var(--tint) 35%, transparent);
+  --shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  --glass-blur: blur(18px) saturate(1.3);
+}
+/* no acrylic on this Windows: a deep tinted surface instead of transparency */
+:root[data-theme='star'][data-glass='no'] {
+  --bg: color-mix(in srgb, var(--tint) 12%, #141a2a);
+  --bg-top: color-mix(in srgb, var(--tint) 18%, #1a2236);
+  --glass-blur: none;
+}
+:root[data-theme='star'] .app {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tint) 14%, transparent) 0, transparent 160px);
+}
+/* the chrome keeps a readable backing over bright desktops */
+:root[data-theme='star'] .titlebar,
+:root[data-theme='star'] .bar,
+:root[data-theme='star'] .status {
+  background: color-mix(in srgb, var(--tint) 10%, rgba(10, 14, 24, 0.5));
+}
+:root[data-theme='star'] .bar {
+  border-top: 1px solid var(--border);
+}
+:root[data-theme='star'] .toggle .lbl,
+:root[data-theme='star'] .toggle.plain {
+  color: var(--text);
+}
+:root[data-theme='star'] .toggle {
+  color: var(--text);
+}
+:root[data-theme='star'] .doc,
+:root[data-theme='star'] .settings,
+:root[data-theme='star'] .details,
+:root[data-theme='star'] .learn,
+:root[data-theme='star'] .tut-card {
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+:root[data-theme='star'] .row .value {
+  background: var(--result-bg);
 }
 
 * {
@@ -1074,4 +1140,57 @@ body,
   color: #e07a6a;
   border-color: #e07a6a;
   margin-left: 6px;
+}
+
+/* ---- appearance controls ---- */
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.segb {
+  font: inherit;
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  padding: 3px 9px;
+  cursor: default;
+}
+.segb + .segb {
+  border-left: 1px solid var(--border);
+}
+.segb.on {
+  background: var(--surface);
+  color: var(--text);
+}
+.swatches {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: default;
+  transition: transform 120ms;
+}
+.swatch:hover {
+  transform: scale(1.15);
+}
+.swatch.on {
+  border-color: var(--text);
+}
+.swatches input[type='color'] {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: transparent;
+}
+.settings select {
+  width: 170px;
 }

@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { FataakApi, Settings } from '../shared/api';
 import type { HistoryLine } from '../engine/history';
 import { sanitizeRules } from '../engine/teach';
+import { FONTS, HEX_RE } from '../shared/fonts';
 
 /* ---- argument validation: the renderer is sandboxed and untrusted ---- */
 function assertString(v: unknown, name: string, max = 10000): string {
@@ -23,8 +24,20 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   if ('hotkey' in o) out.hotkey = assertString(o.hotkey, 'hotkey', 64);
   if ('updateRepo' in o) out.updateRepo = assertString(o.updateRepo, 'updateRepo', 100);
   if ('theme' in o) {
-    if (o.theme !== 'dark' && o.theme !== 'light') throw new TypeError('theme must be dark or light');
+    if (o.theme !== 'dark' && o.theme !== 'light' && o.theme !== 'star') throw new TypeError('theme must be dark, light or star');
     out.theme = o.theme;
+  }
+  if ('tint' in o) {
+    const t = assertString(o.tint, 'tint', 7);
+    if (!HEX_RE.test(t)) throw new TypeError('tint must be #rrggbb');
+    out.tint = t.toLowerCase();
+  }
+  for (const k of ['uiFont', 'editorFont'] as const) {
+    if (k in o) {
+      const f = assertString(o[k], k, 40);
+      if (!FONTS.some((x) => x.key === f && x.kind === (k === 'uiFont' ? 'ui' : 'mono'))) throw new TypeError(`${k}: unknown font`);
+      out[k] = f;
+    }
   }
   for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) {
     if (k in o) {

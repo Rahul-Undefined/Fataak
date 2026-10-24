@@ -17,7 +17,7 @@ function browserShim(): FataakApi {
     platform: 'browser',
     version: 'dev',
     app: {
-      info: async () => ({ version: 'dev', buildDate: new Date().toISOString().slice(0, 10), platform: 'browser', packaged: false }),
+      info: async () => ({ version: 'dev', buildDate: new Date().toISOString().slice(0, 10), platform: 'browser', packaged: false, glass: false }),
       checkUpdate: async () => ({ current: 'dev', status: 'update checks run in the installed app', canInstall: false }),
       installUpdate: async () => ({ ok: false, status: 'updates install only in the installed app' }),
       onUpdateProgress: () => () => {},

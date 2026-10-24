@@ -1,6 +1,7 @@
 /** Types shared by main, preload and renderer. No runtime code. */
 import type { HistoryLine } from '../engine/history';
 import type { TeachRule } from '../engine/teach';
+import { DEFAULT_EDITOR_FONT, DEFAULT_TINT, DEFAULT_UI_FONT } from './fonts';
 
 export interface Settings {
   /** Electron accelerator string */
@@ -10,7 +11,13 @@ export interface Settings {
   alwaysOnTop: boolean;
   /** desktop widget: pinned in place, no taskbar entry, cannot be moved, minimised or closed from the UI */
   widgetMode: boolean;
-  theme: 'dark' | 'light';
+  /** Moon (dark), Sun (light) or Star (glass over the desktop, tinted) */
+  theme: 'dark' | 'light' | 'star';
+  /** glass tint for the Star theme, #rrggbb */
+  tint: string;
+  /** keys from shared/fonts.ts */
+  uiFont: string;
+  editorFont: string;
   /** the first-run tutorial has been watched or skipped */
   tutorialSeen: boolean;
   /** GitHub repository ("owner/name") whose Releases carry the FATAAK zips; "Check for updates" reads it */
@@ -25,6 +32,9 @@ export const DEFAULT_SETTINGS: Settings = {
   alwaysOnTop: false,
   widgetMode: false,
   theme: 'dark',
+  tint: DEFAULT_TINT,
+  uiFont: DEFAULT_UI_FONT,
+  editorFont: DEFAULT_EDITOR_FONT,
   tutorialSeen: false,
   updateRepo: 'Rahul-Undefined/Fataak',
 };
@@ -54,6 +64,8 @@ export interface AppInfo {
   platform: string;
   /** true when running packaged (not from source) */
   packaged: boolean;
+  /** the system can draw acrylic glass behind the window (Windows 11 22H2+) */
+  glass: boolean;
   /** outcome of the update that restarted this instance ("updated to 1.2.0"), once */
   lastUpdate?: string;
 }

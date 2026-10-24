@@ -172,3 +172,14 @@ step-by-step guide inside its panel and a tutorial scene. Self-update from GitHu
 check, download, extract with PowerShell, apply with robocopy after exit, restart; a release workflow builds the zip on
 tag push. 12 new tests (`tests/teach.test.ts`); suite 6,381 passing. The updater was type-checked and reviewed but not
 exercised end to end here (it needs a published release and the installed app).
+
+## Version 1.2.0 (24 Oct 2026)
+
+Star theme: the window asks Windows for the acrylic backdrop (`backgroundMaterial`, Windows 11 22H2+) behind a
+transparent page; surfaces are tinted with `color-mix` from a user-chosen colour and blurred with `backdrop-filter`;
+on older Windows the same tokens resolve to an opaque tinted surface. Verified on screen in a second instance started
+with `FATAAK_USER_DATA` (a development-only override placed before the single-instance lock). Fonts: 12 open-licence
+families bundled as latin variable woff2 (400 KB, `scripts/fetch-fonts.py`), chosen in Settings and applied through
+`--font-ui` / `--font-mono`; the editor's layout measures the glyph width, so any monospace choice keeps the result
+column aligned. Spelled-out `multiplied by` / `divided by` now bind looser than `+`/`-` in both the parser and the
+language layer (symbols keep ordinary precedence); the result note says which reading was used. Suite 6,387 tests.

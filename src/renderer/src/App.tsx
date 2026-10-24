@@ -4,6 +4,7 @@ import { Decimal } from '../../engine/types';
 import { formatQuantity } from '../../engine/format';
 import type { AppInfo, Settings, Unanswered, UpdateCheck, UpdateProgress } from '../../shared/api';
 import { DEFAULT_SETTINGS } from '../../shared/api';
+import { FONTS, TINTS, fontByKey } from '../../shared/fonts';
 import { api, isElectron } from './bridge';
 import { RendererRates } from './rates';
 import { Tutorial } from './Tutorial';
@@ -172,8 +173,13 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    document.documentElement.dataset.theme = settings.theme;
-  }, [settings.theme]);
+    const el = document.documentElement;
+    el.dataset.theme = settings.theme;
+    el.dataset.glass = info?.glass ? 'yes' : 'no';
+    el.style.setProperty('--tint', settings.tint);
+    el.style.setProperty('--font-ui', fontByKey(settings.uiFont, 'ui').css);
+    el.style.setProperty('--font-mono', fontByKey(settings.editorFont, 'mono').css);
+  }, [settings.theme, settings.tint, settings.uiFont, settings.editorFont, info?.glass]);
 
   // ---- glyph width + editor width (monospace, so note space = chars × glyph width)
   useEffect(() => {
@@ -533,7 +539,7 @@ export function App() {
         <div className="bar-left">
           <button
             className={`toggle${settings.alwaysOnTop && !widget ? ' on' : ''}`}
-            title="Keep FATAAK above other windows"
+            title="On top"
             disabled={widget}
             onClick={() => void updateSettings({ alwaysOnTop: !settings.alwaysOnTop })}
             tabIndex={-1}
@@ -543,15 +549,15 @@ export function App() {
           </button>
           <button
             className={`toggle${widget ? ' on' : ''}`}
-            title={widget ? 'Widget mode is on: click to let the window move, minimise and close again' : 'Widget mode: pin FATAAK to the desktop with no taskbar entry; it cannot be moved, minimised or closed until you turn this off'}
+            title="Widget mode"
             onClick={() => void updateSettings({ widgetMode: !widget })}
             tabIndex={-1}
           >
             <span className="knob" />
             <span className="lbl">Widget</span>
           </button>
-          <button className="toggle plain" title={settings.theme === 'dark' ? 'Moon theme is on (dark). Click for Sun (light)' : 'Sun theme is on (light). Click for Moon (dark)'} onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })} tabIndex={-1}>
-            <span className="lbl">{settings.theme === 'dark' ? '☾ Moon' : '☀ Sun'}</span>
+          <button className="toggle plain" title="Theme" onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : settings.theme === 'light' ? 'star' : 'dark' })} tabIndex={-1}>
+            <span className="lbl">{settings.theme === 'dark' ? '☾ Moon' : settings.theme === 'light' ? '☀ Sun' : '✦ Star'}</span>
           </button>
         </div>
         <div className="bar-right">
@@ -599,6 +605,47 @@ export function App() {
               <span className="muted">{progressText || (update.size ? `${Math.round(update.size / 1e6)} MB` : '')}</span>
             </div>
           )}
+          <div className="srow sep">
+            <span className="muted">Appearance</span>
+            <span className="seg">
+              {(['dark', 'light', 'star'] as const).map((t) => (
+                <button key={t} className={`segb${settings.theme === t ? ' on' : ''}`} onClick={() => void updateSettings({ theme: t })}>
+                  {t === 'dark' ? '☾ Moon' : t === 'light' ? '☀ Sun' : '✦ Star'}
+                </button>
+              ))}
+            </span>
+          </div>
+          {settings.theme === 'star' && (
+            <div className="srow">
+              <span className="muted">Glass tint</span>
+              <span className="swatches">
+                {TINTS.map((t) => (
+                  <button key={t.key} className={`swatch${settings.tint === t.hex ? ' on' : ''}`} style={{ background: t.hex }} title={t.label} onClick={() => void updateSettings({ tint: t.hex })} />
+                ))}
+                <input type="color" value={settings.tint} title="any colour" onChange={(e) => void updateSettings({ tint: e.target.value })} />
+              </span>
+            </div>
+          )}
+          <div className="srow">
+            <span className="muted">Interface font</span>
+            <select value={settings.uiFont} onChange={(e) => void updateSettings({ uiFont: e.target.value })} style={{ fontFamily: fontByKey(settings.uiFont, 'ui').css }}>
+              {FONTS.filter((f) => f.kind === 'ui').map((f) => (
+                <option key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="srow">
+            <span className="muted">Editor font</span>
+            <select value={settings.editorFont} onChange={(e) => void updateSettings({ editorFont: e.target.value })} style={{ fontFamily: fontByKey(settings.editorFont, 'mono').css }}>
+              {FONTS.filter((f) => f.kind === 'mono').map((f) => (
+                <option key={f.key} value={f.key} style={{ fontFamily: f.css }}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div className="srow sep">
             <button className="link" onClick={() => (setShowSettings(false), setTeachFor(''))} title="teach FATAAK your own way of asking">
               ✎ Teach FATAAK{rules.length ? ` (${rules.length})` : ''}

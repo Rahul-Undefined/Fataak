@@ -6,7 +6,7 @@ A Windows 10/11 smart calculator: type a line, the answer appears on the right. 
 Hinglish, Indian finance and tax, currencies, units, dates and time zones, health and study maths. Deterministic,
 offline and free: no AI, no account, no data leaves the laptop.
 
-Built with Electron, React, TypeScript and Vite. Current version: **1.1.4**.
+Built with Electron, React, TypeScript and Vite. Current version: **1.2.0**.
 
 ## Download and install
 
@@ -21,6 +21,10 @@ downloads the next release and restarts on it. See *Updates* below.
 
 ## What's new
 
+- **1.2** — **Star** theme: tinted glass over the desktop (Windows 11 acrylic; a deep tinted surface on older Windows),
+  with a tint picker; interface and editor **fonts** of your choice (Inter, Manrope, Outfit, Space Grotesk, Plus Jakarta
+  Sans, Sora, DM Sans; JetBrains Mono, Fira Code, Geist Mono, IBM Plex Mono, Source Code Pro), bundled under the SIL
+  Open Font License, no download at run time. Spelled-out `multiplied by` / `divided by` act on the whole sum before them.
 - **1.1** — *Did you mean* chips when a line is not understood; **Teach FATAAK** (your own phrasing, numbers become
   blanks); a local log of unanswered questions with CSV export; self-update from GitHub Releases.
 - **1.0** — everyday calculators: income tax (FY 2023-24 … 2025-26, surcharge), CTC → in-hand, SIP/FD/RD, loan
@@ -152,7 +156,7 @@ litres` → 15 km/l, `fuel for 600 km at 15 km/l`, `6 lakh per year in month`, `
 `3 dozen`, `time difference between india and london`, `450 km at 60 km/h` → 7.5 h, `age in days if born 1 jan 2000`.
 In the app: double-click a result to see the working (every step, rate and source) and copy it; the bar at the bottom has
 labelled toggles for **On top**, **Widget** mode (pinned to the desktop, no taskbar entry, cannot be moved, minimised or
-closed until turned off) and the **Moon/Sun** theme (dark/light); **? Help** replays the animated tutorial that autoplays on first
+closed until turned off) and the theme (**Moon**, **Sun**, **Star**; Settings → Appearance holds the glass tint and the fonts); **? Help** replays the animated tutorial that autoplays on first
 run; **Settings** shows the version and build date and checks GitHub Releases for a newer FATAAK (see *Updates*).
 
 **Version 1.1: when FATAAK does not understand.** A line it cannot answer gets *Did you mean* chips under the editor,

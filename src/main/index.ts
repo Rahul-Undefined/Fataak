@@ -9,12 +9,16 @@ import { pruneExpired, sanitizeLines, type HistoryLine } from '../engine/history
 import { JsonStore } from './store';
 import { RateService } from './rates';
 import { checkGithub, installUpdate, updateAftermath, DEFAULT_REPO } from './updater';
+import { FONTS, HEX_RE } from '../shared/fonts';
+import { release } from 'node:os';
 
 const isDev = !app.isPackaged && !!process.env['ELECTRON_RENDERER_URL'];
 const APP_ID = 'com.fataak.calculator';
 
 const SHORTCUTS_MODE = process.argv.includes('--install-shortcuts');
 
+// development: FATAAK_USER_DATA points a second instance at its own folder (the installed app holds the normal lock)
+if (process.env['FATAAK_USER_DATA']) app.setPath('userData', process.env['FATAAK_USER_DATA']);
 // ---------------------------------------------------------------- single instance
 if (SHORTCUTS_MODE) {
   // handled in installShortcutsAndExit() below; no window, no lock
@@ -38,6 +42,9 @@ let quitting = false;
 let settings: StoredSettings = { ...DEFAULT_SETTINGS };
 
 const userData = app.getPath('userData');
+/** Windows 11 22H2 (build 22621) and up can draw acrylic behind the window */
+const GLASS = process.platform === 'win32' && parseInt(release().split('.')[2] ?? '0', 10) >= 22621;
+const BG = { dark: '#0f1419', light: '#f6f7f9', star: GLASS ? '#00000000' : '#141a2a' } as const;
 const historyStore = new JsonStore<HistoryLine[]>(userData, 'history.json', sanitizeLines, () => []);
 const settingsStore = new JsonStore<StoredSettings>(userData, 'settings.json', validateSettings, () => ({ ...DEFAULT_SETTINGS }));
 const rates = new RateService(userData);
@@ -51,7 +58,10 @@ function validateSettings(raw: unknown): StoredSettings {
   if (typeof o.hotkey === 'string' && o.hotkey.length <= 64) out.hotkey = o.hotkey;
   if (typeof o.updateRepo === 'string' && /^[\w.-]+\/[\w.-]+$/.test(o.updateRepo)) out.updateRepo = o.updateRepo;
   else out.updateRepo = DEFAULT_REPO;
-  if (o.theme === 'dark' || o.theme === 'light') out.theme = o.theme;
+  if (o.theme === 'dark' || o.theme === 'light' || o.theme === 'star') out.theme = o.theme;
+  if (typeof o.tint === 'string' && HEX_RE.test(o.tint)) out.tint = o.tint.toLowerCase();
+  if (typeof o.uiFont === 'string' && FONTS.some((f) => f.key === o.uiFont && f.kind === 'ui')) out.uiFont = o.uiFont;
+  if (typeof o.editorFont === 'string' && FONTS.some((f) => f.key === o.editorFont && f.kind === 'mono')) out.editorFont = o.editorFont;
   for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   const b = o.bounds as Record<string, unknown> | undefined;
   if (b && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]))) {
@@ -80,7 +90,8 @@ function createWindow(): BrowserWindow {
     minHeight: 220,
     frame: false,
     show: false,
-    backgroundColor: settings.theme === 'light' ? '#f6f7f9' : '#0f1419',
+    backgroundColor: BG[settings.theme],
+    backgroundMaterial: settings.theme === 'star' && GLASS ? 'acrylic' : 'none',
     title: 'FATAAK',
     icon: process.platform === 'win32' ? ICON_ICO : ICON_PNG,
     alwaysOnTop: settings.alwaysOnTop && !settings.widgetMode,
@@ -314,7 +325,8 @@ function applySettings(): SettingsResult {
   updateTray();
   if (win && !win.isDestroyed()) {
     applyWidgetMode(win);
-    win.setBackgroundColor(settings.theme === 'light' ? '#f6f7f9' : '#0f1419');
+    win.setBackgroundColor(BG[settings.theme]);
+    if (GLASS) win.setBackgroundMaterial(settings.theme === 'star' ? 'acrylic' : 'none');
   }
   return { settings, hotkeyError };
 }
@@ -329,7 +341,7 @@ function appInfo(): AppInfo {
   } catch {
     buildDate = '';
   }
-  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged, lastUpdate };
+  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged, glass: GLASS, lastUpdate };
 }
 
 /** reads the latest GitHub release of the configured repository; never installs anything by itself */
