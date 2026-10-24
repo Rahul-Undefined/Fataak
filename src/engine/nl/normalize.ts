@@ -43,7 +43,7 @@ const PHRASES: [string, string][] = [
   ['jodo', 'add'], ['lagao', 'add'], ['lagaao', 'add'], ['lagake', 'add'], ['lagakar', 'add'], ['milake', 'add'], ['milakar', 'add'], ['milao', 'add'],
   // reliability upgrade: English maths verbs, units, balance/invoice/investment vocabulary
   ['raised to the power of', '^'], ['raised to the power', '^'], ['to the power of', '^'], ['to the power', '^'], ['ki power', '^'], ['ka power', '^'],
-  ['multiplied by', 'times'], ['multiply by', 'times'], ['divided by', 'divide'], ['divide by', 'divide'],
+  ['multiplied by', 'multipliedby'], ['multiply by', 'multipliedby'], ['multiplied with', 'multipliedby'], ['divided by', 'dividedby'], ['divide by', 'dividedby'],
   ['least common multiple', 'lcm'], ['lowest common multiple', 'lcm'], ['lcm', 'lcm'], ['greatest common divisor', 'gcd'], ['greatest common factor', 'gcd'], ['highest common factor', 'gcd'], ['hcf', 'gcd'], ['gcf', 'gcd'], ['gcd', 'gcd'],
   ['degrees fahrenheit', 'fahrenheit'], ['degree fahrenheit', 'fahrenheit'], ['degrees celsius', 'celsius'], ['degree celsius', 'celsius'], ['degrees centigrade', 'celsius'], ['centigrade', 'celsius'], ['deg f', 'fahrenheit'], ['deg c', 'celsius'],
   ['kilometres per hour', 'km/h'], ['kilometers per hour', 'km/h'], ['km per hour', 'km/h'], ['miles per hour', 'mph'], ['metres per second', 'm/s'], ['meters per second', 'm/s'],
@@ -323,6 +323,10 @@ export function normalize(text: string): Normalized {
   s = composeNumberWords(s.split(' ')).join(' ');
   // Hindi "450 mile" (received) in a money sentence; "5 mile" elsewhere stays miles
   if (/\b(?:paas|kharch|kharcha|bach[ae]|bacha|mila|baki|baaki)\b/.test(s)) s = s.replace(/(\d[\d.,]*)\s+(?:aur\s+)?mile\b/g, '$1 received');
+  // "10 + 5 ka 3 guna": the Hindi multiply acts on the whole sum written before it (the parser does the same for
+  // "multiplied by" / "divided by"; a symbol, "10 + 5 * 0", keeps ordinary precedence)
+  const SUM = String.raw`((?<![\d.,)])-?\d[\d.,]*%?(?:\s*[+\-]\s*-?\d[\d.,]*%?)+)`;
+  s = s.replace(new RegExp(SUM + String.raw`\s+(?:ka|ki|ke)\s+(\d[\d.,]*)\s+(?:guna|times)\b`, 'g'), '( $1 ) * $2');
   // "24425 me se 10% nikal ke": take the percentage off the amount, then continue
   s = s.replace(/(\d[\d.,]*)\s+(?:me se|mein se|se)\s+(\d+(?:\.\d+)?%)\s+(?:nikal ke|nikal kar|nikalke|nikalkar|hata ke|hata kar|hatake|hatakar|ghata ke|ghata kar|kam karke|kam kar ke)\b/g, '$1 - $2 then');
   // "fy 2024-25" / "f.y. 2024-25" / "ay 2025-26" → one token the tax calculator reads (assessment year = the year after)

@@ -156,8 +156,9 @@ class Parser {
           return { op: '-', prec: 1, width: 1 };
         case 'mul':
           return { op: '*', prec: 2, width: 1 };
+        // spelled out, "10 + 5 divided by 5" means the whole sum divided: these bind looser than + and -
         case 'divide':
-          return this.isWord('by', 1) ? { op: '/', prec: 2, width: 2 } : { op: '/', prec: 2, width: 1 };
+          return this.isWord('by', 1) ? { op: '/', prec: 0.5, width: 2 } : { op: '/', prec: 2, width: 1 };
         case 'mod':
           return { op: 'mod', prec: 2, width: 1 };
         case 'of':
@@ -167,9 +168,14 @@ class Parser {
         case 'on':
           return { op: 'on', prec: 2, width: 1 };
         case 'divided':
-          return this.isWord('by', 1) ? { op: '/', prec: 2, width: 2 } : null;
+          return this.isWord('by', 1) ? { op: '/', prec: 0.5, width: 2 } : null;
         case 'multiplied':
-          return this.isWord('by', 1) ? { op: '*', prec: 2, width: 2 } : null;
+          return this.isWord('by', 1) || this.isWord('with', 1) ? { op: '*', prec: 0.5, width: 2 } : null;
+        // the canonical words the language layer produces for "multiplied by" / "divided by"
+        case 'multipliedby':
+          return { op: '*', prec: 0.5, width: 1 };
+        case 'dividedby':
+          return { op: '/', prec: 0.5, width: 1 };
       }
     }
     if (t.type === 'paren' && t.value === '(') return { op: '*', prec: 2, width: 0 };

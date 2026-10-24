@@ -111,7 +111,6 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [hotkeyDraft, setHotkeyDraft] = useState('');
-  const [repoDraft, setRepoDraft] = useState('');
   const [progress, setProgress] = useState<UpdateProgress | null>(null);
   const [installMsg, setInstallMsg] = useState('');
   const [info, setInfo] = useState<AppInfo | null>(null);
@@ -144,7 +143,6 @@ export function App() {
     void api.settings.get().then((r) => {
       setSettings(r.settings);
       setHotkeyDraft(r.settings.hotkey);
-      setRepoDraft(r.settings.updateRepo);
       setHotkeyError(r.hotkeyError);
       setSettingsLoaded(true);
       if (!r.settings.tutorialSeen) setShowTutorial(true);
@@ -601,10 +599,6 @@ export function App() {
               <span className="muted">{progressText || (update.size ? `${Math.round(update.size / 1e6)} MB` : '')}</span>
             </div>
           )}
-          <div className="srow">
-            <span className="muted">Update source</span>
-            <input type="text" value={repoDraft} placeholder="owner/repo" onChange={(e) => setRepoDraft(e.target.value)} onBlur={() => void updateSettings({ updateRepo: repoDraft.trim() })} title="GitHub repository whose Releases carry the FATAAK zip" />
-          </div>
           <div className="srow sep">
             <button className="link" onClick={() => (setShowSettings(false), setTeachFor(''))} title="teach FATAAK your own way of asking">
               ✎ Teach FATAAK{rules.length ? ` (${rules.length})` : ''}

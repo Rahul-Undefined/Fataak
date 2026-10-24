@@ -2,17 +2,37 @@
 
 **Think it. Type it. Fataak.**
 
-A Windows 10/11 smart calculator in the spirit of Numi: type a line, the answer appears on the right.
-Understands English and Hinglish, finance formulas, currencies, units, dates and time zones.
+A Windows 10/11 smart calculator: type a line, the answer appears on the right. Understands English and
+Hinglish, Indian finance and tax, currencies, units, dates and time zones, health and study maths. Deterministic,
+offline and free: no AI, no account, no data leaves the laptop.
 
-Built with Electron, React, TypeScript and Vite.
+Built with Electron, React, TypeScript and Vite. Current version: **1.1.4**.
+
+## Download and install
+
+1. Download the latest zip from **[Releases](https://github.com/Rahul-Undefined/Fataak/releases/latest)**
+   (the file named `FATAAK-<version>-x64.zip`, not "Source code").
+2. Extract it anywhere and double-click `Install-FATAAK.cmd`. No admin rights, no UAC prompt: it copies the app to
+   `%LOCALAPPDATA%\Programs\FATAAK`, adds Start Menu and Desktop shortcuts, and starts FATAAK.
+3. `Alt+Space` shows or hides FATAAK from anywhere.
+
+After that, FATAAK updates itself: Settings → **Check for updates** (or the `↑ x.y.z ready` chip in the title bar)
+downloads the next release and restarts on it. See *Updates* below.
+
+## What's new
+
+- **1.1** — *Did you mean* chips when a line is not understood; **Teach FATAAK** (your own phrasing, numbers become
+  blanks); a local log of unanswered questions with CSV export; self-update from GitHub Releases.
+- **1.0** — everyday calculators: income tax (FY 2023-24 … 2025-26, surcharge), CTC → in-hand, SIP/FD/RD, loan
+  prepayment, inflation, bills, cooking, sizes, fuel, electricity, festivals, BMR/TDEE, pace, grades, equations,
+  statistics, ranges. A 4,600-case generated benchmark with an independent oracle (docs/QA-REPORT.md).
 
 ## Run from source
 
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,381 tests
+npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,387 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -55,11 +75,10 @@ newly generated executables are allowed to run (the uninstaller stub is executed
 | `Price: $10`                             | `$10` (also defines the variable `price`) |
 | `Fee: 4 GBP in Euro`                     | `4.72 EUR` + rate and timestamp          |
 | `sum in USD - 4%`                        | sum of the block above, converted        |
-| `next friday + 2 weeks`                  | `13 Nov 2026`                            |
+| `next friday + 2 weeks`                  | `Fri, 13 Nov 2026`                       |
 | `20 ml in tea spoons`                    | `4.06 tsp`                               |
 | `20% of what is 30 cm`                   | `150 cm`                                 |
 | `Meri salary 12% badhao`                 | needs `salary: 50000` above → `56,000`   |
-| `Amar salary 12% barale koto hobe?`      | same                                     |
 | `25000 pe 18% GST add karo`              | `29,500` (GST 4,500)                     |
 | `29500 inclusive of 18% GST`             | `25,000` (reverse GST)                   |
 | `emi 5 lakh at 9% for 5 years`           | `10,379.18/month` + total and interest   |
@@ -68,7 +87,6 @@ newly generated executables are allowed to run (the uninstaller stub is executed
 | `margin 25% on 400` / `markup 25% on 400`| `533.33` / `500`                         |
 | `100 USD in INR`                         | live rate with timestamp                 |
 | `6pm IST to EST` / `London 10am to Kolkata time` | DST-aware via IANA zones          |
-| `6pm IST theke EST e convert koro`       | same                                     |
 | `aaj se 45 din baad`                     | `Mon, 7 Dec 2026`                        |
 
 **Context from visible lines.** A line like `rahul Rs 100` or `rent 15000` defines that name for the lines
@@ -94,7 +112,7 @@ apply 10% discount` → 900 with the discounted taxable base and GST shown.
 → 138.6 with the taxable base and tax; `10% discount on 4500, then add 18% GST` → 4,779; `10000 pe 5% byaj 2
 saal, kitna milega?` → the amount (interest in the note) while `simple interest on …` → the interest;
 `Square root of 50 rounded to 3 decimal places` → 7.071; `2.75 hours into hours and minutes` → 2 hours 45
-minutes; `days until 25 dec 2026`; `1200 er 15 percent ber kore tar sathe 80 jog koro` → 260.
+minutes; `days until 25 dec 2026`; `1200 ka 15 percent nikal ke usme 80 jod do` → 260.
 
 **Also understood.** `What original amount becomes 3910 after a 15% increase?` → 3,400; `Revenue is 12 lakh and
 net profit is 1.8 lakh, net profit margin` → 15%; `Split 96000 into 25% rent, 18% food, 12% travel, 15% savings and
@@ -122,8 +140,8 @@ of 81`, `√144`; `sin(30)` → 0.5 (degrees); `invested 5000 got back 6500, ret
 `revenue 25 lakh, cogs 14.5 lakh, opex 7 lakh` → operating profit with gross profit and margins; `salary 60000, 30% tax
 katke` and `12% tds on 50000` are deductions, while `1180 inclusive of 18% gst` removes GST; `what time in sydney when it
 is 9am in mumbai`, `10:30 pm ist to 6:45 am gmt duration`, `45 min before 10am`, `age on 23 oct 2026 if born 23 oct
-2000`, `days until end of year`, `2 saal pehle ki date`. Percentages print to 2 decimals. Only English and Hinglish are
-understood; Bengali vocabulary was removed.
+2000`, `days until end of year`, `2 saal pehle ki date`. Percentages print to 2 decimals. English and Hinglish are
+understood.
 
 **Version 0.2 additions.** Data sizes and bandwidth: `1 pb in tb`, `8 gbit in gb`, `2 gb at 50 mbps` → `5 min 20 s`,
 `how long to download 4.7 gb at 25 mbps`, `10 mbps for 1 hour` → 4.5 GB, `2 gb in 10 seconds` → 200 MB/s. Reference facts,

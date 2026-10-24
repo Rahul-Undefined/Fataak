@@ -168,6 +168,8 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   // 1. plain expression
   try {
     value = evaluate(parseTokens(tokenize(clean), parseOpts), ctx);
+    // "10 + 5 multiplied by 0" is the whole sum times 0; "10 + 5 * 0" keeps ordinary precedence. Say which was used.
+    if (value && /(multiplied (?:by|with)|divided by)/i.test(clean) && /[+-]/.test(clean)) value = { ...value, note: `spelled-out "${/multiplied/i.test(clean) ? 'multiplied by' : 'divided by'}" applies to everything before it; a symbol (* or /) binds tighter${value.note ? ' · ' + value.note : ''}` };
   } catch (e) {
     if (e instanceof CalcError) firstError = e;
     else firstError = new CalcError(String((e as Error).message ?? e));

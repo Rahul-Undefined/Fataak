@@ -179,6 +179,12 @@ export function pureExpression(words: string[], ctx: EvalContext): string | null
       out.push(w);
       continue;
     }
+    // "multiplied by" / "divided by" keep their own (looser) precedence in the parser
+    if (w === 'multipliedby' || w === 'dividedby') {
+      operators++;
+      out.push(w);
+      continue;
+    }
     if (EXPR_FNS.has(w)) {
       // "average of 10, 20, 30" is a list sentence; only "avg(10, 20, 30)" is a call
       if (LIST_FN_WORDS.has(w) && ws[i + 1] !== '(') return null;
@@ -216,8 +222,8 @@ export function pureExpression(words: string[], ctx: EvalContext): string | null
   return out.join(' ');
 }
 
-const OPERATOR_WORDS = new Set(['+', '-', '*', '/', '^', '(', ')', 'x', 'times', 'plus', 'minus', 'mod', 'prev', 'ans', 'of', 'off', 'on', 'sqrt', 'cbrt', 'abs', 'round', 'floor', 'ceil', 'log', 'ln', 'root', 'fact', 'half', 'quarter', 'double', 'triple']);
-const ARITH_OPS = ['+', '-', '*', '/', '^', 'x', 'times', 'plus', 'minus'];
+const OPERATOR_WORDS = new Set(['+', '-', '*', '/', '^', '(', ')', 'x', 'times', 'plus', 'minus', 'multipliedby', 'dividedby', 'mod', 'prev', 'ans', 'of', 'off', 'on', 'sqrt', 'cbrt', 'abs', 'round', 'floor', 'ceil', 'log', 'ln', 'root', 'fact', 'half', 'quarter', 'double', 'triple']);
+const ARITH_OPS = ['+', '-', '*', '/', '^', 'x', 'times', 'plus', 'minus', 'multipliedby', 'dividedby'];
 
 /** words that can take part in a base expression: numbers, variables, units, currencies, scales, operators */
 function expressionWords(p: Parsed, used: Set<number>, ctx: EvalContext, keepPercents = false): string[] {
@@ -235,7 +241,7 @@ function expressionWords(p: Parsed, used: Set<number>, ctx: EvalContext, keepPer
       if (ctx.variables.has(phrase) && !keep.includes(phrase)) keep.push(phrase);
     }
   }
-  const dangling = ['+', '-', '*', '/', '^', 'x', 'times', 'plus', 'minus', 'of', 'off', 'on'];
+  const dangling = ['+', '-', '*', '/', '^', 'x', 'times', 'plus', 'minus', 'multipliedby', 'dividedby', 'of', 'off', 'on'];
   while (keep.length && dangling.includes(keep[keep.length - 1])) keep.pop();
   while (keep.length && dangling.filter((d) => d !== '-').includes(keep[0])) keep.shift();
   return keep;

@@ -78,7 +78,7 @@ export function TeachPanel({ rules, rates, prefill, onSave, onClose }: { rules: 
         <div className="learn-head">
           <div>
             <h2>Teach FATAAK</h2>
-            <p className="learn-sub">Aap jaise puchte ho, waise sikhao. Ek baar sikhaya, hamesha yaad. Sab kuch aapke laptop par hi rehta hai.</p>
+            <p className="learn-sub">Show FATAAK how you ask. Teach it once and it remembers. Everything stays on your laptop.</p>
           </div>
           <button className="mini" onClick={onClose} title="close (Esc)">
             ✕
@@ -212,7 +212,7 @@ export function UnansweredPanel({ items, onExport, onCopy, onClear, onClose, onT
         <div className="learn-head">
           <div>
             <h2>Unanswered questions</h2>
-            <p className="learn-sub">Jo sawaal FATAAK samajh nahi paya, woh yahan apne aap save hote hain. Sirf aapke laptop par; bahar tabhi jaata hai jab aap file share karo.</p>
+            <p className="learn-sub">Questions FATAAK could not answer are saved here automatically. They stay on your laptop and leave only when you share the file.</p>
           </div>
           <button className="mini" onClick={onClose} title="close (Esc)">
             ✕

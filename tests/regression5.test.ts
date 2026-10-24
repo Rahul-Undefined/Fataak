@@ -56,6 +56,13 @@ const cases: [string | string[], string, string][] = [
   ['90 km at 90 km/h', '1 h', 'exactly one hour is not 60 min'],
   // a shoe size without its system assumed UK
   ['shoe size 9', 'ERR', 'asks UK, US or EU'],
+  // "multiplied by" / "divided by" written as words act on the whole sum before them; a symbol keeps precedence
+  ['what should be the 10+5 multiplied by 0', '0', 'spelled-out multiply applies to the sum'],
+  ['10 + 5 multiplied by 0', '0', 'spelled-out multiply applies to the sum'],
+  ['100 - 20 divided by 4', '20', 'spelled-out divide applies to the difference'],
+  ['10 + 5 ka 3 guna', '45', 'Hindi multiply applies to the sum'],
+  ['10 + 5 * 0', '10', 'a symbol keeps ordinary precedence'],
+  ['multiply 10 by 0', '0', 'plain multiply'],
   // dates now always show the weekday, whichever path produced them
   ['14 mar 2033 + 100 days', 'Wed, 22 Jun 2033', 'weekday on date arithmetic'],
   ['today + 45 days', 'Mon, 7 Dec 2026', 'weekday on relative dates'],
