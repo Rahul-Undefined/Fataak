@@ -11,7 +11,7 @@ export const CHANGELOG: ReleaseNote[] = [
   {
     version: '1.3.3',
     date: '24 Oct 2026',
-    changed: ['The desktop orb from 1.3.2 is gone: the widget and the quick launcher are the two ways to use FATAAK'],
+    changed: ['The desktop orb from 1.3.2 is gone: the widget and the quick launcher are the two ways to use FATAAK', 'Tutorial redesigned: 15 scenes in four chapters (Basics, Money, Everyday, Mastering) in a sensible order, chapter pills and a dot row to jump around, every example checked against the engine'],
   },
   {
     version: '1.3.1',

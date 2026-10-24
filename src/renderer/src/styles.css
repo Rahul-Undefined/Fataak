@@ -694,7 +694,8 @@ body,
 }
 .tut-card {
   width: 100%;
-  max-width: 440px;
+  max-width: 470px;
+  animation: pop-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 14px;
@@ -711,24 +712,53 @@ body,
   background: var(--accent);
   transition: width 0.2s linear;
 }
-.tut-head {
-  padding: 12px 16px 4px;
+.tut-chapters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 16px 0;
+}
+.tut-chapter {
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 2px 9px;
+  cursor: default;
+  transition: color 160ms ease, background 160ms ease;
+}
+.tut-chapter:hover {
+  color: var(--text);
+}
+.tut-chapter.on {
+  color: var(--accent);
+  background: var(--hint-bg);
 }
 .tut-step {
+  margin-left: auto;
   font-size: 11px;
   color: var(--muted);
   letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+.tut-head {
+  padding: 8px 16px 4px;
 }
 .tut-head h2 {
-  margin: 2px 0 0;
-  font-size: 16px;
-  font-weight: 600;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
   color: var(--text);
+  animation: fade-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .tut-screen {
   margin: 8px 16px;
-  padding: 8px 12px;
-  min-height: 112px;
+  padding: 10px 12px;
+  min-height: 150px;
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -785,11 +815,34 @@ body,
   }
 }
 .tut-caption {
-  margin: 4px 16px 10px;
+  margin: 4px 16px 8px;
   font-size: 12.5px;
   line-height: 1.5;
   color: var(--muted);
-  min-height: 56px;
+  min-height: 76px;
+  animation: fade-up 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.tut-dots {
+  display: flex;
+  gap: 5px;
+  padding: 0 16px 10px;
+}
+.tut-dot {
+  width: 14px;
+  height: 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: default;
+  transition: background 160ms ease, width 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tut-dot.done {
+  background: color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+.tut-dot.on {
+  width: 26px;
+  background: var(--accent);
 }
 .tut-controls {
   display: flex;
@@ -812,10 +865,17 @@ body,
 .tut-controls button:disabled {
   opacity: 0.4;
 }
+.tut-controls .tut-next {
+  background: var(--accent);
+  color: #1b1405;
+  border-color: transparent;
+  font-weight: 600;
+}
 .tut-controls .tut-skip {
   margin-left: auto;
   background: transparent;
   color: var(--muted);
+  border-color: transparent;
 }
 
 /* ---- widget mode: quieter chrome ---- */

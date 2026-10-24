@@ -3,17 +3,21 @@ import React, { useEffect, useRef, useState } from 'react';
 /**
  * First-run walkthrough. It plays like a short video: each scene types real questions into a mock
  * editor, the answers appear, a caption explains. Autoplays, can be paused, stepped or skipped.
+ * Scenes run from the basics to the extras, grouped in chapters shown as a row of pills.
  */
 interface Scene {
+  chapter: string;
   title: string;
   caption: string;
   lines: { text: string; result: string; note?: string }[];
 }
 
 const SCENES: Scene[] = [
+  // ---- basics
   {
+    chapter: 'Basics',
     title: 'Type it. The answer appears.',
-    caption: 'One question per line. Numbers, units and currencies are understood as you type; results sit on the right. Click a result to copy it, double-click to see how it was worked out.',
+    caption: 'One question per line. Numbers, units and currencies are understood as you type; the answer sits on the right. Click it to copy, double-click for the step-by-step working.',
     lines: [
       { text: '25% of 480', result: '120' },
       { text: '2 gb at 50 mbps', result: '5 min 20 s' },
@@ -21,6 +25,7 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Basics',
     title: 'English or Hinglish, your way.',
     caption: 'Full sentences work. Hindi written in English letters is understood too.',
     lines: [
@@ -30,27 +35,9 @@ const SCENES: Scene[] = [
     ],
   },
   {
-    title: 'Money, GST, EMI, interest.',
-    caption: 'Tax order matters and is respected: discount first, then GST, with the breakdown in the details. Loans and interest ask when something is missing instead of guessing.',
-    lines: [
-      { text: '25000 + 18% gst', result: '29,500', note: 'GST 4,500' },
-      { text: '1180 inclusive of 18% gst', result: '1,000' },
-      { text: 'emi 5 lakh at 9% for 5 years', result: '10,379.18/month' },
-    ],
-  },
-  {
-    title: 'Units, dates, time zones, currencies.',
-    caption: 'Live exchange rates show their timestamp. Time zones follow daylight saving for the date you name. Abbreviations like EST are fixed offsets.',
-    lines: [
-      { text: '100 usd in inr', result: '₹8,400', note: '1 USD = 84 INR' },
-      { text: '5 ft 10 in in cm', result: '177.8 cm' },
-      { text: 'aaj se 45 din baad', result: 'Mon, 7 Dec 2026' },
-      { text: '6pm ist to est', result: '7:30 AM EST' },
-    ],
-  },
-  {
+    chapter: 'Basics',
     title: 'Build on the line above.',
-    caption: '"name = value" defines a name for the lines below. "that" or "prev" is the nearest answer above. "sum" and "average" take the block of lines above. Hover a definition and click 📌 to pin it: pinned names never expire.',
+    caption: '"name = value" defines a name for the lines below. "that" or "prev" is the nearest answer above; "sum" and "average" take the block above. Hover a definition and click 📌 to pin it: pinned names never expire.',
     lines: [
       { text: 'rent = 15000', result: '15,000' },
       { text: 'food = 8000', result: '8,000' },
@@ -61,8 +48,9 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Basics',
     title: 'Ask in steps.',
-    caption: '"then", "after", "ke baad" and commas chain operations in the order you say them. Each step shows in the working. The same question works as separate lines.',
+    caption: '"then", "after", "ke baad" and commas chain operations in the order you say them; each step shows in the working. The same question also works as separate lines.',
     lines: [
       { text: '25000 - 10% then + 18% gst', result: '26,550' },
       { text: '1500 ka 20% discount ke baad 18% gst', result: '1,416' },
@@ -70,29 +58,22 @@ const SCENES: Scene[] = [
       { text: 'bill 1200 + 15% tip split 4 ways', result: '345 each' },
     ],
   },
+  // ---- money
   {
-    title: 'Tips & tricks.',
-    caption: 'Ask for the form you want: "in lakhs", "in hours", "old regime", "per month". Compare with "vs". Run one question over a range with "for 1 to 5 years". Solve for x. Ctrl+Enter copies the answer and starts a new line.',
+    chapter: 'Money',
+    title: 'GST, EMI, interest.',
+    caption: 'Tax order is respected: discount first, then GST, with the breakdown in the working. Loans and interest ask when something is missing instead of guessing.',
     lines: [
-      { text: '1 crore in lakhs', result: '100 lakh' },
-      { text: '5 kg at 450 vs 2 kg at 190', result: '5 kg at 450 is cheaper' },
-      { text: 'emi 5 lakh at 9% for 1 to 3 years', result: '1y 43,725.74 · 2y 22,842.37 · 3y 15,899.87' },
-      { text: '3x = 2x + 10', result: 'x = 10' },
-      { text: 'unit of electricity', result: 'kWh, billed as "units"' },
+      { text: '25000 + 18% gst', result: '29,500', note: 'GST 4,500' },
+      { text: '1180 inclusive of 18% gst', result: '1,000' },
+      { text: 'emi 5 lakh at 9% for 5 years', result: '10,379.18/month' },
+      { text: 'compound interest on 1 lakh at 8% for 3 years', result: '25,971.2' },
     ],
   },
   {
-    title: 'Facts, offline.',
-    caption: 'Astronomy, geography, landmarks and physical constants are built in with their sources, and they can take part in calculations.',
-    lines: [
-      { text: 'distance from earth to moon', result: '384,400 km', note: 'mean · NASA' },
-      { text: 'height of everest in feet', result: '29,031.69 ft' },
-      { text: 'distance to moon / speed of light', result: '1.28 s' },
-    ],
-  },
-  {
+    chapter: 'Money',
     title: 'Tax, salary, SIP, FD.',
-    caption: 'Indian income tax for FY 2025-26 (new regime unless you say old), CTC to in-hand, SIP and lump-sum growth, FD and RD maturity, loan prepayment, inflation. Every answer lists the assumptions it used.',
+    caption: 'Indian income tax for FY 2025-26 (new regime unless you say old; other years by name), CTC to in-hand, SIP and lump-sum growth, FD and RD maturity, prepayment, inflation. Every answer lists its assumptions and works slab by slab.',
     lines: [
       { text: 'income tax on 15 lakh salary', result: '97,500', note: 'new regime' },
       { text: 'ctc 12 lakh in hand', result: '87,800/month' },
@@ -100,7 +81,20 @@ const SCENES: Scene[] = [
       { text: 'fd 2 lakh at 7.1% for 3 years', result: '247,015' },
     ],
   },
+  // ---- everyday
   {
+    chapter: 'Everyday',
+    title: 'Units, dates, time zones, currencies.',
+    caption: 'Live exchange rates show their timestamp. Time zones follow daylight saving for the date you name; abbreviations like EST are fixed offsets. Every date answer shows its weekday.',
+    lines: [
+      { text: '100 usd in inr', result: '₹8,400', note: '1 USD = 84 INR' },
+      { text: '5 ft 10 in in cm', result: '177.8 cm' },
+      { text: 'aaj se 45 din baad', result: 'Mon, 7 Dec 2026' },
+      { text: '6pm ist to est', result: '7:30 AM EST' },
+    ],
+  },
+  {
+    chapter: 'Everyday',
     title: 'Everyday life.',
     caption: 'Kitchen measures, shoe and shirt sizes, fuel for a trip, the electricity bill, festival dates and birthdays, shift hours, price per kilo, numbers in words, roman, hex and binary.',
     lines: [
@@ -112,6 +106,7 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Everyday',
     title: 'Health and study.',
     caption: 'BMR and daily calories, how much to cut to lose weight, water intake, steps to km, running pace, CBSE grades, the marks you still need, workers-and-days and train problems.',
     lines: [
@@ -122,8 +117,9 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Everyday',
     title: 'Equations, statistics, ranges.',
-    caption: 'Solve for x, get standard deviation and percentiles, or run one question over a range of years. Select several lines and the strip under the editor shows their sum and average.',
+    caption: 'Solve for x, get standard deviation and percentiles, or run one question over a range of years. Select several lines and a pill shows their sum and average.',
     lines: [
       { text: '2x + 5 = 17', result: 'x = 6' },
       { text: 'std of 4, 8, 15, 16', result: '4.9687' },
@@ -131,8 +127,32 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Everyday',
+    title: 'Facts, offline.',
+    caption: 'Astronomy, geography, constants, units of things, full forms and Indian finance rules are built in, with their sources, and can take part in calculations.',
+    lines: [
+      { text: 'distance from earth to moon', result: '384,400 km', note: 'mean · NASA' },
+      { text: 'unit of electricity', result: 'kWh, billed as "units"' },
+      { text: 'emi full form', result: 'Equated Monthly Instalment' },
+      { text: '80c limit', result: '₹1,50,000 a year' },
+    ],
+  },
+  // ---- mastering
+  {
+    chapter: 'Mastering',
+    title: 'Tips & tricks.',
+    caption: 'Ask for the form you want: "in lakhs", "in hours", "old regime", "per month". Compare with "vs". Run a question over a range with "for 1 to 5 years". Ctrl+Enter copies the answer and starts a new line.',
+    lines: [
+      { text: '1 crore in lakhs', result: '100 lakh' },
+      { text: '5 kg at 450 vs 2 kg at 190', result: '5 kg at 450 is cheaper' },
+      { text: '3x = 2x + 10', result: 'x = 10' },
+      { text: 'income tax on 15 lakh salary fy 2024-25', result: '130,000' },
+    ],
+  },
+  {
+    chapter: 'Mastering',
     title: 'When FATAAK does not understand.',
-    caption: 'A line it cannot answer gets chips under the editor: click one to use that form. ✎ Teach FATAAK (also in Settings) opens a three-step panel: type the question your way, pick the form FATAAK knows, check both answers match, save. Numbers become blanks, so one lesson covers every amount. Every unanswered question is also kept on your laptop; Settings → Unanswered exports them as a CSV to send to Rahul for the next version.',
+    caption: 'A line it cannot answer gets chips under the editor: click one to use that form. ✎ Teach FATAAK opens a three-step panel: your way, FATAAK’s way, check and save; numbers become blanks, so one lesson covers every amount. Unanswered questions are kept on your laptop; Settings → Unanswered exports them as a CSV to send for the next version.',
     lines: [
       { text: 'mera tax kitna 15 lakh', result: '', note: 'did you mean: income tax on 15 lakh salary' },
       { text: 'teach: mera tax kitna 15 lakh → income tax on 15 lakh salary', result: 'saved' },
@@ -140,37 +160,31 @@ const SCENES: Scene[] = [
     ],
   },
   {
+    chapter: 'Mastering',
     title: 'Make it yours.',
-    caption: 'The bar at the bottom switches between Moon, Sun and Star. Star turns FATAAK into tinted glass over your desktop; Settings → Appearance picks the tint, the interface font and the editor font. Everything is saved for next time.',
+    caption: 'The bar switches between Moon, Sun and Star; Star is tinted glass over the desktop and Settings → Appearance picks the tint and the fonts. Quick launcher (Settings) makes the hotkey drop a small capsule on any screen: one line in, Enter copies the answer, Ctrl+Enter brings it into the window.',
     lines: [
       { text: 'Moon · Sun · Star', result: 'theme' },
-      { text: 'Settings → Appearance → Glass tint', result: '● ● ● ● ●' },
-      { text: 'Settings → Appearance → fonts', result: 'Inter · Sora · Fira Code …' },
+      { text: 'Settings → Appearance', result: 'tint · fonts' },
+      { text: 'Settings → Quick launcher', result: 'Alt+Space anywhere' },
     ],
   },
   {
-    title: 'How to ask, and how not to.',
-    caption: 'Do: one question per line, say the unit or currency, say which tax or interest. Don\'t: chat, ask opinions, or mix two questions in one line. When FATAAK is not sure, it says so instead of guessing.',
-    lines: [
-      { text: 'interest on 10000 at 5%', result: 'tenure?', note: 'asks instead of guessing' },
-      { text: '100 usd + 50 eur', result: 'mixed currencies', note: 'add "in USD"' },
-      { text: 'hello how are you', result: '' },
-    ],
-  },
-  {
-    title: 'Keys.',
-    caption: 'Alt+Space shows or hides FATAAK from anywhere. Esc hides. Click a result to copy it, double-click for the working. Ctrl+Shift+C copies the current result, Ctrl+Alt+C copies everything with answers. Lines expire after 24 hours. FATAAK is still learning and can make mistakes: a wrong answer is worth a line in Settings → Unanswered.',
+    chapter: 'Mastering',
+    title: 'Keys, and how to ask.',
+    caption: 'Alt+Space shows or hides FATAAK. Esc hides. Click a result to copy, double-click for the working. Ctrl+Shift+C copies the current answer, Ctrl+Alt+C everything. One question per line; say the unit, currency and which tax. When FATAAK is not sure it says so. It is still learning and can make mistakes.',
     lines: [
       { text: 'Alt+Space', result: 'show / hide' },
-      { text: 'Esc', result: 'hide' },
       { text: 'Ctrl+Alt+C', result: 'copy all with answers' },
+      { text: 'interest on 10000 at 5%', result: 'tenure?', note: 'asks instead of guessing' },
+      { text: '100 usd + 50 eur', result: 'mixed currencies', note: 'add "in USD"' },
     ],
   },
 ];
 
 const TYPE_MS = 28;
 const RESULT_MS = 350;
-const DWELL_MS = 3200;
+const DWELL_MS = 3400;
 
 export function Tutorial({ onDone }: { onDone: () => void }) {
   const [scene, setScene] = useState(0);
@@ -239,25 +253,34 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const go = (d: number) => {
-    const next = Math.min(SCENES.length - 1, Math.max(0, scene + d));
+  const go = (d: number) => jump(scene + d);
+  const jump = (n: number) => {
+    const next = Math.min(SCENES.length - 1, Math.max(0, n));
     setScene(next);
     setTyped({ line: 0, chars: 0, shown: 0 });
     setPlaying(true);
   };
 
   const s = SCENES[scene];
+  const chapters = Array.from(new Set(SCENES.map((x) => x.chapter)));
   return (
     <div className="tutorial" role="dialog" aria-label="FATAAK tutorial">
       <div className="tut-card">
         <div className="tut-bar">
           <div className="tut-bar-fill" style={{ width: `${Math.round(progress * 100)}%` }} />
         </div>
-        <div className="tut-head">
+        <div className="tut-chapters">
+          {chapters.map((c) => (
+            <button key={c} className={`tut-chapter${s.chapter === c ? ' on' : ''}`} onClick={() => jump(SCENES.findIndex((x) => x.chapter === c))}>
+              {c}
+            </button>
+          ))}
           <span className="tut-step">
             {scene + 1} / {SCENES.length}
           </span>
-          <h2>{s.title}</h2>
+        </div>
+        <div className="tut-head">
+          <h2 key={scene}>{s.title}</h2>
         </div>
         <div className="tut-screen">
           {s.lines.map((l, i) => {
@@ -276,13 +299,22 @@ export function Tutorial({ onDone }: { onDone: () => void }) {
             );
           })}
         </div>
-        <p className="tut-caption">{s.caption}</p>
+        <p className="tut-caption" key={`c${scene}`}>
+          {s.caption}
+        </p>
+        <div className="tut-dots" aria-hidden="true">
+          {SCENES.map((x, i) => (
+            <button key={i} className={`tut-dot${i === scene ? ' on' : i < scene ? ' done' : ''}`} title={x.title} onClick={() => jump(i)} />
+          ))}
+        </div>
         <div className="tut-controls">
           <button onClick={() => go(-1)} disabled={scene === 0}>
             ‹ Back
           </button>
           <button onClick={() => setPlaying((p) => !p)}>{playing ? '❚❚ Pause' : '▶ Play'}</button>
-          <button onClick={() => (scene + 1 < SCENES.length ? go(1) : onDone())}>{scene + 1 < SCENES.length ? 'Next ›' : 'Start using FATAAK'}</button>
+          <button className="tut-next" onClick={() => (scene + 1 < SCENES.length ? go(1) : onDone())}>
+            {scene + 1 < SCENES.length ? 'Next ›' : 'Start using FATAAK'}
+          </button>
           <button className="tut-skip" onClick={onDone}>
             Skip
           </button>
