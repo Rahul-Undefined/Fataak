@@ -6,7 +6,7 @@ A Windows 10/11 smart calculator: type a line, the answer appears on the right. 
 Hinglish, Indian finance and tax, currencies, units, dates and time zones, health and study maths. Deterministic,
 offline and free: no AI, no account, no data leaves the laptop.
 
-Built with Electron, React, TypeScript and Vite. Current version: **1.3.0**.
+Built with Electron, React, TypeScript and Vite. Current version: **1.3.4**.
 
 ## Download and install
 
@@ -245,8 +245,8 @@ business day is used and disclosed.
 `CET` UTC+1; cities and regions (`New York`, `ET`, `US Eastern`, `London`) follow daylight-saving rules
 for the date in question. `6pm IST to EST` → 7:30 AM EST; `6pm IST to New York` → 8:30 AM EDT in summer.
 
-Percent rules follow Numi: `$10 - 40%`, `20% of $10`, `5% on $30`, `6% off 40 EUR`, `$50 as a % of $100`, `5% of what is 6 EUR`.
-`prev`, `sum`/`total`, `average`, `line3`, `// comments`, `"inline comments"` and `# headers` work as in Numi.
+Percent rules: `$10 - 40%`, `20% of $10`, `5% on $30`, `6% off 40 EUR`, `$50 as a % of $100`, `5% of what is 6 EUR`.
+`prev`, `sum`/`total`, `average`, `line3`, `// comments`, `"inline comments"` and `# headers` work too.
 
 When a financial input is ambiguous (no GST rate, no tenure, undefined variable) the result column shows a hint instead of a guess.
 
@@ -286,6 +286,6 @@ src/engine      pure TypeScript calculation engine (tokenizer, parser, evaluator
                 finance, dates, timezone, nl/normalize + nl/intents, history expiry)
 src/main        Electron main: window, hotkey, tray, IPC, JSON stores, rate service
 src/preload     contextBridge API with argument validation
-src/renderer    React UI (Numi-style editor with right-aligned results)
+src/renderer    React UI (editor with right-aligned results)
 tests           vitest suites
 ```

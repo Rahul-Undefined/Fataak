@@ -60,7 +60,7 @@ function highlight(text: string, label: { start: number; end: number } | null, v
   return spans.sort((a, b) => a.start - b.start);
 }
 
-/** Strip "quoted" inline comments (Numi convention) and return their ranges. */
+/** Strip "quoted" inline comments and return their ranges. */
 function stripQuotes(text: string): { clean: string; comments: { start: number; end: number }[] } {
   const comments: { start: number; end: number }[] = [];
   let clean = text;

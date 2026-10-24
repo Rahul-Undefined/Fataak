@@ -1922,7 +1922,7 @@ function intentPercentQuestions(p: Parsed, ctx: EvalContext): Quantity | null {
     return { ...moneyOrNumber(original, x), display: formatQuantity(shown), note: `${formatQuantity(x)} is ${formatNumber(pct)}% ${decWord ? 'less' : 'more'} than ${formatQuantity(shown)}` };
   }
   // "2500 rupaye 5%", "2500 ka 5 percent nikalo", "2500 pe 5% kitna": one amount, one percent, no operation word → percent of
-  // ("X on P% what" is the Hindi "X pe P% kitna" question; the Numi form "5% on 30" keeps the percentage first and adds)
+  // ("X on P% what" is the Hindi "X pe P% kitna" question; the English form "5% on 30" keeps the percentage first and adds)
   const questionOn = wi >= 0 && p.nums[0] < p.pcts[0] && w.every((x) => x !== 'on' || true);
   if (p.nums.length === 1 && p.pcts.length === 1 && !w.some((x) => OPERATION_WORDS.has(x) && !(x === 'on' && questionOn))) {
     const pct = pctAt(p, p.pcts[0]);

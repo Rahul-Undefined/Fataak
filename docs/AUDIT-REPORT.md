@@ -80,13 +80,13 @@ Languages: English and Hinglish, mixed, with number words in both.
 
 ## Known limitations and data dependencies
 
-- `10 % 3` is percent-of, not modulo (Numi convention); use `10 mod 3`.
+- `10 % 3` is percent-of, not modulo; use `10 mod 3`.
 - `$` is assumed to be USD.
 - Historical rates come from the ECB set (frankfurter.dev) and go back to 1999 for major
   currencies only; weekends/holidays use the previous business day and say so.
 - Live rates need the network; offline answers are labelled `Cached rate`.
 - Public holidays are not known; `weekdays` means Mon–Fri only.
-- A line like `asdf 123` defines `asdf` implicitly (Numi behaviour); a lone unknown word errors.
+- A line like `asdf 123` defines `asdf` implicitly; a lone unknown word errors.
 - Time-zone abbreviations are fixed offsets by design (EST is always UTC−5); city names follow DST.
 - The NL layer is pattern-based: a sentence outside the covered forms gets a hint, not an answer.
 
@@ -122,7 +122,7 @@ The engine suite (550 tests) also passes. Two expected values supplied with the 
 wrong and were not matched: 17.5% of 864 plus 12.5% of 640 divided by 4 is 57.8 (not 69.525), and 4.65
 acres is 18,817.88 m² with the international acre (not 18,819.7).
 
-**Known limitations.** "bought at 500" alone echoes 500 (a definition-like line, as in Numi); "apples 5"
+**Known limitations.** "bought at 500" alone echoes 500 (a definition-like line); "apples 5"
 defines `apples`; `10 % 3` is percent-of; two durations added print in minutes; durations across two
 zones need both clock times; public holidays are unknown; dates are read day-first.
 

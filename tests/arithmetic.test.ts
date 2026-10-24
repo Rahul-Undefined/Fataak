@@ -35,7 +35,7 @@ describe('arithmetic', () => {
     expect(last('sin 90°')).toBe('1');
   });
 
-  it('percentages (Numi rules)', () => {
+  it('percentages (percent rules)', () => {
     expect(last('$10 - 40%')).toBe('$6');
     expect(last('$500 + 18%')).toBe('$590');
     expect(last('20% of $10')).toBe('$2');

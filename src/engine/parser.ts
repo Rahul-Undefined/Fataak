@@ -356,7 +356,7 @@ class Parser {
         if (node.t === 'percent') this.fail('double %');
         this.next();
         node = { t: 'percent', e: node };
-        // Numi: "prev - 5% discount" — only a trailing 'discount' is decoration
+        // "prev - 5% discount": only a trailing 'discount' is decoration
         if (this.isWord('discount') && (this.peek(1) === undefined || this.peek(1)!.value === ')')) this.next();
         continue;
       }
@@ -406,7 +406,7 @@ class Parser {
             if (u2 && unitById(u2.unit)!.dim === unitById(u.unit)!.dim) {
               this.next();
               this.i += u2.width;
-              // result in the last-mentioned (smaller) unit, as Numi does: 1 meter 20 cm = 120 cm
+              // result in the last-mentioned (smaller) unit, by convention: 1 meter 20 cm = 120 cm
               node = { t: 'bin', op: '+', l: { t: 'unit', e: { t: 'num', v: new Decimal(nt.value) }, unit: u2.unit }, r: node };
             }
           }
