@@ -9,6 +9,7 @@ import { api, isElectron } from './bridge';
 import { RendererRates } from './rates';
 import { Tutorial } from './Tutorial';
 import { SuggestChips, TeachPanel, UnansweredPanel } from './Learn';
+import { WhatsNew } from './WhatsNew';
 
 const rates = new RendererRates();
 const LINE_PX = 31;
@@ -66,7 +67,7 @@ function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover }: { r: Line
         </span>
       )}
       {r.ok && (
-        <span className={`value${copied ? ' copied' : ''}`} onClick={onClick} onDoubleClick={onDouble} title={tip}>
+        <span key={r.display} className={`value${copied ? ' copied' : ''}`} onClick={onClick} onDoubleClick={onDouble} title={tip}>
           {r.display}
         </span>
       )}
@@ -116,6 +117,7 @@ export function App() {
   const [installMsg, setInstallMsg] = useState('');
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [whatsNew, setWhatsNew] = useState<{ since?: string } | null>(null);
   const [update, setUpdate] = useState<UpdateCheck | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [caretLine, setCaretLine] = useState(0);
@@ -148,11 +150,17 @@ export function App() {
       setSettingsLoaded(true);
       if (!r.settings.tutorialSeen) setShowTutorial(true);
     });
-    void api.app.info().then((i) => {
+    void Promise.all([api.app.info(), api.settings.get()]).then(([i, s]) => {
       setInfo(i);
-      if (i?.lastUpdate) {
+      if (i?.lastUpdate?.includes('failed')) {
         setToast(i.lastUpdate);
         window.setTimeout(() => setToast(null), 20000);
+      }
+      const seen = s.settings.lastSeenVersion;
+      if (i && i.version && i.version !== 'dev' && seen !== i.version) {
+        // a fresh install shows the tutorial instead; an update shows what changed
+        if (seen) setWhatsNew({ since: seen });
+        void api.settings.set({ lastSeenVersion: i.version });
       }
     });
     void api.teach.load().then(setRules);
@@ -227,12 +235,12 @@ export function App() {
   const logTimer = useRef<number | undefined>(undefined);
   const logged = useRef(new Map<string, number>());
   const recordUnanswered = useCallback(
-    (skipLine: number | null) => {
+    () => {
       const items: { text: string; hint: string }[] = [];
       const now = Date.now();
       results.forEach((r, i) => {
         const t = texts[i]?.trim() ?? '';
-        if (r.ok || r.isText || i === skipLine || t.length < 3 || !/\d|[\p{L}]{3,}/u.test(t)) return;
+        if (r.ok || r.isText || t.length < 3 || !/\d|[\p{L}]{3,}/u.test(t)) return;
         const last = logged.current.get(t) ?? 0;
         if (now - last < 60_000) return;
         logged.current.set(t, now);
@@ -244,9 +252,9 @@ export function App() {
   );
   useEffect(() => {
     window.clearTimeout(logTimer.current);
-    logTimer.current = window.setTimeout(() => recordUnanswered(caretLine), 4000);
+    logTimer.current = window.setTimeout(() => recordUnanswered(), 5000);
     return () => window.clearTimeout(logTimer.current);
-  }, [recordUnanswered, caretLine]);
+  }, [recordUnanswered]);
 
   const saveRules = useCallback((next: TeachRule[]) => void api.teach.save(next).then(setRules), []);
   const replaceLine = (idx: number, newText: string) => {
@@ -439,7 +447,6 @@ export function App() {
             <path d="M13 2 4 14h7l-1 8 9-12h-7z" fill="currentColor" />
           </svg>
           <span className="wordmark">FATAAK</span>
-          {info && <span className="version" title={`build ${info.buildDate}`}>v{info.version}</span>}
           {widget && <span className="chip" title="Widget mode: pinned to the desktop, no taskbar entry, cannot be moved or minimised. Turn it off in the bar below.">widget</span>}
           {toast && (
             <span className={`chip${toast.includes('failed') ? ' bad' : ' good'}`} title={toast}>
@@ -447,8 +454,8 @@ export function App() {
             </span>
           )}
           {update?.url && !widget && (
-            <button className="chip update" title={`FATAAK ${update.latest} is available. Click to install.`} onClick={() => setShowSettings(true)} tabIndex={-1}>
-              ↑ {update.latest} ready
+            <button className="chip update" title="Click to install" onClick={() => setShowSettings(true)} tabIndex={-1}>
+              v{update.latest} available
             </button>
           )}
         </div>
@@ -531,7 +538,7 @@ export function App() {
             <span className="status-v">{statusNote}</span>
           </>
         ) : (
-          <span className="status-k muted">{texts.length > 1 || texts[0] ? 'move the cursor to a line to see how it was worked out · double-click a result for every step' : ''}</span>
+          <span className="status-k muted">{texts.length > 1 || texts[0] ? 'double-click a result for the working · FATAAK is still learning and can make mistakes' : ''}</span>
         )}
       </div>
 
@@ -570,6 +577,7 @@ export function App() {
         </div>
       </div>
 
+      {showSettings && <div className="backdrop" onMouseDown={() => setShowSettings(false)} />}
       {showSettings && (
         <div className="settings" onKeyDown={(e) => e.key === 'Escape' && setShowSettings(false)} onClick={(e) => e.stopPropagation()}>
           <div className="srow">
@@ -622,7 +630,6 @@ export function App() {
                 {TINTS.map((t) => (
                   <button key={t.key} className={`swatch${settings.tint === t.hex ? ' on' : ''}`} style={{ background: t.hex }} title={t.label} onClick={() => void updateSettings({ tint: t.hex })} />
                 ))}
-                <input type="color" value={settings.tint} title="any colour" onChange={(e) => void updateSettings({ tint: e.target.value })} />
               </span>
             </div>
           )}
@@ -664,13 +671,16 @@ export function App() {
             <button className="link" onClick={() => setShowTutorial(true)}>
               Tutorial
             </button>
+            <button className="link" onClick={() => (setShowSettings(false), setWhatsNew({}))}>
+              What's new
+            </button>
             {isElectron && !widget && (
               <button className="link" onClick={() => api.window.quit()}>
                 Quit
               </button>
             )}
           </div>
-          <div className="muted">Esc hides · click a result to copy · double-click for the working · Ctrl+Alt+C copies all · lines expire after 24h</div>
+          <div className="muted learning">FATAAK is still learning and can make mistakes.</div>
           <div className="muted credit">Made by Rahul</div>
         </div>
       )}
@@ -686,6 +696,7 @@ export function App() {
           onTeach={(t) => (setShowLog(false), setTeachFor(t))}
         />
       )}
+      {whatsNew && info && <WhatsNew version={info.version} since={whatsNew.since} onClose={() => (setWhatsNew(null), textareaRef.current?.focus())} />}
       {showTutorial && settingsLoaded && <Tutorial onDone={finishTutorial} />}
     </div>
   );

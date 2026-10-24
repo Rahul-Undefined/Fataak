@@ -60,6 +60,7 @@ function validateSettings(raw: unknown): StoredSettings {
   else out.updateRepo = DEFAULT_REPO;
   if (o.theme === 'dark' || o.theme === 'light' || o.theme === 'star') out.theme = o.theme;
   if (typeof o.tint === 'string' && HEX_RE.test(o.tint)) out.tint = o.tint.toLowerCase();
+  if (typeof o.lastSeenVersion === 'string' && /^\d+(\.\d+){0,3}$/.test(o.lastSeenVersion)) out.lastSeenVersion = o.lastSeenVersion;
   if (typeof o.uiFont === 'string' && FONTS.some((f) => f.key === o.uiFont && f.kind === 'ui')) out.uiFont = o.uiFont;
   if (typeof o.editorFont === 'string' && FONTS.some((f) => f.key === o.editorFont && f.kind === 'mono')) out.editorFont = o.editorFont;
   for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;

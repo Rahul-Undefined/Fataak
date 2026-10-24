@@ -23,6 +23,7 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   const out: Partial<Settings> = {};
   if ('hotkey' in o) out.hotkey = assertString(o.hotkey, 'hotkey', 64);
   if ('updateRepo' in o) out.updateRepo = assertString(o.updateRepo, 'updateRepo', 100);
+  if ('lastSeenVersion' in o) out.lastSeenVersion = assertString(o.lastSeenVersion, 'lastSeenVersion', 20);
   if ('theme' in o) {
     if (o.theme !== 'dark' && o.theme !== 'light' && o.theme !== 'star') throw new TypeError('theme must be dark, light or star');
     out.theme = o.theme;

@@ -20,6 +20,8 @@ export interface Settings {
   editorFont: string;
   /** the first-run tutorial has been watched or skipped */
   tutorialSeen: boolean;
+  /** the version whose release notes were shown last; a newer app shows "What's new" once */
+  lastSeenVersion: string;
   /** GitHub repository ("owner/name") whose Releases carry the FATAAK zips; "Check for updates" reads it */
   updateRepo: string;
 }
@@ -36,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   uiFont: DEFAULT_UI_FONT,
   editorFont: DEFAULT_EDITOR_FONT,
   tutorialSeen: false,
+  lastSeenVersion: '',
   updateRepo: 'Rahul-Undefined/Fataak',
 };
 

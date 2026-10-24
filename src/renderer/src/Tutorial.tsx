@@ -136,7 +136,7 @@ const SCENES: Scene[] = [
   },
   {
     title: 'Keys.',
-    caption: 'Alt+Space shows or hides FATAAK from anywhere. Esc hides. Ctrl+Shift+C copies the current result, Ctrl+Alt+C copies everything with answers. The bar at the bottom pins the window on top, turns widget mode on, and switches between the Moon (dark) and Sun (light) themes.',
+    caption: 'Alt+Space shows or hides FATAAK from anywhere. Esc hides. Click a result to copy it, double-click for the working. Ctrl+Shift+C copies the current result, Ctrl+Alt+C copies everything with answers. Lines expire after 24 hours. FATAAK is still learning and can make mistakes: a wrong answer is worth a line in Settings → Unanswered.',
     lines: [
       { text: 'Alt+Space', result: 'show / hide' },
       { text: 'Esc', result: 'hide' },
