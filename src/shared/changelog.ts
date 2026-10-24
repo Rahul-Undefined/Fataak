@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.1',
+    date: '24 Oct 2026',
+    changed: ['Quick launcher: a closing animation after the answer is copied or on Esc (the capsule folds into the orb, which rises back out of the screen)'],
+  },
+  {
     version: '1.3.0',
     date: '24 Oct 2026',
     added: ['Quick launcher (Settings): the hotkey opens a small glass bar with a living orb on any screen; type one line, Enter copies the answer, Ctrl+Enter brings it into the window', 'Start with Windows (Settings): FATAAK waits in the tray from login', 'Pinned values: names that never expire (Settings → Pinned, or hover a definition and click 📌); every line can use them', 'Fixed answers: units of things ("unit of electricity"), full forms ("emi full form"), Indian finance constants ("80c limit", "gst rates", "tds on fd"), calendar facts, tola and quintal', 'Step by step for dates, conversions, inflation, prepayment, proportion, in-hand salary, health and time spans', 'Tutorial scenes on building on the line above and tips & tricks'],

@@ -25,6 +25,7 @@ export function Launcher() {
   const [copied, setCopied] = useState(false);
   const [shown, setShown] = useState(false);
   const [epoch, setEpoch] = useState(0);
+  const [closing, setClosing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const recorded = useRef(false);
 
@@ -41,6 +42,7 @@ export function Launcher() {
       setText('');
       setCopied(false);
       recorded.current = false;
+      setClosing(false);
       setShown(false);
       setEpoch((n) => n + 1);
       requestAnimationFrame(() => {
@@ -77,13 +79,21 @@ export function Launcher() {
   const state: OrbState = !text.trim() ? 'idle' : typing ? 'listening' : result?.ok && !result.isText ? 'responding' : 'thinking';
 
   const hide = useCallback(() => api.launcher.hide(), []);
+  /** the entrance in reverse: capsule folds into the orb, the orb returns to the centre and rises out; then hide */
+  const closeWithAnimation = useCallback(() => {
+    setClosing(true);
+    window.setTimeout(() => {
+      hide();
+      setClosing(false);
+    }, 1000);
+  }, [hide]);
   const onKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Escape') {
       e.preventDefault();
       // an answered line is kept in the window's history even when the launcher is dismissed
       if (text && result?.ok && !result.isText && !recorded.current) api.launcher.record(text);
       if (text) setText('');
-      else hide();
+      else closeWithAnimation();
       return;
     }
     if (e.key === 'Enter') {
@@ -98,7 +108,7 @@ export function Launcher() {
         if (!recorded.current) api.launcher.record(text);
         recorded.current = true;
         setCopied(true);
-        window.setTimeout(hide, 420);
+        window.setTimeout(closeWithAnimation, 520);
       }
     }
   };
@@ -119,7 +129,7 @@ export function Launcher() {
   }, []);
 
   return (
-    <div className={`launcher${shown ? ' in' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && inputRef.current?.focus()}>
+    <div className={`launcher${shown ? ' in' : ''}${closing ? ' out' : ''}`} onMouseDown={(e) => e.target === e.currentTarget && inputRef.current?.focus()}>
       <div className={`stage ${state}`} ref={stageRef} key={epoch}>
         <div className="orb" aria-hidden="true">
           <div className="orb-ring" />

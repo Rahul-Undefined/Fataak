@@ -294,3 +294,50 @@ body,
   margin-top: 10px;
   opacity: 1;
 }
+
+/* ---- leaving: the entrance played backwards ---- */
+.out .capsule {
+  animation: cap-close 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+.out .capsule input,
+.out .capsule .answer {
+  animation: fade-out 160ms ease both;
+}
+.out .hint {
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.out .orb {
+  animation: orb-back 320ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both, orb-rise 420ms cubic-bezier(0.55, 0, 1, 0.45) 560ms both;
+}
+@keyframes cap-close {
+  from {
+    clip-path: inset(0 0 0 0 round 999px);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 calc(100% - var(--cap-h)) 0 0 round 999px);
+    opacity: 0;
+  }
+}
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes orb-back {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: translate(var(--cx), 0);
+  }
+}
+@keyframes orb-rise {
+  from {
+    transform: translate(var(--cx), 0);
+  }
+  to {
+    transform: translate(var(--cx), -240px);
+  }
+}
