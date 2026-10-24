@@ -10,6 +10,7 @@ import { JsonStore } from './store';
 import { RateService } from './rates';
 import { checkGithub, installUpdate, updateAftermath, DEFAULT_REPO } from './updater';
 import { FONTS, HEX_RE } from '../shared/fonts';
+import { rulesAsOfText } from '../engine/rules';
 import { release } from 'node:os';
 
 const isDev = !app.isPackaged && !!process.env['ELECTRON_RENDERER_URL'];
@@ -434,7 +435,7 @@ function appInfo(): AppInfo {
   } catch {
     buildDate = '';
   }
-  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged, glass: GLASS, lastUpdate };
+  return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged, glass: GLASS, rulesAsOf: rulesAsOfText(), lastUpdate };
 }
 
 /** reads the latest GitHub release of the configured repository; never installs anything by itself */

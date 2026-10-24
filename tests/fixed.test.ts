@@ -20,7 +20,7 @@ const cases: [string, string][] = [
   ['standard deduction', '₹75,000 (new regime) · ₹50,000 (old regime)'],
   ['gst rates', '5% and 18% (since 22 Sep 2025); 40% on a few luxury and sin goods; 0% on essentials'],
   ['pf rate', '12% of basic + DA from you, 12% from the employer'],
-  ['tds on fd', '10% once interest crosses ₹50,000 a year (₹1 lakh for senior citizens)'],
+  ['tds on fd', '10% once interest crosses ₹50,000 a year (₹1,00,000 for senior citizens)'],
   ['how many days in a leap year', '366 days'],
   ['days in a year', '365 days'],
   ['hours in a day', '24 h'],

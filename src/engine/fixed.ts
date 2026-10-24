@@ -4,6 +4,9 @@
  * Numbers that are real quantities come back as quantities (so "1 tola in grams * 10" works); the rest is text.
  */
 import { Decimal, type Quantity } from './types';
+import { RULES, FY_LABEL } from './rules';
+
+const inr = (n: number) => '₹' + n.toLocaleString('en-IN');
 
 const D = (x: number | string) => new Decimal(x);
 const text = (a: string, note?: string): Quantity => ({ kind: 'number', value: D(0), display: a, note });
@@ -16,7 +19,8 @@ interface Fixed {
   a: () => Quantity;
 }
 
-const FY = 'FY 2025-26';
+const FY = FY_LABEL;
+const T = RULES.incomeTax;
 const E: Fixed[] = [
   // ---- units of quantities
   { q: /^unit (?:for )?water(?: bill| supply)?$/, a: () => text('litre (L)', 'water bills use kilolitres: 1 kL = 1,000 L · 1 m³ = 1,000 L') },
@@ -114,29 +118,29 @@ const E: Fixed[] = [
   { q: /^(?:full form|meaning) mclr$/, a: () => text('Marginal Cost of funds based Lending Rate') },
   { q: /^(?:full form|meaning) repo rate$/, a: () => text('the rate at which RBI lends to banks', 'loan rates move with it') },
   // ---- Indian finance constants (year-specific; verify before filing)
-  { q: /^(?:gst rates?|gst slabs?|gst percent|gst percentage)$/, a: () => text('5% and 18% (since 22 Sep 2025); 40% on a few luxury and sin goods; 0% on essentials', 'before 22 Sep 2025 the slabs were 5%, 12%, 18% and 28%') },
+  { q: /^(?:gst rates?|gst slabs?|gst percent|gst percentage)$/, a: () => text(RULES.gst.slabs, RULES.gst.before) },
   { q: /^(?:income tax slabs?|tax slabs?|new regime slabs?)$/, a: () => text('0–4L nil · 4–8L 5% · 8–12L 10% · 12–16L 15% · 16–20L 20% · 20–24L 25% · above 24L 30%', `new regime ${FY} · no tax up to ₹12 lakh (₹12.75 lakh salaried) via rebate 87A · 4% cess`) },
   { q: /^(?:old regime slabs?|old tax slabs?)$/, a: () => text('0–2.5L nil · 2.5–5L 5% · 5–10L 20% · above 10L 30%', 'old regime · rebate 87A up to ₹5 lakh · 4% cess') },
-  { q: /^standard deduction$/, a: () => text('₹75,000 (new regime) · ₹50,000 (old regime)', `${FY}, salaried and pensioners`) },
+  { q: /^standard deduction$/, a: () => text(`${inr(T.newRegime[T.defaultFy].stdDed)} (new regime) · ${inr(T.oldRegime.stdDed)} (old regime)`, `${FY}, salaried and pensioners`) },
   { q: /^(?:rebate|87a|rebate 87a|87a limit|tax free (?:limit|income)|no tax (?:limit|upto|up to))$/, a: () => text('no tax up to ₹12 lakh taxable income (₹12.75 lakh salary) in the new regime; ₹5 lakh in the old regime', `${FY} · marginal relief just above the limit`) },
-  { q: /^(?:80c|80c limit|section 80c)$/, a: () => text('₹1,50,000 a year', 'old regime only · PPF, ELSS, EPF, life insurance, 5-year FD, home-loan principal, tuition fees') },
-  { q: /^(?:80d|80d limit|section 80d|health insurance deduction)$/, a: () => text('₹25,000 (₹50,000 for senior citizens) for health insurance premiums', 'old regime only · plus the same again for parents') },
+  { q: /^(?:80c|80c limit|section 80c)$/, a: () => text(`${inr(T.deductions['80c'])} a year`, 'old regime only · PPF, ELSS, EPF, life insurance, 5-year FD, home-loan principal, tuition fees') },
+  { q: /^(?:80d|80d limit|section 80d|health insurance deduction)$/, a: () => text(`${inr(T.deductions['80d'])} (${inr(T.deductions['80dSenior'])} for senior citizens) for health insurance premiums`, 'old regime only · plus the same again for parents') },
   { q: /^(?:nps limit|80ccd|80ccd 1b|nps deduction)$/, a: () => text('₹50,000 extra under 80CCD(1B), over the 80C limit', 'old regime · employer NPS contribution up to 14% of basic is deductible in the new regime') },
-  { q: /^(?:pf rate|pf percent|pf percentage|epf rate|pf contribution|pf deduction)$/, a: () => text('12% of basic + DA from you, 12% from the employer', 'employer share: 8.33% to pension (EPS, capped on ₹15,000 wage) + 3.67% to EPF') },
-  { q: /^(?:pf interest|epf interest|pf interest rate)$/, a: () => text('8.25% for FY 2024-25', 'declared by EPFO each year; check the latest') },
-  { q: /^(?:ppf interest|ppf rate|ppf interest rate)$/, a: () => text('7.1% a year (compounded yearly)', 'reviewed every quarter by the government; ₹1.5 lakh a year limit, 15-year term') },
-  { q: /^(?:esi rate|esi contribution|esi percent)$/, a: () => text('0.75% from you, 3.25% from the employer', 'for gross wages up to ₹21,000 a month') },
-  { q: /^(?:tds on fd|tds fd|fd tds|tds (?:on )?interest|tds (?:on )?bank interest|fd tds limit)$/, a: () => text('10% once interest crosses ₹50,000 a year (₹1 lakh for senior citizens)', `${FY} · submit 15G/15H if your income is below the taxable limit`) },
-  { q: /^(?:tds on rent|rent tds|tds rent)$/, a: () => text('10% when rent exceeds ₹6 lakh a year (₹50,000 a month)', `${FY} · section 194-I; individuals paying over ₹50,000 a month deduct 2% under 194-IB`) },
+  { q: /^(?:pf rate|pf percent|pf percentage|epf rate|pf contribution|pf deduction)$/, a: () => text(`${RULES.pf.employeePct}% of basic + DA from you, ${RULES.pf.employerPct}% from the employer`, `employer share: ${RULES.pf.epsPct}% to pension (EPS, capped on ${inr(RULES.pf.epsWageCeiling)} wage) + ${(RULES.pf.employerPct - RULES.pf.epsPct).toFixed(2)}% to EPF`) },
+  { q: /^(?:pf interest|epf interest|pf interest rate)$/, a: () => text(`${RULES.pf.interestPct}% for ${RULES.pf.interestYear}`, 'declared by EPFO each year; check the latest') },
+  { q: /^(?:ppf interest|ppf rate|ppf interest rate)$/, a: () => text(`${RULES.ppf.interestPct}% a year (compounded yearly)`, `reviewed every quarter by the government; ${inr(RULES.ppf.yearlyLimit)} a year limit, ${RULES.ppf.termYears}-year term`) },
+  { q: /^(?:esi rate|esi contribution|esi percent)$/, a: () => text(`${RULES.esi.employeePct}% from you, ${RULES.esi.employerPct}% from the employer`, `for gross wages up to ${inr(RULES.esi.wageCeiling)} a month`) },
+  { q: /^(?:tds on fd|tds fd|fd tds|tds (?:on )?interest|tds (?:on )?bank interest|fd tds limit)$/, a: () => text(`10% once interest crosses ${inr(T.tdsInterest.general)} a year (${inr(T.tdsInterest.senior)} for senior citizens)`, `${FY} · submit 15G/15H if your income is below the taxable limit`) },
+  { q: /^(?:tds on rent|rent tds|tds rent)$/, a: () => text(`10% when rent exceeds ${inr(T.tdsRent)} a year (${inr(T.tdsRent / 12)} a month)`, `${FY} · section 194-I; individuals paying over ₹50,000 a month deduct 2% under 194-IB`) },
   { q: /^(?:professional tax|professional tax limit|pt)$/, a: () => text('up to ₹2,500 a year', 'state levy; ₹200 a month in most states (₹300 in one month)') },
   { q: /^(?:gratuity|gratuity formula|gratuity rule)$/, a: () => text('(basic + DA) × 15 ÷ 26 × years of service, after 5 years', 'tax-free up to ₹20 lakh') },
   { q: /^(?:ltcg|ltcg tax|long term capital gains? tax)$/, a: () => text('equity: 12.5% above ₹1.25 lakh a year (held over 12 months) · other assets: 12.5% (held over 24 months)', 'since 23 Jul 2024') },
   { q: /^(?:stcg|stcg tax|short term capital gains? tax)$/, a: () => text('equity: 20% (held 12 months or less) · other assets: at your slab rate', 'since 23 Jul 2024') },
-  { q: /^(?:deposit insurance|bank deposit insurance|dicgc limit|bank insurance limit)$/, a: () => text('₹5 lakh per depositor per bank', 'principal + interest, across all accounts in that bank') },
+  { q: /^(?:deposit insurance|bank deposit insurance|dicgc limit|bank insurance limit)$/, a: () => text(`${inr(RULES.depositInsurance)} per depositor per bank`, 'principal + interest, across all accounts in that bank') },
   { q: /^(?:cash limit|cash transaction limit|cash receipt limit)$/, a: () => text('₹2 lakh per transaction/day from one person (section 269ST)', 'penalty equal to the amount received') },
   { q: /^(?:senior citizen age|senior citizen)$/, a: () => text('60 years; super senior citizen 80 years', 'higher exemption limits in the old regime') },
   { q: /^(?:hra exemption|hra rule|hra formula)$/, a: () => text('least of: actual HRA · rent − 10% of basic · 50% of basic (metro) / 40% (non-metro)', 'old regime only') },
-  { q: /^(?:cess|health and education cess|tax cess)$/, a: () => text('4% on the income tax', 'both regimes') },
+  { q: /^(?:cess|health and education cess|tax cess)$/, a: () => text(`${T.cessPct}% on the income tax`, 'both regimes') },
   { q: /^(?:surcharge|income tax surcharge)$/, a: () => text('10% above ₹50 lakh · 15% above ₹1 crore · 25% above ₹2 crore (new regime cap) · 37% above ₹5 crore (old regime)', 'on the tax, with marginal relief') },
   // ---- calendar
   { q: /^(?:days|days one|year days)$/, a: () => qty('365', 'day', '366 in a leap year') },

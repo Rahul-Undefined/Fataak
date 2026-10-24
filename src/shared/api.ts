@@ -75,6 +75,8 @@ export interface AppInfo {
   packaged: boolean;
   /** the system can draw acrylic glass behind the window (Windows 11 22H2+) */
   glass: boolean;
+  /** when the tax and finance rules were last checked ("24 Oct 2026") */
+  rulesAsOf: string;
   /** outcome of the update that restarted this instance ("updated to 1.2.0"), once */
   lastUpdate?: string;
 }

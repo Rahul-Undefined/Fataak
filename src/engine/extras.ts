@@ -5,6 +5,7 @@
  * equations in x, statistics and ranges. Every formula and assumption is stated in the note.
  */
 import { DateTime } from 'luxon';
+import { RULES, DEFAULT_FY, FY_LABEL } from './rules';
 import { CalcError, Decimal, own, type EvalContext, type Quantity } from './types';
 import { analyse, evalWords, numberAt, moneyOrNumber, type Parsed } from './nl/intents';
 import { formatNumber, formatQuantity } from './format';
@@ -46,21 +47,14 @@ function yrs(v: Decimal): string {
 }
 
 // ---------------------------------------------------------------- A. money and tax
-const OLD_SLABS: [number, number][] = [[250000, 0], [500000, 5], [1000000, 20], [Infinity, 30]];
-/** new-regime slabs by financial year (FY 2025-26 = 2025), with the 87A rebate limit and the salaried standard deduction */
-const NEW_REGIME: Record<number, { slabs: [number, number][]; rebate: number; stdDed: number; label: string }> = {
-  2023: { slabs: [[300000, 0], [600000, 5], [900000, 10], [1200000, 15], [1500000, 20], [Infinity, 30]], rebate: 700000, stdDed: 50000, label: 'FY 2023-24' },
-  2024: { slabs: [[300000, 0], [700000, 5], [1000000, 10], [1200000, 15], [1500000, 20], [Infinity, 30]], rebate: 700000, stdDed: 75000, label: 'FY 2024-25' },
-  2025: { slabs: [[400000, 0], [800000, 5], [1200000, 10], [1600000, 15], [2000000, 20], [2400000, 25], [Infinity, 30]], rebate: 1200000, stdDed: 75000, label: 'FY 2025-26' },
-};
-export const DEFAULT_FY = 2025;
-/** surcharge on income above 50 lakh (new regime capped at 25%; old regime 37% above 5 crore) */
+const OLD_SLABS = RULES.incomeTax.oldRegime.slabs;
+const NEW_REGIME = RULES.incomeTax.newRegime;
+export { DEFAULT_FY };
+/** surcharge on income above 50 lakh (new regime capped; old regime goes to the top band) */
 function surchargeRate(income: Decimal, old: boolean): number {
-  if (income.gt(50000000)) return old ? 37 : 25;
-  if (income.gt(20000000)) return 25;
-  if (income.gt(10000000)) return 15;
-  if (income.gt(5000000)) return 10;
-  return 0;
+  let rate = 0;
+  for (const [above, pct] of RULES.incomeTax.surcharge) if (income.gt(above)) rate = pct;
+  return old ? rate : Math.min(rate, RULES.incomeTax.surchargeCapNewRegime);
 }
 
 function slabTax(taxable: Decimal, slabs: [number, number][]): Decimal {
@@ -83,24 +77,24 @@ export function incomeTax(income: Decimal, opts: { old?: boolean; salaried?: boo
   const fy = opts.fy ?? DEFAULT_FY;
   const year = NEW_REGIME[fy];
   if (!year) throw new CalcError(`tax slabs for FY ${fy}-${String(fy + 1).slice(2)} are not loaded`, 'FY 2023-24, 2024-25 and 2025-26 are known');
-  const deduction = opts.salaried ? D(opts.old ? 50000 : year.stdDed) : D(0);
+  const deduction = opts.salaried ? D(opts.old ? RULES.incomeTax.oldRegime.stdDed : year.stdDed) : D(0);
   const taxable = Decimal.max(0, income.minus(deduction));
   const slabs = opts.old ? OLD_SLABS : year.slabs;
   let slab = slabTax(taxable, slabs);
-  const rebateLimit = opts.old ? D(500000) : D(year.rebate);
+  const rebateLimit = opts.old ? D(RULES.incomeTax.oldRegime.rebate) : D(year.rebate);
   if (taxable.lte(rebateLimit)) slab = D(0);
   else if (!opts.old) slab = Decimal.min(slab, taxable.minus(rebateLimit)); // marginal relief just above the rebate limit
   // surcharge with marginal relief: tax + surcharge never exceeds what is due at the threshold plus the income above it
   const rate = surchargeRate(taxable, !!opts.old);
   let surcharge = slab.mul(rate).div(100);
   if (rate > 0) {
-    const threshold = [50000000, 20000000, 10000000, 5000000].find((t) => taxable.gt(t))!;
+    const threshold = RULES.incomeTax.surcharge.map(([t]) => t).reverse().find((t) => taxable.gt(t))!;
     const atThreshold = slabTax(D(threshold), slabs);
     const dueAtThreshold = atThreshold.plus(atThreshold.mul(surchargeRate(D(threshold), !!opts.old)).div(100));
     const excess = taxable.minus(threshold);
     if (slab.plus(surcharge).minus(dueAtThreshold).gt(excess)) surcharge = dueAtThreshold.plus(excess).minus(slab);
   }
-  const cess = slab.plus(surcharge).mul(4).div(100);
+  const cess = slab.plus(surcharge).mul(RULES.incomeTax.cessPct).div(100);
   return { tax: money2(slab.plus(surcharge).plus(cess)), taxable, slab, surcharge, cess, deduction, regime: `${opts.old ? 'old regime' : 'new regime'} ${year.label}` };
 }
 
@@ -250,7 +244,7 @@ function intentDeposit(p: Parsed, ctx: EvalContext): Quantity | null {
   const depSteps = fd
     ? [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `quarters = ${formatNumber(years)} × 4 = ${formatNumber(years.mul(4))}`, `maturity = P × (1 + q)^quarters = ${fq(amount.value)} × ${formatNumber(D(1).plus(q).pow(years.mul(4).toNumber()), { maxDecimals: 4 })} = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`]
     : [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `each instalment compounds quarterly for its remaining months (bank method)`, `invested = ${fq(amount.value)} × ${Math.round(years.mul(12).toNumber())} = ${fq(invested)}`, `maturity = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`];
-  const tds = interest.gt(50000) ? ` · interest above ₹50,000 a year: bank deducts 10% TDS (₹1 lakh for seniors, FY 2025-26)` : '';
+  const tds = interest.gt(RULES.incomeTax.tdsInterest.general) ? ` · interest above ₹${formatNumber(D(RULES.incomeTax.tdsInterest.general), { indian: true })} a year: bank deducts 10% TDS (₹${formatNumber(D(RULES.incomeTax.tdsInterest.senior), { indian: true })} for seniors, ${FY_LABEL})` : '';
   return { ...moneyOrNumber(maturity, amount), steps: depSteps, note: `${fd ? 'FD' : 'RD'} ${formatQuantity(amount)}${rd ? '/month' : ''} at ${formatNumber(rate)}% for ${yrs(years)}, quarterly compounding · interest ${formatQuantity(moneyOrNumber(interest, amount))} on ${formatQuantity(moneyOrNumber(invested, amount))}${tds}` };
 }
 

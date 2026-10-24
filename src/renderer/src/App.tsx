@@ -652,6 +652,10 @@ export function App() {
             </button>
             <span className="muted">{update ? update.status : info ? `v${info.version} · built ${info.buildDate}` : ''}</span>
           </div>
+          <div className="srow">
+            <span className="muted">Tax &amp; finance rules</span>
+            <span className="muted" title="income-tax slabs, TDS thresholds, GST slabs, PF/PPF/ESI rates: reviewed weekly, delivered with updates">{info ? `as of ${info.rulesAsOf}` : ''}</span>
+          </div>
           {update?.url && (
             <div className="srow">
               {update.canInstall ? (

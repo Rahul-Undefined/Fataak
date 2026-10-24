@@ -4,6 +4,7 @@
  */
 import type { FataakApi, RateTable, Settings, SettingsResult, Unanswered } from '../../shared/api';
 import { sanitizeRules, type TeachRule } from '../../engine/teach';
+import { rulesAsOfText } from '../../engine/rules';
 import { mergeUnanswered, sanitizeUnanswered, unansweredCsv } from '../../engine/unanswered';
 import { DEFAULT_SETTINGS } from '../../shared/api';
 import { sanitizeLines, type HistoryLine } from '../../engine/history';
@@ -17,7 +18,7 @@ function browserShim(): FataakApi {
     platform: 'browser',
     version: 'dev',
     app: {
-      info: async () => ({ version: 'dev', buildDate: new Date().toISOString().slice(0, 10), platform: 'browser', packaged: false, glass: false }),
+      info: async () => ({ version: 'dev', buildDate: new Date().toISOString().slice(0, 10), platform: 'browser', packaged: false, glass: false, rulesAsOf: rulesAsOfText() }),
       checkUpdate: async () => ({ current: 'dev', status: 'update checks run in the installed app', canInstall: false }),
       installUpdate: async () => ({ ok: false, status: 'updates install only in the installed app' }),
       onUpdateProgress: () => () => {},

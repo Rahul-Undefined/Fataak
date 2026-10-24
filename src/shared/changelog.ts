@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.4',
+    date: '24 Oct 2026',
+    changed: ['All tax and finance figures now come from one dated rules table; Settings shows "rules as of …". A weekly review updates the table and ships the change as a normal update'],
+  },
+  {
     version: '1.3.3',
     date: '24 Oct 2026',
     changed: ['The desktop orb from 1.3.2 is gone: the widget and the quick launcher are the two ways to use FATAAK', 'Tutorial redesigned: 15 scenes in four chapters (Basics, Money, Everyday, Mastering) in a sensible order, chapter pills and a dot row to jump around, every example checked against the engine'],
