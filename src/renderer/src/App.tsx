@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { evaluateDocument, pruneExpired, syncLines, newId, type HistoryLine, type LineResult, type HighlightSpan } from '../../engine/index';
+import { evaluateDocument, pruneExpired, syncLines, newId, type HistoryLine, type LineResult, type HighlightSpan, type TeachRule } from '../../engine/index';
 import { Decimal } from '../../engine/types';
 import { formatQuantity } from '../../engine/format';
-import type { AppInfo, Settings, UpdateCheck } from '../../shared/api';
+import type { AppInfo, Settings, Unanswered, UpdateCheck, UpdateProgress } from '../../shared/api';
 import { DEFAULT_SETTINGS } from '../../shared/api';
 import { api, isElectron } from './bridge';
 import { RendererRates } from './rates';
 import { Tutorial } from './Tutorial';
+import { SuggestChips, TeachPanel, UnansweredPanel } from './Learn';
 
 const rates = new RendererRates();
 const LINE_PX = 31;
@@ -110,13 +111,19 @@ export function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [hotkeyDraft, setHotkeyDraft] = useState('');
-  const [updateDraft, setUpdateDraft] = useState('');
+  const [repoDraft, setRepoDraft] = useState('');
+  const [progress, setProgress] = useState<UpdateProgress | null>(null);
+  const [installMsg, setInstallMsg] = useState('');
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [update, setUpdate] = useState<UpdateCheck | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [caretLine, setCaretLine] = useState(0);
   const [hoverLine, setHoverLine] = useState<number | null>(null);
   const [selLines, setSelLines] = useState<[number, number] | null>(null);
+  const [rules, setRules] = useState<TeachRule[]>([]);
+  const [unanswered, setUnanswered] = useState<Unanswered[]>([]);
+  const [teachFor, setTeachFor] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLSpanElement>(null);
@@ -136,15 +143,27 @@ export function App() {
     void api.settings.get().then((r) => {
       setSettings(r.settings);
       setHotkeyDraft(r.settings.hotkey);
-      setUpdateDraft(r.settings.updateUrl);
+      setRepoDraft(r.settings.updateRepo);
       setHotkeyError(r.hotkeyError);
       setSettingsLoaded(true);
       if (!r.settings.tutorialSeen) setShowTutorial(true);
     });
     void api.app.info().then((i) => setInfo(i));
-    return api.onShow(() => {
+    void api.teach.load().then(setRules);
+    void api.unanswered.load().then(setUnanswered);
+    // a quiet check once at start-up (installed app only); an update shows as a chip in the title bar
+    const t = window.setTimeout(() => {
+      if (isElectron) void api.app.checkUpdate().then((u) => u.url && setUpdate(u));
+    }, 8000);
+    const offProgress = api.app.onUpdateProgress(setProgress);
+    const offShow = api.onShow(() => {
       textareaRef.current?.focus();
     });
+    return () => {
+      window.clearTimeout(t);
+      offProgress();
+      offShow();
+    };
   }, []);
 
   useEffect(() => {
@@ -190,8 +209,47 @@ export function App() {
   const text = useMemo(() => texts.join('\n'), [texts]);
   const results = useMemo(() => {
     void ratesVersion;
-    return evaluateDocument(texts, { rates });
-  }, [texts, ratesVersion]);
+    return evaluateDocument(texts, { rates, rules });
+  }, [texts, ratesVersion, rules]);
+
+  // ---- unanswered log: a line that stayed not-understood for a few seconds (and is not being typed) is recorded
+  const logTimer = useRef<number | undefined>(undefined);
+  const logged = useRef(new Map<string, number>());
+  const recordUnanswered = useCallback(
+    (skipLine: number | null) => {
+      const items: { text: string; hint: string }[] = [];
+      const now = Date.now();
+      results.forEach((r, i) => {
+        const t = texts[i]?.trim() ?? '';
+        if (r.ok || r.isText || i === skipLine || t.length < 3 || !/\d|[\p{L}]{3,}/u.test(t)) return;
+        const last = logged.current.get(t) ?? 0;
+        if (now - last < 60_000) return;
+        logged.current.set(t, now);
+        items.push({ text: t, hint: r.note ?? r.display ?? '' });
+      });
+      if (items.length) void api.unanswered.add(items).then(() => api.unanswered.load().then(setUnanswered));
+    },
+    [results, texts],
+  );
+  useEffect(() => {
+    window.clearTimeout(logTimer.current);
+    logTimer.current = window.setTimeout(() => recordUnanswered(caretLine), 4000);
+    return () => window.clearTimeout(logTimer.current);
+  }, [recordUnanswered, caretLine]);
+
+  const saveRules = useCallback((next: TeachRule[]) => void api.teach.save(next).then(setRules), []);
+  const replaceLine = (idx: number, newText: string) => {
+    const next = texts.slice();
+    next[idx] = newText;
+    setLines((prev) => syncLines(prev, next, Date.now()));
+    requestAnimationFrame(() => {
+      const ta = textareaRef.current;
+      if (!ta) return;
+      const pos = next.slice(0, idx + 1).join('\n').length;
+      ta.focus();
+      ta.selectionStart = ta.selectionEnd = pos;
+    });
+  };
 
   // Reserve room on the right for the widest result; longer expressions wrap underneath (monospace, so
   // the number of wrapped rows per line is exact: ceil(chars / charsPerLine)).
@@ -332,9 +390,16 @@ export function App() {
   }, []);
 
   const checkUpdate = async () => {
-    setUpdate({ current: info?.version ?? '', status: 'checking…' });
+    setUpdate({ current: info?.version ?? '', status: 'checking…', canInstall: false });
     setUpdate(await api.app.checkUpdate());
   };
+  const install = async () => {
+    if (!update?.url || !update.latest) return;
+    setInstallMsg('starting download…');
+    const r = await api.app.installUpdate(update.url, update.latest);
+    setInstallMsg(r.status);
+  };
+  const progressText = progress ? (progress.phase === 'downloading' ? `downloading ${progress.total ? Math.round((progress.received / progress.total) * 100) + '%' : Math.round(progress.received / 1e6) + ' MB'}` : progress.phase === 'extracting' ? 'extracting…' : 'restarting FATAAK…') : installMsg;
 
   const widget = settings.widgetMode;
   const statusIdx = hoverLine ?? caretLine;
@@ -365,6 +430,11 @@ export function App() {
           <span className="wordmark">FATAAK</span>
           {info && <span className="version" title={`build ${info.buildDate}`}>v{info.version}</span>}
           {widget && <span className="chip" title="Widget mode: pinned to the desktop, no taskbar entry, cannot be moved or minimised. Turn it off in the bar below.">widget</span>}
+          {update?.url && !widget && (
+            <button className="chip update" title={`FATAAK ${update.latest} is available. Click to install.`} onClick={() => setShowSettings(true)} tabIndex={-1}>
+              ↑ {update.latest} ready
+            </button>
+          )}
         </div>
         {!widget && (
           <div className="controls">
@@ -435,6 +505,9 @@ export function App() {
         </div>
       </div>
 
+      {statusRes && !statusRes.ok && !statusRes.isText && (texts[statusIdx]?.trim().length ?? 0) >= 3 && hoverLine === null ? (
+        <SuggestChips line={texts[statusIdx]} onPick={(t) => replaceLine(statusIdx, t)} onTeach={() => setTeachFor(texts[statusIdx])} />
+      ) : null}
       <div className="status" title={statusNote ?? ''}>
         {statusNote ? (
           <>
@@ -497,22 +570,37 @@ export function App() {
             <input type="checkbox" checked={settings.closeToTray} disabled={!settings.tray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
           </div>
           <div className="srow sep">
-            <span>Update URL</span>
-            <input type="text" value={updateDraft} placeholder="https://…/latest.json" onChange={(e) => setUpdateDraft(e.target.value)} onBlur={() => void updateSettings({ updateUrl: updateDraft.trim() })} title='a JSON file: { "version": "0.3.0", "url": "https://…" }' />
-          </div>
-          <div className="srow">
-            <button className="link" onClick={() => void checkUpdate()}>
+            <button className="link" onClick={() => void checkUpdate()} title={`looks up the latest release at github.com/${settings.updateRepo}`}>
               Check for updates
             </button>
             <span className="muted">{update ? update.status : info ? `v${info.version} · built ${info.buildDate}` : ''}</span>
           </div>
           {update?.url && (
             <div className="srow">
-              <a className="link" href={update.url} target="_blank" rel="noreferrer">
-                Download {update.latest}
-              </a>
+              {update.canInstall ? (
+                <button className="primary small" onClick={() => void install()} disabled={!!progress}>
+                  Install {update.latest} and restart
+                </button>
+              ) : (
+                <a className="link" href={update.url} target="_blank" rel="noreferrer">
+                  Download {update.latest}
+                </a>
+              )}
+              <span className="muted">{progressText || (update.size ? `${Math.round(update.size / 1e6)} MB` : '')}</span>
             </div>
           )}
+          <div className="srow">
+            <span className="muted">Update source</span>
+            <input type="text" value={repoDraft} placeholder="owner/repo" onChange={(e) => setRepoDraft(e.target.value)} onBlur={() => void updateSettings({ updateRepo: repoDraft.trim() })} title="GitHub repository whose Releases carry the FATAAK zip" />
+          </div>
+          <div className="srow sep">
+            <button className="link" onClick={() => (setShowSettings(false), setTeachFor(''))} title="teach FATAAK your own way of asking">
+              ✎ Teach FATAAK{rules.length ? ` (${rules.length})` : ''}
+            </button>
+            <button className="link" onClick={() => (setShowSettings(false), setShowLog(true))} title="questions FATAAK could not answer, ready to share">
+              Unanswered{unanswered.length ? ` (${unanswered.length})` : ''}
+            </button>
+          </div>
           <div className="srow sep">
             <button className="link" onClick={() => copy(linesWithResults(0, texts.length))}>
               Copy all
@@ -534,6 +622,17 @@ export function App() {
         </div>
       )}
 
+      {teachFor !== null && <TeachPanel rules={rules} rates={rates} prefill={teachFor} onSave={saveRules} onClose={() => (setTeachFor(null), textareaRef.current?.focus())} />}
+      {showLog && (
+        <UnansweredPanel
+          items={unanswered}
+          onExport={() => api.unanswered.exportCsv()}
+          onCopy={() => void api.unanswered.csv().then((c) => copy(c))}
+          onClear={() => void api.unanswered.clear().then(() => setUnanswered([]))}
+          onClose={() => setShowLog(false)}
+          onTeach={(t) => (setShowLog(false), setTeachFor(t))}
+        />
+      )}
       {showTutorial && settingsLoaded && <Tutorial onDone={finishTutorial} />}
     </div>
   );

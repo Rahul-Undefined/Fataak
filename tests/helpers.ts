@@ -1,5 +1,5 @@
 import { DateTime } from 'luxon';
-import { evaluateDocument, type LineResult, type RateProvider } from '@engine/index';
+import { evaluateDocument, type LineResult, type RateProvider, type TeachRule } from '@engine/index';
 
 /** Fixed test rates (USD base) so currency tests are deterministic. */
 export const testRates: RateProvider = {
@@ -21,9 +21,9 @@ export const noRates: RateProvider = { get: () => null };
 /** Friday 23 Oct 2026, 10:00 IST */
 export const NOW = DateTime.fromISO('2026-10-23T10:00:00', { zone: 'Asia/Kolkata' });
 
-export function run(lines: string | string[], opts: { rates?: RateProvider; now?: DateTime; zone?: string } = {}): LineResult[] {
+export function run(lines: string | string[], opts: { rates?: RateProvider; now?: DateTime; zone?: string; rules?: TeachRule[] } = {}): LineResult[] {
   const arr = Array.isArray(lines) ? lines : [lines];
-  return evaluateDocument(arr, { rates: opts.rates ?? testRates, now: () => opts.now ?? NOW, zone: opts.zone ?? 'Asia/Kolkata' });
+  return evaluateDocument(arr, { rates: opts.rates ?? testRates, now: () => opts.now ?? NOW, zone: opts.zone ?? 'Asia/Kolkata', rules: opts.rules ?? [] });
 }
 
 /** result text of the last line */

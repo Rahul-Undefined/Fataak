@@ -22,7 +22,7 @@ const SCENES: Scene[] = [
   },
   {
     title: 'English or Hinglish, your way.',
-    caption: 'Full sentences work. Hindi written in English letters is understood too. Bengali is not.',
+    caption: 'Full sentences work. Hindi written in English letters is understood too.',
     lines: [
       { text: '500 ka 18% nikal ke total me add kar', result: '590', note: '+90 on 500' },
       { text: 'mere paas 5000 the, 1275 kharch kiye, kitna bacha', result: '3,725' },
@@ -105,6 +105,15 @@ const SCENES: Scene[] = [
       { text: '2x + 5 = 17', result: 'x = 6' },
       { text: 'std of 4, 8, 15, 16', result: '4.9687' },
       { text: 'emi 5 lakh at 9% for 1 to 3 years', result: '1y: 43,725.74 · 2y: 22,842.37 · 3y: 15,899.87' },
+    ],
+  },
+  {
+    title: 'When FATAAK does not understand.',
+    caption: 'A line it cannot answer gets chips under the editor: click one to use that form. ✎ Teach FATAAK saves your own phrasing (numbers become blanks) so it works from then on. Every unanswered question is also kept on your laptop; Settings → Unanswered exports them as a CSV you can send to Rahul for the next version.',
+    lines: [
+      { text: 'mera tax kitna 15 lakh', result: '', note: 'did you mean: income tax on 15 lakh salary' },
+      { text: 'teach: mera tax kitna 15 lakh → income tax on 15 lakh salary', result: 'saved' },
+      { text: 'mera tax kitna 9 lakh', result: '0', note: 'taught' },
     ],
   },
   {

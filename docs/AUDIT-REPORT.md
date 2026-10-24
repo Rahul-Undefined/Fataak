@@ -162,3 +162,13 @@ impossible textual dates accepted, trailing divisors and parentheses lost in dis
 markers dropped, an amount-over-years question answered with a date, "very active" TDEE, and several display and
 phrasing gaps. Final run: generated benchmark 4,619/4,619, whole suite 6,369 tests passing, type-check clean.
 Full method, root causes, files and remaining limitations: `docs/QA-REPORT.md`.
+
+## Version 1.1.0 (24 Oct 2026)
+
+Offline help when a line is not understood: a "did you mean" suggester (`src/engine/teach.ts`, keyword shapes scored
+with typo tolerance, the typed numbers carried over), "Teach FATAAK" rules with number slots applied before
+normalisation (`teach.json`), and a local log of unanswered questions with CSV export (`unanswered.json`). Each has a
+step-by-step guide inside its panel and a tutorial scene. Self-update from GitHub Releases (`src/main/updater.ts`):
+check, download, extract with PowerShell, apply with robocopy after exit, restart; a release workflow builds the zip on
+tag push. 12 new tests (`tests/teach.test.ts`); suite 6,381 passing. The updater was type-checked and reviewed but not
+exercised end to end here (it needs a published release and the installed app).

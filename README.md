@@ -12,7 +12,7 @@ Built with Electron, React, TypeScript and Vite.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,369 tests
+npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,381 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -135,8 +135,33 @@ litres` → 15 km/l, `fuel for 600 km at 15 km/l`, `6 lakh per year in month`, `
 In the app: double-click a result to see the working (every step, rate and source) and copy it; the bar at the bottom has
 labelled toggles for **On top**, **Widget** mode (pinned to the desktop, no taskbar entry, cannot be moved, minimised or
 closed until turned off) and the **Moon/Sun** theme (dark/light); **? Help** replays the animated tutorial that autoplays on first
-run; **Settings** shows the version and build date and can check an update URL you set (a JSON file with `version` and
-`url`); nothing is downloaded or installed automatically.
+run; **Settings** shows the version and build date and checks GitHub Releases for a newer FATAAK (see *Updates*).
+
+**Version 1.1: when FATAAK does not understand.** A line it cannot answer gets *Did you mean* chips under the editor,
+built offline from the typed words and numbers; click one to use that form. **✎ Teach FATAAK** (also in Settings)
+saves your own phrasing next to a form FATAAK knows: numbers in the phrase become blanks, so teaching
+`mera tax kitna 15 lakh` → `income tax on 15 lakh salary` also answers `mera tax kitna 9 lakh`. The panel checks both
+answers match before it saves; rules live in `%APPDATA%\FATAAK\teach.json` and can be deleted from the list. Every
+question FATAAK could not answer is kept locally (`unanswered.json`); Settings → **Unanswered** exports them as a CSV
+(with a column for the answer you expected) to send to Rahul, so the next version understands them for everyone.
+
+## Updates
+
+Settings → **Check for updates** reads the latest release of the GitHub repository in *Update source* (default
+`Rahul-Undefined/Fataak`). When a newer `FATAAK-<version>-x64.zip` is published, **Install and restart** downloads it
+to `%APPDATA%\FATAAK\updates`, extracts it with Windows PowerShell, and runs a small script that waits for FATAAK to
+close, copies the new files over the install folder with robocopy (per-user, no admin), clears the "from the internet"
+mark, and starts FATAAK again. The exe inside every release is the same unmodified Electron binary, so endpoint
+security sees nothing new. The installed app also checks once, quietly, eight seconds after start-up and shows an
+`↑ x.y.z ready` chip in the title bar when an update is waiting. The repository (or at least its Releases) must be
+public: the app carries no token.
+
+Publishing a release (maintainer):
+
+```bash
+npm version minor          # or patch / major: bumps package.json and tags vX.Y.Z
+git push --follow-tags     # the release workflow builds the zip on GitHub and attaches it to the release
+```
 
 **Version 1.0 everyday calculators.** Money: `income tax on 15 lakh salary` (FY 2025-26, new regime by default, `old regime`
 on request), `ctc 12 lakh in hand`, `sip 5000 at 12% for 10 years`, `how much monthly sip for 50 lakh in 10 years at 12%`,

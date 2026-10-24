@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { FataakApi, Settings } from '../shared/api';
 import type { HistoryLine } from '../engine/history';
+import { sanitizeRules } from '../engine/teach';
 
 /* ---- argument validation: the renderer is sandboxed and untrusted ---- */
 function assertString(v: unknown, name: string, max = 10000): string {
@@ -20,7 +21,7 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   const o = v as Record<string, unknown>;
   const out: Partial<Settings> = {};
   if ('hotkey' in o) out.hotkey = assertString(o.hotkey, 'hotkey', 64);
-  if ('updateUrl' in o) out.updateUrl = assertString(o.updateUrl, 'updateUrl', 300);
+  if ('updateRepo' in o) out.updateRepo = assertString(o.updateRepo, 'updateRepo', 100);
   if ('theme' in o) {
     if (o.theme !== 'dark' && o.theme !== 'light') throw new TypeError('theme must be dark or light');
     out.theme = o.theme;
@@ -34,12 +35,40 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   return out;
 }
 
+function validateUnanswered(v: unknown): { text: string; hint: string }[] {
+  if (!Array.isArray(v) || v.length > 200) throw new TypeError('items must be an array');
+  return v.map((x) => {
+    const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    return { text: assertString(o.text, 'text', 500), hint: typeof o.hint === 'string' ? o.hint.slice(0, 300) : '' };
+  });
+}
+
 const api: FataakApi = {
   platform: process.platform,
   version: process.env.npm_package_version ?? '',
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     checkUpdate: () => ipcRenderer.invoke('app:checkUpdate'),
+    installUpdate: (url, version) => ipcRenderer.invoke('app:installUpdate', assertString(url, 'url', 500), assertString(version, 'version', 20)),
+    onUpdateProgress: (cb) => {
+      const handler = (_e: unknown, p: unknown) => {
+        const o = (p && typeof p === 'object' ? p : {}) as Record<string, unknown>;
+        cb({ received: Number(o.received) || 0, total: Number(o.total) || 0, phase: (o.phase as 'downloading') ?? 'downloading' });
+      };
+      ipcRenderer.on('app:updateProgress', handler);
+      return () => ipcRenderer.removeListener('app:updateProgress', handler);
+    },
+  },
+  teach: {
+    load: () => ipcRenderer.invoke('teach:load'),
+    save: (rules) => ipcRenderer.invoke('teach:save', sanitizeRules(rules)),
+  },
+  unanswered: {
+    load: () => ipcRenderer.invoke('unanswered:load'),
+    add: (items) => ipcRenderer.invoke('unanswered:add', validateUnanswered(items)),
+    clear: () => ipcRenderer.invoke('unanswered:clear'),
+    exportCsv: () => ipcRenderer.invoke('unanswered:export'),
+    csv: () => ipcRenderer.invoke('unanswered:csv'),
   },
   history: {
     load: () => ipcRenderer.invoke('history:load'),

@@ -1,4 +1,5 @@
 import { own } from '../types';
+import { applyTeachRules } from '../teach';
 /**
  * Multilingual normalisation: rewrites English / Hinglish phrasing into a small
  * canonical English vocabulary that the intent matcher understands. Purely lexical.
@@ -305,7 +306,9 @@ const WEEK_WORDS = /^(mon|tue|wed|thu|fri|sat|sun)\w*$|^(week|month|year|day|tim
 
 export function normalize(text: string): Normalized {
   const notes: string[] = [];
-  let s = text.toLowerCase();
+  const taught = applyTeachRules(text.toLowerCase());
+  if (taught.applied.length) notes.push(`taught: ${taught.applied.map((r) => `"${r.from}" → "${r.to}"`).join(', ')}`);
+  let s = taught.text;
   // a question mark is punctuation; so is "!" unless it follows a digit (5! is a factorial)
   s = s.replace(/[?¿]|(?<!\d)!/g, ' ');
   // sentence-ending periods are not part of a word ("1.8 lakh.", "10%.", "litres."); decimal points stay.

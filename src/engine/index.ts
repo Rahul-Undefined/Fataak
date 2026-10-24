@@ -16,10 +16,14 @@ import { intentEquation, intentRangeList, FESTIVALS } from './extras';
 export * from './types';
 export { formatQuantity } from './format';
 export { tokenize } from './tokenizer';
+export { suggest, setTeachRules, applyTeachRules, previewRule, ruleProblem, sanitizeRules, cleanPhrase, type TeachRule, type Suggestion } from './teach';
+import { setTeachRules, type TeachRule } from './teach';
 export * from './history';
 
 export interface DocumentOptions {
   rates: RateProvider;
+  /** the user's "Teach FATAAK" rules; installed for this evaluation */
+  rules?: TeachRule[];
   now?: () => DateTime;
   zone?: string;
 }
@@ -434,6 +438,7 @@ function tryImplicitDefinition(
 }
 
 export function evaluateDocument(lines: string[], opts: DocumentOptions): LineResult[] {
+  if (opts.rules) setTeachRules(opts.rules);
   const zone = opts.zone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC';
   const now = opts.now ?? (() => DateTime.now().setZone(zone));
   const variables = new Map<string, Quantity>();

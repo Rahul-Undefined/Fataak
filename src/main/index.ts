@@ -1,10 +1,14 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, clipboard, nativeImage, net, session, shell, screen } from 'electron';
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, Tray, clipboard, nativeImage, net, session, shell, screen } from 'electron';
 import { join } from 'node:path';
 import { statSync } from 'node:fs';
-import { DEFAULT_SETTINGS, type AppInfo, type Settings, type SettingsResult, type UpdateCheck } from '../shared/api';
+import { writeFile } from 'node:fs/promises';
+import { DEFAULT_SETTINGS, type AppInfo, type Settings, type SettingsResult, type Unanswered, type UpdateCheck } from '../shared/api';
+import { sanitizeRules, type TeachRule } from '../engine/teach';
+import { unansweredCsv, mergeUnanswered, sanitizeUnanswered } from '../engine/unanswered';
 import { pruneExpired, sanitizeLines, type HistoryLine } from '../engine/history';
 import { JsonStore } from './store';
 import { RateService } from './rates';
+import { checkGithub, installUpdate, DEFAULT_REPO } from './updater';
 
 const isDev = !app.isPackaged && !!process.env['ELECTRON_RENDERER_URL'];
 const APP_ID = 'com.fataak.calculator';
@@ -37,13 +41,16 @@ const userData = app.getPath('userData');
 const historyStore = new JsonStore<HistoryLine[]>(userData, 'history.json', sanitizeLines, () => []);
 const settingsStore = new JsonStore<StoredSettings>(userData, 'settings.json', validateSettings, () => ({ ...DEFAULT_SETTINGS }));
 const rates = new RateService(userData);
+const teachStore = new JsonStore<TeachRule[]>(userData, 'teach.json', sanitizeRules, () => []);
+const unansweredStore = new JsonStore<Unanswered[]>(userData, 'unanswered.json', sanitizeUnanswered, () => []);
 
 function validateSettings(raw: unknown): StoredSettings {
   const out: StoredSettings = { ...DEFAULT_SETTINGS };
   if (!raw || typeof raw !== 'object') return out;
   const o = raw as Record<string, unknown>;
   if (typeof o.hotkey === 'string' && o.hotkey.length <= 64) out.hotkey = o.hotkey;
-  if (typeof o.updateUrl === 'string' && o.updateUrl.length <= 300 && (o.updateUrl === '' || /^https:\/\//.test(o.updateUrl))) out.updateUrl = o.updateUrl;
+  if (typeof o.updateRepo === 'string' && /^[\w.-]+\/[\w.-]+$/.test(o.updateRepo)) out.updateRepo = o.updateRepo;
+  else out.updateRepo = DEFAULT_REPO;
   if (o.theme === 'dark' || o.theme === 'light') out.theme = o.theme;
   for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   const b = o.bounds as Record<string, unknown> | undefined;
@@ -323,37 +330,9 @@ function appInfo(): AppInfo {
   return { version: app.getVersion(), buildDate, platform: process.platform, packaged: app.isPackaged };
 }
 
-function compareVersions(a: string, b: string): number {
-  const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
-  const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d) return d;
-  }
-  return 0;
-}
-
-/** reads { "version": "x.y.z", "url": "https://…" } from the configured HTTPS URL; never installs anything */
-async function checkUpdate(): Promise<UpdateCheck> {
-  const current = app.getVersion();
-  const url = settings.updateUrl;
-  if (!url) return { current, status: 'no update source set (Settings → update URL)' };
-  if (!/^https:\/\//.test(url)) return { current, status: 'the update URL must start with https://' };
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await net.fetch(url, { signal: ctrl.signal, headers: { accept: 'application/json' } });
-    clearTimeout(t);
-    if (!res.ok) return { current, status: `update check failed (HTTP ${res.status})` };
-    const j = (await res.json()) as { version?: unknown; url?: unknown };
-    const latest = typeof j.version === 'string' && /^\d+(\.\d+){0,3}$/.test(j.version) ? j.version : undefined;
-    if (!latest) return { current, status: 'update file has no valid "version"' };
-    const link = typeof j.url === 'string' && /^https:\/\//.test(j.url) ? j.url : undefined;
-    const cmp = compareVersions(latest, current);
-    return { current, latest, url: link, status: cmp > 0 ? `update available: ${latest}` : cmp < 0 ? `you have a newer build than ${latest}` : 'up to date' };
-  } catch (e) {
-    return { current, status: `update check failed: ${(e as Error).message}` };
-  }
+/** reads the latest GitHub release of the configured repository; never installs anything by itself */
+function checkUpdate(): Promise<UpdateCheck> {
+  return checkGithub(settings.updateRepo || DEFAULT_REPO);
 }
 
 // ---------------------------------------------------------------- IPC (all inputs validated)
@@ -388,8 +367,45 @@ ipcMain.handle('settings:set', async (e, patch: unknown) => {
   await settingsStore.write(settings);
   return result;
 });
+ipcMain.handle('teach:load', (e) => (fromWindow(e) ? teachStore.read() : []));
+ipcMain.handle('teach:save', async (e, raw: unknown) => {
+  if (!fromWindow(e)) return [];
+  const rules = sanitizeRules(raw);
+  await teachStore.write(rules);
+  return rules;
+});
+ipcMain.handle('unanswered:load', (e) => (fromWindow(e) ? unansweredStore.read() : []));
+ipcMain.handle('unanswered:add', async (e, raw: unknown) => {
+  if (!fromWindow(e)) return 0;
+  const items = Array.isArray(raw) ? raw.slice(0, 200) : [];
+  const cur = await unansweredStore.read();
+  const next = mergeUnanswered(cur, items, app.getVersion(), Date.now());
+  if (next !== cur) await unansweredStore.write(next);
+  return next.length;
+});
+ipcMain.handle('unanswered:clear', async (e) => {
+  if (fromWindow(e)) await unansweredStore.write([]);
+});
+ipcMain.handle('unanswered:csv', async (e) => (fromWindow(e) ? unansweredCsv(await unansweredStore.read()) : ''));
+ipcMain.handle('unanswered:export', async (e) => {
+  if (!fromWindow(e) || !win) return null;
+  const items = await unansweredStore.read();
+  const stamp = new Date().toISOString().slice(0, 10);
+  const r = await dialog.showSaveDialog(win, { title: 'Save unanswered questions', defaultPath: join(app.getPath('documents'), `fataak-unanswered-${stamp}.csv`), filters: [{ name: 'CSV', extensions: ['csv'] }] });
+  if (r.canceled || !r.filePath) return null;
+  // UTF-8 BOM so Excel reads Hindi letters correctly
+  await writeFile(r.filePath, '\ufeff' + unansweredCsv(items), 'utf8');
+  return r.filePath;
+});
 ipcMain.handle('app:info', (e) => (fromWindow(e) ? appInfo() : null));
-ipcMain.handle('app:checkUpdate', (e) => (fromWindow(e) ? checkUpdate() : { current: '', status: 'denied' }));
+ipcMain.handle('app:checkUpdate', (e) => (fromWindow(e) ? checkUpdate() : { current: '', status: 'denied', canInstall: false }));
+ipcMain.handle('app:installUpdate', (e, url: unknown, version: unknown) => {
+  if (!fromWindow(e) || typeof url !== 'string' || typeof version !== 'string') return { ok: false, status: 'denied' };
+  return installUpdate(url, version, win, () => {
+    quitting = true;
+    app.quit();
+  });
+});
 ipcMain.handle('rates:get', async (e, base: unknown) => {
   if (!fromWindow(e) || typeof base !== 'string' || !/^[A-Z]{3}$/.test(base)) return null;
   return rates.get(base);

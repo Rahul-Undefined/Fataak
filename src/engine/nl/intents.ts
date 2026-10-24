@@ -2145,7 +2145,7 @@ export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
   // everyday calculators (tax, SIP, festivals, equations, …) see the raw line and the words
   if (words.length) {
     const ex = extraIntents(raw, analyse(words, notes), ctx, (ws) => intentTimeSpan(analyse(ws, []), ctx));
-    if (ex) return ex;
+    if (ex) return notes.length && !ex.note?.includes(notes[0]) ? { ...ex, note: ex.note ? `${ex.note} · ${notes.join(' · ')}` : notes.join(' · ') } : ex;
   }
   const tz = intentTimezone(raw, ctx);
   if (tz) return tz;
