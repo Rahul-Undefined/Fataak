@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.2',
+    date: '24 Oct 2026',
+    added: ['Desktop orb (Settings): a small orb stays on the desktop; hover or click it to open the quick launcher. Drag it anywhere; it never takes focus'],
+  },
+  {
     version: '1.3.1',
     date: '24 Oct 2026',
     changed: ['Quick launcher: a closing animation after the answer is copied or on Esc (the capsule folds into the orb, which rises back out of the screen)'],
