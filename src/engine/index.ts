@@ -16,6 +16,7 @@ import { intentEquation, intentRangeList, FESTIVALS } from './extras';
 export * from './types';
 export { formatQuantity } from './format';
 export { tokenize } from './tokenizer';
+import { lookupFixed } from './fixed';
 export { suggest, setTeachRules, applyTeachRules, previewRule, ruleProblem, sanitizeRules, cleanPhrase, type TeachRule, type Suggestion } from './teach';
 import { setTeachRules, type TeachRule } from './teach';
 export * from './history';
@@ -24,6 +25,8 @@ export interface DocumentOptions {
   rates: RateProvider;
   /** the user's "Teach FATAAK" rules; installed for this evaluation */
   rules?: TeachRule[];
+  /** pinned definitions ("salary = 85000"), evaluated before the document; their names are available on every line */
+  pinned?: string[];
   now?: () => DateTime;
   zone?: string;
 }
@@ -165,6 +168,11 @@ export function evaluateLine(rawText: string, ctx: EvalContext, variables: Set<s
   let value: Quantity | undefined;
   let firstError: CalcError | undefined;
 
+  // 0. a fact, not a calculation ("section 80c" must not become 80 °C); a defined name still wins
+  if (!variables.has(clean.trim().toLowerCase())) {
+    const fixed = lookupFixed(clean);
+    if (fixed) return { ok: true, value: fixed, display: formatQuantity(fixed), note: fixed.note, isText: false, label: labelKey, spans: spans() };
+  }
   // 1. plain expression, with its working
   try {
     const t = traced(() => evaluate(parseTokens(tokenize(clean), parseOpts), ctx));
@@ -449,6 +457,13 @@ export function evaluateDocument(lines: string[], opts: DocumentOptions): LineRe
   let block: Quantity[] = [];
   let contextStart = 0;
   const results: LineResult[] = [];
+  for (const line of opts.pinned ?? []) {
+    if (!line.trim()) continue;
+    const ctx: EvalContext = { variables, previous: [], block: [], rates: opts.rates, now, zone, contextStart: 0 };
+    const r = evaluateLine(line, ctx, new Set(variables.keys()));
+    if (r.ok && r.label) variables.set(r.label, r.value!);
+    if (r.ok && r.defines) for (const [k, v] of Object.entries(r.defines)) variables.set(k, v);
+  }
   for (const line of lines) {
     if (line.trim() === '') {
       block = [];

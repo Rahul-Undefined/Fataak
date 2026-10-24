@@ -10,6 +10,8 @@ import { RendererRates } from './rates';
 import { Tutorial } from './Tutorial';
 import { SuggestChips, TeachPanel, UnansweredPanel } from './Learn';
 import { WhatsNew } from './WhatsNew';
+import { compareVersions } from '../../shared/changelog';
+import { PinnedPanel } from './Pinned';
 
 const rates = new RendererRates();
 const LINE_PX = 31;
@@ -39,7 +41,7 @@ function explain(note: string): string[] {
  * One result row. Click copies the answer; double-click opens the working (every step, rate, source).
  * The note is drawn inline only when it fits between the expression and the result.
  */
-function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover }: { r: LineResult; text: string; rows: number; open: boolean; onCopy: (t: string) => void; onToggle: () => void; onHover: (over: boolean) => void }) {
+function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover, onPin, pinned }: { r: LineResult; text: string; rows: number; open: boolean; onCopy: (t: string) => void; onToggle: () => void; onHover: (over: boolean) => void; onPin?: () => void; pinned?: boolean }) {
   const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (!copied) return;
@@ -65,6 +67,11 @@ function ResultRow({ r, text, rows, open, onCopy, onToggle, onHover }: { r: Line
         <span className="note hint pill" title={r.note} onDoubleClick={onDouble}>
           ?
         </span>
+      )}
+      {r.ok && r.label && onPin && (
+        <button className={`pin${pinned ? ' on' : ''}`} title={pinned ? 'pinned: this name never expires' : 'pin this value so it never expires'} onClick={onPin} tabIndex={-1}>
+          📌
+        </button>
       )}
       {r.ok && (
         <span key={r.display} className={`value${copied ? ' copied' : ''}`} onClick={onClick} onDoubleClick={onDouble} title={tip}>
@@ -139,6 +146,8 @@ export function App() {
   const [hoverLine, setHoverLine] = useState<number | null>(null);
   const [selLines, setSelLines] = useState<[number, number] | null>(null);
   const [rules, setRules] = useState<TeachRule[]>([]);
+  const [pinned, setPinned] = useState<string[]>([]);
+  const [showPinned, setShowPinned] = useState(false);
   const [unanswered, setUnanswered] = useState<Unanswered[]>([]);
   const [teachFor, setTeachFor] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
@@ -173,12 +182,13 @@ export function App() {
       }
       const seen = s.settings.lastSeenVersion;
       if (i && i.version && i.version !== 'dev' && seen !== i.version) {
-        // a fresh install shows the tutorial instead; an update shows what changed
-        if (seen) setWhatsNew({ since: seen });
+        // a fresh install shows the tutorial instead; an update (never a downgrade) shows what changed
+        if (seen && compareVersions(i.version, seen) > 0) setWhatsNew({ since: seen });
         void api.settings.set({ lastSeenVersion: i.version });
       }
     });
     void api.teach.load().then(setRules);
+    void api.pinned.load().then(setPinned);
     void api.unanswered.load().then(setUnanswered);
     // a quiet check once at start-up (installed app only); an update shows as a chip in the title bar
     const t = window.setTimeout(() => {
@@ -188,10 +198,24 @@ export function App() {
     const offShow = api.onShow(() => {
       textareaRef.current?.focus();
     });
+    const offInsert = api.onInsert((t) => {
+      setLines((prev) => {
+        const texts = prev.map((l) => l.text);
+        const next = texts.length === 1 && !texts[0] ? [t] : [...texts, t];
+        return syncLines(prev, next, Date.now());
+      });
+      requestAnimationFrame(() => {
+        const ta = textareaRef.current;
+        if (!ta) return;
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = ta.value.length;
+      });
+    });
     return () => {
       window.clearTimeout(t);
       offProgress();
       offShow();
+      offInsert();
     };
   }, []);
 
@@ -243,8 +267,8 @@ export function App() {
   const text = useMemo(() => texts.join('\n'), [texts]);
   const results = useMemo(() => {
     void ratesVersion;
-    return evaluateDocument(texts, { rates, rules });
-  }, [texts, ratesVersion, rules]);
+    return evaluateDocument(texts, { rates, rules, pinned });
+  }, [texts, ratesVersion, rules, pinned]);
 
   // ---- unanswered log: a line that stayed not-understood for a few seconds (and is not being typed) is recorded
   const logTimer = useRef<number | undefined>(undefined);
@@ -272,6 +296,15 @@ export function App() {
   }, [recordUnanswered]);
 
   const saveRules = useCallback((next: TeachRule[]) => void api.teach.save(next).then(setRules), []);
+  const savePinned = useCallback((next: string[]) => void api.pinned.save(next).then(setPinned), []);
+  /** pin a definition line from the editor: an existing pin with the same name is replaced */
+  const pinLine = (idx: number) => {
+    const r = results[idx];
+    const t = texts[idx]?.trim();
+    if (!r?.ok || !r.label || !t) return;
+    const existing = evaluateDocument(pinned, { rates, rules });
+    savePinned([...pinned.filter((_l, k) => existing[k]?.label !== r.label), t]);
+  };
   const replaceLine = (idx: number, newText: string) => {
     const next = texts.slice();
     next[idx] = newText;
@@ -535,6 +568,8 @@ export function App() {
                 open={openId === (lines[i]?.id ?? String(i))}
                 onCopy={copy}
                 onToggle={() => setOpenId((cur) => (cur === (lines[i]?.id ?? String(i)) ? null : (lines[i]?.id ?? String(i))))}
+                onPin={() => pinLine(i)}
+                pinned={pinned.some((l) => l.trim() === texts[i]?.trim())}
               />
             ))}
           </div>
@@ -598,6 +633,14 @@ export function App() {
           <div className="srow">
             <span>System tray icon</span>
             <input type="checkbox" checked={settings.tray} onChange={(e) => void updateSettings({ tray: e.target.checked })} />
+          </div>
+          <div className="srow">
+            <span>Quick launcher</span>
+            <input type="checkbox" checked={settings.launcher} onChange={(e) => void updateSettings({ launcher: e.target.checked })} title="the hotkey opens a small bar with an orb instead of this window; Enter copies the answer, Ctrl+Enter brings it here" />
+          </div>
+          <div className="srow">
+            <span>Start with Windows</span>
+            <input type="checkbox" checked={settings.startup} onChange={(e) => void updateSettings({ startup: e.target.checked })} title="opens in the tray at login; Alt+Space brings it up" />
           </div>
           <div className="srow">
             <span>Close hides to tray</span>
@@ -667,6 +710,9 @@ export function App() {
             <button className="link" onClick={() => (setShowSettings(false), setTeachFor(''))} title="teach FATAAK your own way of asking">
               ✎ Teach FATAAK{rules.length ? ` (${rules.length})` : ''}
             </button>
+            <button className="link" onClick={() => (setShowSettings(false), setShowPinned(true))} title="names that never expire">
+              📌 Pinned{pinned.length ? ` (${pinned.length})` : ''}
+            </button>
             <button className="link" onClick={() => (setShowSettings(false), setShowLog(true))} title="questions FATAAK could not answer, ready to share">
               Unanswered{unanswered.length ? ` (${unanswered.length})` : ''}
             </button>
@@ -703,6 +749,7 @@ export function App() {
           onTeach={(t) => (setShowLog(false), setTeachFor(t))}
         />
       )}
+      {showPinned && <PinnedPanel pinned={pinned} rates={rates} rules={rules} onSave={savePinned} onClose={() => (setShowPinned(false), textareaRef.current?.focus())} />}
       {whatsNew && info && <WhatsNew version={info.version} since={whatsNew.since} onClose={() => (setWhatsNew(null), textareaRef.current?.focus())} />}
       {showTutorial && settingsLoaded && <Tutorial onDone={finishTutorial} />}
     </div>

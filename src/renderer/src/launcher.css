@@ -1,0 +1,296 @@
+/* FATAAK quick launcher: an orb falls in from the top, slides left, and the capsule opens out of it. Sharp glass, no haze. */
+:root {
+  --tint: #7c5cff;
+  --font-mono: 'JetBrains Mono', 'Cascadia Mono', Consolas, monospace;
+  --font-ui: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --glass: rgba(14, 17, 27, 0.92);
+  --edge: rgba(255, 255, 255, 0.14);
+  --text: #f1f4f9;
+  --muted: #8b96a8;
+  --result: #8af0c2;
+  --c1: color-mix(in srgb, var(--tint) 80%, #4f8cff);
+  --c2: color-mix(in srgb, var(--tint) 50%, #ff4fa3);
+  --c3: color-mix(in srgb, var(--tint) 35%, #34e5ff);
+  --cap-h: 60px;
+  --orb: 44px;
+  --slot: 8px;
+}
+:root[data-theme='light'] {
+  --glass: rgba(255, 255, 255, 0.94);
+  --edge: rgba(15, 23, 42, 0.14);
+  --text: #16202e;
+  --muted: #64718a;
+  --result: #0f7a4d;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: var(--font-ui);
+}
+.launcher {
+  position: relative;
+  height: 100%;
+  padding: 72px 24px 0;
+}
+.stage {
+  position: relative;
+  height: var(--cap-h);
+}
+
+/* ---- the capsule: opens from the orb's resting spot ---- */
+.capsule {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: var(--cap-h);
+  padding: 0 20px 0 calc(var(--orb) + var(--slot) + 14px);
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  clip-path: inset(0 100% 0 0 round 999px);
+  opacity: 0;
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+.in .capsule {
+  animation: cap-open 420ms cubic-bezier(0.22, 1, 0.36, 1) 760ms both;
+}
+@keyframes cap-open {
+  from {
+    clip-path: inset(0 calc(100% - var(--cap-h)) 0 0 round 999px);
+    opacity: 1;
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 999px);
+    opacity: 1;
+  }
+}
+.capsule.responding {
+  border-color: color-mix(in srgb, var(--result) 45%, var(--edge));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in srgb, var(--result) 18%, transparent);
+}
+.capsule.thinking {
+  border-color: color-mix(in srgb, var(--c2) 45%, var(--edge));
+}
+
+/* ---- the orb: falls from above the screen, lands at the centre, slides to its slot ---- */
+.orb {
+  position: absolute;
+  top: calc((var(--cap-h) - var(--orb)) / 2);
+  left: var(--slot);
+  width: var(--orb);
+  height: var(--orb);
+  transform: translate(var(--cx), -220px);
+  z-index: 2;
+}
+.in .orb {
+  animation: orb-fall 620ms cubic-bezier(0.34, 1.56, 0.64, 1) both, orb-slide 380ms cubic-bezier(0.22, 1, 0.36, 1) 820ms both;
+}
+@keyframes orb-fall {
+  from {
+    transform: translate(var(--cx), -220px);
+  }
+  to {
+    transform: translate(var(--cx), 0);
+  }
+}
+@keyframes orb-slide {
+  from {
+    transform: translate(var(--cx), 0);
+  }
+  to {
+    transform: translate(0, 0);
+  }
+}
+.orb-core {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #ffffff 0, var(--c3) 16%, var(--c1) 46%, var(--c2) 80%, color-mix(in srgb, var(--c2) 60%, #000) 100%);
+  animation: breathe 3.4s ease-in-out infinite;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--c1) 70%, transparent);
+}
+.orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, var(--c1), var(--c2), var(--c3), var(--c1));
+  -webkit-mask: radial-gradient(circle, transparent 66%, #000 68%, #000 78%, transparent 80%);
+  mask: radial-gradient(circle, transparent 66%, #000 68%, #000 78%, transparent 80%);
+  opacity: 0.7;
+  animation: spin 10s linear infinite;
+}
+.orb-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--c3) 75%, transparent);
+  opacity: 0;
+  transform: scale(0.7);
+}
+.orb-spark {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--result) 45%, transparent) 0, transparent 62%);
+  opacity: 0;
+}
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes ripple {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.72);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@keyframes swell {
+  0% {
+    transform: scale(0.95);
+  }
+  35% {
+    transform: scale(1.18);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes flash {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+.listening .orb-core {
+  animation-duration: 1s;
+}
+.listening .orb-ripple.r1 {
+  animation: ripple 1.2s ease-out infinite;
+}
+.listening .orb-ripple.r2 {
+  animation: ripple 1.2s ease-out 0.6s infinite;
+}
+.thinking .orb-ring {
+  animation-duration: 1.2s;
+  opacity: 1;
+}
+.thinking .orb-core {
+  animation-duration: 1.8s;
+  filter: saturate(1.6);
+}
+.responding .orb-core {
+  animation: swell 700ms cubic-bezier(0.22, 1, 0.36, 1) 1, breathe 3.4s ease-in-out 700ms infinite;
+}
+.responding .orb-spark {
+  animation: flash 700ms ease-out 1;
+}
+
+/* ---- input and answer ---- */
+.capsule input {
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 17px;
+  font-weight: 450;
+  letter-spacing: 0.01em;
+  caret-color: var(--c3);
+  opacity: 0;
+}
+.in .capsule input {
+  animation: fade-in 260ms ease 1000ms both;
+}
+@keyframes fade-in {
+  to {
+    opacity: 1;
+  }
+}
+.capsule input::placeholder {
+  color: var(--muted);
+}
+.answer {
+  flex: 0 0 auto;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-left: 16px;
+  border-left: 1px solid var(--edge);
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--result);
+  animation: pop 360ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.answer.copied {
+  color: var(--text);
+}
+.answer.copied::after {
+  content: '  copied';
+  color: var(--result);
+  font-family: var(--font-ui);
+  font-weight: 500;
+  font-size: 12px;
+}
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---- the hint under the capsule ---- */
+.hint {
+  height: 0;
+  margin: 0 0 0 calc(var(--orb) + var(--slot) + 14px);
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease, margin 220ms ease;
+}
+.hint.show {
+  height: 18px;
+  margin-top: 10px;
+  opacity: 1;
+}

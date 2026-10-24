@@ -37,6 +37,7 @@ interface Bounds {
 type StoredSettings = Settings & { bounds?: Bounds };
 
 let win: BrowserWindow | null = null;
+let launcher: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
 let settings: StoredSettings = { ...DEFAULT_SETTINGS };
@@ -49,6 +50,8 @@ const historyStore = new JsonStore<HistoryLine[]>(userData, 'history.json', sani
 const settingsStore = new JsonStore<StoredSettings>(userData, 'settings.json', validateSettings, () => ({ ...DEFAULT_SETTINGS }));
 const rates = new RateService(userData);
 const teachStore = new JsonStore<TeachRule[]>(userData, 'teach.json', sanitizeRules, () => []);
+const sanitizePinned = (raw: unknown): string[] => (Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string' && x.trim().length > 0 && x.length <= 200).slice(0, 100) : []);
+const pinnedStore = new JsonStore<string[]>(userData, 'pinned.json', sanitizePinned, () => []);
 const unansweredStore = new JsonStore<Unanswered[]>(userData, 'unanswered.json', sanitizeUnanswered, () => []);
 
 function validateSettings(raw: unknown): StoredSettings {
@@ -63,7 +66,7 @@ function validateSettings(raw: unknown): StoredSettings {
   if (typeof o.lastSeenVersion === 'string' && /^\d+(\.\d+){0,3}$/.test(o.lastSeenVersion)) out.lastSeenVersion = o.lastSeenVersion;
   if (typeof o.uiFont === 'string' && FONTS.some((f) => f.key === o.uiFont && f.kind === 'ui')) out.uiFont = o.uiFont;
   if (typeof o.editorFont === 'string' && FONTS.some((f) => f.key === o.editorFont && f.kind === 'mono')) out.editorFont = o.editorFont;
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   const b = o.bounds as Record<string, unknown> | undefined;
   if (b && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]))) {
     out.bounds = { x: b.x as number, y: b.y as number, width: Math.max(320, b.width as number), height: Math.max(220, b.height as number) };
@@ -146,6 +149,8 @@ function createWindow(): BrowserWindow {
   w.on('moved', rememberBounds);
   w.on('resized', rememberBounds);
   w.once('ready-to-show', () => {
+    // started with Windows: stay in the tray until the hotkey or the tray icon asks for the window
+    if (process.argv.includes('--hidden') && settings.tray) return;
     w.show();
     w.focus();
     applyWidgetMode(w);
@@ -190,7 +195,83 @@ function showWindow(): void {
   win.webContents.send('app:show');
 }
 
+// ---------------------------------------------------------------- quick launcher
+const LAUNCHER_W = 640;
+const LAUNCHER_H = 170;
+
+function createLauncher(): BrowserWindow {
+  const l = new BrowserWindow({
+    width: LAUNCHER_W,
+    height: LAUNCHER_H,
+    frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    title: 'FATAAK',
+    icon: process.platform === 'win32' ? ICON_ICO : ICON_PNG,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js'),
+      contextIsolation: true,
+      sandbox: true,
+      nodeIntegration: false,
+      webSecurity: true,
+      allowRunningInsecureContent: false,
+      spellcheck: false,
+      devTools: isDev,
+    },
+  });
+  l.setMenuBarVisibility(false);
+  l.setAlwaysOnTop(true, 'pop-up-menu');
+  l.webContents.on('will-navigate', (e) => e.preventDefault());
+  l.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  if (process.env['FATAAK_LAUNCHER_TEST']) {
+    l.webContents.on('console-message', (_e, level, message) => console.error(`[launcher-console ${level}] ${message}`));
+    l.webContents.on('did-fail-load', (_e, code, desc) => console.error(`[launcher-fail] ${code} ${desc}`));
+  }
+  if (!process.env['FATAAK_LAUNCHER_TEST']) l.on('blur', () => l.hide());
+  l.on('closed', () => {
+    launcher = null;
+  });
+  if (isDev) void l.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/launcher.html`);
+  else void l.loadFile(join(__dirname, '../renderer/launcher.html'));
+  return l;
+}
+
+/** top centre of the display under the cursor: the orb falls in from the screen's edge */
+function placeLauncher(l: BrowserWindow): void {
+  const wa = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+  l.setBounds({ x: Math.round(wa.x + (wa.width - LAUNCHER_W) / 2), y: wa.y, width: LAUNCHER_W, height: LAUNCHER_H });
+}
+
+function toggleLauncher(): void {
+  if (launcher && !launcher.isDestroyed() && launcher.isVisible()) {
+    launcher.hide();
+    return;
+  }
+  if (!launcher || launcher.isDestroyed()) launcher = createLauncher();
+  placeLauncher(launcher);
+  const show = () => {
+    if (!launcher || launcher.isDestroyed()) return;
+    launcher.show();
+    launcher.focus();
+    launcher.webContents.send('app:show');
+  };
+  if (launcher.webContents.isLoading()) launcher.webContents.once('did-finish-load', show);
+  else show();
+}
+
 function toggleWindow(): void {
+  if (settings.launcher) {
+    toggleLauncher();
+    return;
+  }
   if (settings.widgetMode) {
     showWindow();
     return;
@@ -321,8 +402,19 @@ function updateTray(): void {
   tray?.setContextMenu(trayMenu());
 }
 
+/** Windows: a per-user Run entry (no admin); "--hidden" keeps the window in the tray at login */
+function applyStartup(): void {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  try {
+    app.setLoginItemSettings({ openAtLogin: settings.startup, path: process.execPath, args: ['--hidden'] });
+  } catch {
+    /* best effort */
+  }
+}
+
 function applySettings(): SettingsResult {
   const hotkeyError = registerHotkeyWithFallback();
+  applyStartup();
   updateTray();
   if (win && !win.isDestroyed()) {
     applyWidgetMode(win);
@@ -352,7 +444,10 @@ function checkUpdate(): Promise<UpdateCheck> {
 
 // ---------------------------------------------------------------- IPC (all inputs validated)
 function fromWindow(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
-  return !!win && e.sender === win.webContents;
+  return (!!win && e.sender === win.webContents) || (!!launcher && !launcher.isDestroyed() && e.sender === launcher.webContents);
+}
+function fromLauncher(e: Electron.IpcMainEvent): boolean {
+  return !!launcher && !launcher.isDestroyed() && e.sender === launcher.webContents;
 }
 
 ipcMain.handle('history:load', async (e) => {
@@ -381,6 +476,13 @@ ipcMain.handle('settings:set', async (e, patch: unknown) => {
   }
   await settingsStore.write(settings);
   return result;
+});
+ipcMain.handle('pinned:load', (e) => (fromWindow(e) ? pinnedStore.read() : []));
+ipcMain.handle('pinned:save', async (e, raw: unknown) => {
+  if (!fromWindow(e)) return [];
+  const lines = sanitizePinned(raw);
+  await pinnedStore.write(lines);
+  return lines;
 });
 ipcMain.handle('teach:load', (e) => (fromWindow(e) ? teachStore.read() : []));
 ipcMain.handle('teach:save', async (e, raw: unknown) => {
@@ -443,6 +545,19 @@ ipcMain.on('app:quit', (e) => {
   quitting = true;
   app.quit();
 });
+ipcMain.on('launcher:hide', (e) => {
+  if (fromLauncher(e)) launcher?.hide();
+});
+ipcMain.on('launcher:openInMain', (e, text: unknown) => {
+  if (!fromLauncher(e) || typeof text !== 'string') return;
+  launcher?.hide();
+  showWindow();
+  if (text.trim()) win?.webContents.send('app:insert', text.slice(0, 2000));
+});
+ipcMain.on('launcher:record', (e, text: unknown) => {
+  if (!fromLauncher(e) || typeof text !== 'string' || !text.trim()) return;
+  win?.webContents.send('app:insert', text.slice(0, 2000));
+});
 ipcMain.on('clipboard:write', (e, text: unknown) => {
   if (!fromWindow(e) || typeof text !== 'string' || text.length > 100000) return;
   clipboard.writeText(text);
@@ -475,6 +590,20 @@ app.whenReady().then(async () => {
   win = createWindow();
   const r = applySettings();
   if (r.hotkeyError) console.warn(r.hotkeyError);
+  // development only: open the quick launcher right away so it can be looked at without the hotkey
+  if (process.env['FATAAK_LAUNCHER_TEST'] && !app.isPackaged) {
+    setTimeout(() => {
+      toggleLauncher();
+      let k = 0;
+      const t = setInterval(() => {
+        console.error(`[launcher-test] ${++k}s visible=${launcher?.isVisible()} loading=${launcher?.webContents.isLoading()} url=${launcher?.webContents.getURL()}`);
+        if (k >= 6) {
+          clearInterval(t);
+          void launcher?.webContents.capturePage().then((img) => writeFile(join(app.getPath('userData'), 'launcher-capture.png'), img.toPNG())).then(() => console.error('[launcher-test] captured'));
+        }
+      }, 1000);
+    }, 4000);
+  }
 
   // sweep expired history once a minute even while hidden
   setInterval(async () => {

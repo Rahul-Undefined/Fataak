@@ -40,7 +40,7 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
       out[k] = f;
     }
   }
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen'] as const) {
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher'] as const) {
     if (k in o) {
       if (typeof o[k] !== 'boolean') throw new TypeError(`${k} must be boolean`);
       out[k] = o[k] as boolean;
@@ -49,6 +49,10 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
   return out;
 }
 
+function validatePinned(v: unknown): string[] {
+  if (!Array.isArray(v) || v.length > 100) throw new TypeError('pinned must be an array');
+  return v.map((x) => assertString(x, 'pinned line', 200));
+}
 function validateUnanswered(v: unknown): { text: string; hint: string }[] {
   if (!Array.isArray(v) || v.length > 200) throw new TypeError('items must be an array');
   return v.map((x) => {
@@ -72,6 +76,10 @@ const api: FataakApi = {
       ipcRenderer.on('app:updateProgress', handler);
       return () => ipcRenderer.removeListener('app:updateProgress', handler);
     },
+  },
+  pinned: {
+    load: () => ipcRenderer.invoke('pinned:load'),
+    save: (lines) => ipcRenderer.invoke('pinned:save', validatePinned(lines)),
   },
   teach: {
     load: () => ipcRenderer.invoke('teach:load'),
@@ -115,10 +123,20 @@ const api: FataakApi = {
   clipboard: {
     write: (text) => ipcRenderer.send('clipboard:write', assertString(text, 'text', 100000)),
   },
+  launcher: {
+    hide: () => ipcRenderer.send('launcher:hide'),
+    openInMain: (text) => ipcRenderer.send('launcher:openInMain', assertString(text, 'text', 2000)),
+    record: (text) => ipcRenderer.send('launcher:record', assertString(text, 'text', 2000)),
+  },
   onShow: (cb) => {
     const handler = () => cb();
     ipcRenderer.on('app:show', handler);
     return () => ipcRenderer.removeListener('app:show', handler);
+  },
+  onInsert: (cb) => {
+    const handler = (_e: unknown, text: unknown) => typeof text === 'string' && cb(text.slice(0, 2000));
+    ipcRenderer.on('app:insert', handler);
+    return () => ipcRenderer.removeListener('app:insert', handler);
   },
 };
 

@@ -923,7 +923,7 @@ for s in ["hello how are you", "what is the meaning of life", "convert my salary
           "100 usd + 50 eur", "5 apples + 3 oranges in kg", "what time is it on mars", "fd 2 lakh", "income tax", "ctc", "bmr 70 kg", "split 1000", "pace", "grade for",
           "x% of 80", "convert 5", "5 kg in", "in km", "how many", "tax on", "10 @ 5", "???", "calculate", "%", "100 100", "5 5 5", "12 apples 3 oranges",
           "weather tomorrow", "translate 5 to hindi", "remind me at 5pm", "open calculator", "who is the pm of india", "capital of france", "2 + 2 = 5",
-          "diwali 2031", "holi 2019", "rd 5000 for 2 years", "ideal weight", "water intake", "steps in km"]:
+          "diwali 2031", "holi 2019", "rd 5000 for 2 years", "ideal weight", "steps in km"]:
     err("S-safety", s, note="must be an error/clarification, never a plausible unrelated number")
 # whitespace, punctuation, casing
 for s, v in [("  25%   of   480  ", 120), ("25% OF 480", 120), ("25% Of 480.", 120), ("25 % of 480", 120), ("Emi 5 Lakh At 9% For 5 Years", D("10379.18")), ("EMI 5 LAKH AT 9% FOR 5 YEARS", D("10379.18")),

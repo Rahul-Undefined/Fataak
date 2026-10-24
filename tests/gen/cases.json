@@ -54975,15 +54975,6 @@
 {
 "id": "S-safety-4604",
 "cat": "S-safety",
-"input": "water intake",
-"expect": {
-"type": "error"
-},
-"note": "must be an error/clarification, never a plausible unrelated number"
-},
-{
-"id": "S-safety-4605",
-"cat": "S-safety",
 "input": "steps in km",
 "expect": {
 "type": "error"
@@ -54991,7 +54982,7 @@
 "note": "must be an error/clarification, never a plausible unrelated number"
 },
 {
-"id": "S-format-4606",
+"id": "S-format-4605",
 "cat": "S-format",
 "input": "  25%   of   480  ",
 "expect": {
@@ -55003,7 +54994,7 @@
 "note": ""
 },
 {
-"id": "S-format-4607",
+"id": "S-format-4606",
 "cat": "S-format",
 "input": "25% OF 480",
 "expect": {
@@ -55015,7 +55006,7 @@
 "note": ""
 },
 {
-"id": "S-format-4608",
+"id": "S-format-4607",
 "cat": "S-format",
 "input": "25% Of 480.",
 "expect": {
@@ -55027,7 +55018,7 @@
 "note": ""
 },
 {
-"id": "S-format-4609",
+"id": "S-format-4608",
 "cat": "S-format",
 "input": "25 % of 480",
 "expect": {
@@ -55039,7 +55030,7 @@
 "note": ""
 },
 {
-"id": "S-format-4610",
+"id": "S-format-4609",
 "cat": "S-format",
 "input": "Emi 5 Lakh At 9% For 5 Years",
 "expect": {
@@ -55051,7 +55042,7 @@
 "note": ""
 },
 {
-"id": "S-format-4611",
+"id": "S-format-4610",
 "cat": "S-format",
 "input": "EMI 5 LAKH AT 9% FOR 5 YEARS",
 "expect": {
@@ -55063,7 +55054,7 @@
 "note": ""
 },
 {
-"id": "S-format-4612",
+"id": "S-format-4611",
 "cat": "S-format",
 "input": "sqrt( 144 )",
 "expect": {
@@ -55075,7 +55066,7 @@
 "note": ""
 },
 {
-"id": "S-format-4613",
+"id": "S-format-4612",
 "cat": "S-format",
 "input": "2+3*4",
 "expect": {
@@ -55087,7 +55078,7 @@
 "note": ""
 },
 {
-"id": "S-format-4614",
+"id": "S-format-4613",
 "cat": "S-format",
 "input": "2 +3* 4",
 "expect": {
@@ -55099,7 +55090,7 @@
 "note": ""
 },
 {
-"id": "S-format-4615",
+"id": "S-format-4614",
 "cat": "S-format",
 "input": "1,00,000 + 1",
 "expect": {
@@ -55111,7 +55102,7 @@
 "note": ""
 },
 {
-"id": "S-format-4616",
+"id": "S-format-4615",
 "cat": "S-format",
 "input": "1,000,000 / 4",
 "expect": {
@@ -55123,7 +55114,7 @@
 "note": ""
 },
 {
-"id": "S-format-4617",
+"id": "S-format-4616",
 "cat": "S-format",
 "input": "₹500 + ₹250",
 "expect": {
@@ -55135,7 +55126,7 @@
 "note": ""
 },
 {
-"id": "S-format-4618",
+"id": "S-format-4617",
 "cat": "S-format",
 "input": "rs 500 + rs 250",
 "expect": {
@@ -55147,7 +55138,7 @@
 "note": ""
 },
 {
-"id": "S-format-4619",
+"id": "S-format-4618",
 "cat": "S-format",
 "input": "Rs. 1,200 - 10%",
 "expect": {

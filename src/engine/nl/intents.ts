@@ -29,6 +29,7 @@ import { tryParseDate } from '../dates';
 import { isCurrencyWord, currencyBySymbol, findCurrency } from '../currency';
 import { isUnitWord, findUnit } from '../units';
 import { lookupFact } from '../facts';
+import { lookupFixed } from '../fixed';
 import { extraIntents } from '../extras';
 import { div as divQ, mul as mulQ } from '../evaluator';
 import { KEYWORDS } from '../parser';
@@ -1058,7 +1059,10 @@ function intentTimeSpan(p: Parsed, ctx: EvalContext): Quantity | null {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes - h * 60);
   const display = m === 0 ? `${h} h` : `${h} h ${m} min`;
-  return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', display, note: `${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}${end.ordinal !== start.ordinal ? ' next day' : ''}` };
+  const total = end.diff(start, 'minutes').minutes;
+  const spanSteps = [`${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}${end.ordinal !== start.ordinal ? ' (next day)' : ''} = ${Math.floor(total / 60)} h ${Math.round(total % 60)} min`];
+  if (total !== minutes) spanSteps.push(`minus break ${Math.round(total - minutes)} min = ${h} h ${m} min`);
+  return { kind: 'unit', value: new Decimal(minutes).div(60), unit: 'h', steps: spanSteps, display, note: `${start.toFormat('h:mm a')} → ${end.toFormat('h:mm a')}${end.ordinal !== start.ordinal ? ' next day' : ''}` };
 }
 
 const MONTH_NAMES = new Set(['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'january', 'february', 'march', 'april', 'june', 'july', 'august', 'september', 'october', 'november', 'december']);
@@ -1170,7 +1174,7 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
       const since = p.has('from') && !p.has('to') && d.startOf('day') < today;
       const [a, b] = since ? [d.startOf('day'), today] : [today, d.startOf('day')];
       const days = b.diff(a, 'days').days;
-      return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
+      return { kind: 'unit', value: new Decimal(days), unit: 'day', steps: [`${a.toFormat('ccc, d LLL yyyy')} → ${b.toFormat('ccc, d LLL yyyy')}`, `${days} days (the end date is not counted)`], note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
     }
     if (dates[0].q.display) return dates[0].q;
     // "days until 25 dec 2026", "25 dec tak kitne din", "how many days to 1 jan 2027" → from today;
@@ -1180,7 +1184,7 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
       const since = p.has('from') && !p.has('to') && dates[0].q.date!.startOf('day') < today;
       const [a, b] = since ? [d.startOf('day'), today] : [today, d.startOf('day')];
       const days = b.diff(a, 'days').days;
-      return { kind: 'unit', value: new Decimal(days), unit: 'day', note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
+      return { kind: 'unit', value: new Decimal(days), unit: 'day', steps: [`${a.toFormat('ccc, d LLL yyyy')} → ${b.toFormat('ccc, d LLL yyyy')}`, `${days} days (the end date is not counted)`], note: `${a.toFormat('d LLL yyyy')} → ${b.toFormat('d LLL yyyy')}` };
     }
     // Hindi order: "february 2028 ka last day", "march ka aakhri din"
     if ((p.has('last') || p.has('end')) && (p.has('day') || p.has('days'))) {
@@ -1198,7 +1202,7 @@ function intentDates(p: Parsed, ctx: EvalContext): Quantity | null {
   const d = dates[0].q.date!;
   const unitKey = unit as 'years' | 'months' | 'weeks' | 'days' | 'hours' | 'minutes';
   const shifted = d.plus({ [unitKey]: amount.mul(sign).toNumber() });
-  const q: Quantity = { kind: 'date', value: new Decimal(shifted.toMillis()), date: shifted, display: shifted.toFormat('ccc, d LLL yyyy') };
+  const q: Quantity = { kind: 'date', value: new Decimal(shifted.toMillis()), date: shifted, display: shifted.toFormat('ccc, d LLL yyyy'), steps: [`${d.toFormat('ccc, d LLL yyyy')} ${sign > 0 ? '+' : '−'} ${formatNumber(amount)} ${unitKey}`, `= ${shifted.toFormat('ccc, d LLL yyyy')}${unitKey === 'months' || unitKey === 'years' ? ' (a day the month does not have moves to its last day)' : ''}`] };
   if (p.notes.length) q.note = p.notes.join(' · ');
   return q;
 }
@@ -2058,7 +2062,7 @@ function intentBmi(p: Parsed, ctx: EvalContext): Quantity | null {
   if (m.lte(0)) throw new CalcError('height must be positive');
   const bmi = kg.div(m.pow(2)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   const band = bmi.lt('18.5') ? 'underweight' : bmi.lt(25) ? 'normal' : bmi.lt(30) ? 'overweight' : 'obese';
-  return { kind: 'number', value: bmi, note: `BMI = kg ÷ m² · ${formatQuantity(mass)} / (${formatNumber(m, { maxDecimals: 3 })} m)² · ${band} (WHO)` };
+  return { kind: 'number', value: bmi, steps: [`BMI = weight ÷ height²`, `= ${formatQuantity(mass)} ÷ (${formatNumber(m, { maxDecimals: 3 })} m)² = ${formatNumber(bmi, { maxDecimals: 1 })}`, `${band} (WHO bands: under 18.5 underweight, 18.5–24.9 normal, 25–29.9 overweight, 30+ obese)`], note: `BMI = kg ÷ m² · ${formatQuantity(mass)} / (${formatNumber(m, { maxDecimals: 3 })} m)² · ${band} (WHO)` };
 }
 
 const PERIOD_PER_YEAR: Record<string, number> = { yearly: 1, quarterly: 4, monthly: 12, weekly: 52, daily: 365 };
@@ -2172,6 +2176,9 @@ function intentConvertMulti(p: Parsed, ctx: EvalContext): Quantity | null {
 
 export function runIntents(raw: string, ctx: EvalContext): IntentResult | null {
   // "distance from earth to moon", "everest ki height", "speed of light": reference facts (before zones: "great wall of china")
+  // facts that are not calculations ("unit of electricity", "full form of emi", "80c limit")
+  const fixed = lookupFixed(raw);
+  if (fixed) return fixed;
   const fact = lookupFact(raw);
   if (fact) return fact.q;
   const { words, notes } = normalize(raw);

@@ -21,9 +21,9 @@ export const noRates: RateProvider = { get: () => null };
 /** Friday 23 Oct 2026, 10:00 IST */
 export const NOW = DateTime.fromISO('2026-10-23T10:00:00', { zone: 'Asia/Kolkata' });
 
-export function run(lines: string | string[], opts: { rates?: RateProvider; now?: DateTime; zone?: string; rules?: TeachRule[] } = {}): LineResult[] {
+export function run(lines: string | string[], opts: { rates?: RateProvider; now?: DateTime; zone?: string; rules?: TeachRule[]; pinned?: string[] } = {}): LineResult[] {
   const arr = Array.isArray(lines) ? lines : [lines];
-  return evaluateDocument(arr, { rates: opts.rates ?? testRates, now: () => opts.now ?? NOW, zone: opts.zone ?? 'Asia/Kolkata', rules: opts.rules ?? [] });
+  return evaluateDocument(arr, { rates: opts.rates ?? testRates, now: () => opts.now ?? NOW, zone: opts.zone ?? 'Asia/Kolkata', rules: opts.rules ?? [], pinned: opts.pinned });
 }
 
 /** result text of the last line */

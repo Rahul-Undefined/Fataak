@@ -1,7 +1,7 @@
 {
  "summary": {
-  "total": 4619,
-  "pass": 4619,
+  "total": 4618,
+  "pass": 4618,
   "byCategory": {
    "A-expr": {
     "total": 217,
@@ -216,8 +216,8 @@
     "pass": 480
    },
    "S-safety": {
-    "total": 45,
-    "pass": 45
+    "total": 44,
+    "pass": 44
    },
    "S-format": {
     "total": 14,
@@ -225,7 +225,7 @@
    }
   },
   "byError": {
-   "ok": 4619
+   "ok": 4618
   }
  },
  "outcomes": [
@@ -47265,16 +47265,6 @@
   {
    "id": "S-safety-4604",
    "cat": "S-safety",
-   "input": "water intake",
-   "actual": "ERR: ",
-   "note": "must be an error/clarification, never a plausible unrelated number",
-   "expected": "error/clarification",
-   "pass": true,
-   "category": "ok"
-  },
-  {
-   "id": "S-safety-4605",
-   "cat": "S-safety",
    "input": "steps in km",
    "actual": "ERR: ",
    "note": "must be an error/clarification, never a plausible unrelated number",
@@ -47283,7 +47273,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4606",
+   "id": "S-format-4605",
    "cat": "S-format",
    "input": "  25%   of   480  ",
    "actual": "120",
@@ -47293,7 +47283,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4607",
+   "id": "S-format-4606",
    "cat": "S-format",
    "input": "25% OF 480",
    "actual": "120",
@@ -47303,7 +47293,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4608",
+   "id": "S-format-4607",
    "cat": "S-format",
    "input": "25% Of 480.",
    "actual": "120",
@@ -47313,7 +47303,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4609",
+   "id": "S-format-4608",
    "cat": "S-format",
    "input": "25 % of 480",
    "actual": "120",
@@ -47323,7 +47313,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4610",
+   "id": "S-format-4609",
    "cat": "S-format",
    "input": "Emi 5 Lakh At 9% For 5 Years",
    "actual": "10,379.18/month",
@@ -47333,7 +47323,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4611",
+   "id": "S-format-4610",
    "cat": "S-format",
    "input": "EMI 5 LAKH AT 9% FOR 5 YEARS",
    "actual": "10,379.18/month",
@@ -47343,7 +47333,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4612",
+   "id": "S-format-4611",
    "cat": "S-format",
    "input": "sqrt( 144 )",
    "actual": "12",
@@ -47353,7 +47343,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4613",
+   "id": "S-format-4612",
    "cat": "S-format",
    "input": "2+3*4",
    "actual": "14",
@@ -47363,7 +47353,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4614",
+   "id": "S-format-4613",
    "cat": "S-format",
    "input": "2 +3* 4",
    "actual": "14",
@@ -47373,7 +47363,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4615",
+   "id": "S-format-4614",
    "cat": "S-format",
    "input": "1,00,000 + 1",
    "actual": "100,001",
@@ -47383,7 +47373,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4616",
+   "id": "S-format-4615",
    "cat": "S-format",
    "input": "1,000,000 / 4",
    "actual": "250,000",
@@ -47393,7 +47383,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4617",
+   "id": "S-format-4616",
    "cat": "S-format",
    "input": "₹500 + ₹250",
    "actual": "₹750",
@@ -47403,7 +47393,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4618",
+   "id": "S-format-4617",
    "cat": "S-format",
    "input": "rs 500 + rs 250",
    "actual": "₹750",
@@ -47413,7 +47403,7 @@
    "category": "ok"
   },
   {
-   "id": "S-format-4619",
+   "id": "S-format-4618",
    "cat": "S-format",
    "input": "Rs. 1,200 - 10%",
    "actual": "₹1,080",

@@ -183,3 +183,15 @@ families bundled as latin variable woff2 (400 KB, `scripts/fetch-fonts.py`), cho
 `--font-ui` / `--font-mono`; the editor's layout measures the glyph width, so any monospace choice keeps the result
 column aligned. Spelled-out `multiplied by` / `divided by` now bind looser than `+`/`-` in both the parser and the
 language layer (symbols keep ordinary precedence); the result note says which reading was used. Suite 6,387 tests.
+
+## Version 1.3.0 (24 Oct 2026)
+
+Quick launcher: a second, transparent BrowserWindow (`src/renderer/launcher.html`, `LauncherApp.tsx`) placed at the
+bottom-right of the display under the cursor, always on top, hidden on blur; the hotkey toggles it when the setting is
+on. Its orb state is derived from the line (idle / listening while typing / thinking when not understood / responding).
+Answered lines are forwarded to the main window through `launcher:record` → `app:insert`. Verified by capturing the
+launcher page from its own renderer in a development instance (`FATAAK_LAUNCHER_TEST`); the screen-capture path used
+earlier cannot see DirectComposition windows, which is why a plain screenshot shows nothing there. Pinned values are a
+prelude of definitions evaluated before the document (`DocumentOptions.pinned`). Fixed answers (`src/engine/fixed.ts`)
+run before the parser so "section 80c" is a fact, not 80 °C; a defined name still wins. Start with Windows uses
+`app.setLoginItemSettings` with `--hidden`. Suite 6,418 tests.

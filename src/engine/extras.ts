@@ -157,7 +157,17 @@ function intentInHand(p: Parsed, ctx: EvalContext): Quantity | null {
   const yearly = gross.minus(pf).minus(pt).minus(tax);
   const monthly = money2(yearly.div(12));
   const money = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), ctc));
-  return { ...moneyOrNumber(monthly, ctc), display: `${money(monthly)}/month`, note: `in hand ${money(yearly)} per year · CTC ${money(ctc.value)} − employer PF ${money(pf)} − employee PF ${money(pf)} − professional tax ${money(pt)} − income tax ${money(tax)} (new regime) · assumes basic = 50% of CTC` };
+  const ihSteps = [
+    `basic = 50% of CTC = ${money(basic)}`,
+    `employer PF = 12% of basic = ${money(pf)} (sits inside the CTC)`,
+    `gross salary = CTC − employer PF = ${money(ctc.value)} − ${money(pf)} = ${money(gross)}`,
+    `employee PF = 12% of basic = ${money(pf)}`,
+    `professional tax = ${money(pt)} a year`,
+    `income tax on ${money(gross)} (new regime, salaried) = ${money(tax)}`,
+    `in hand = ${money(gross)} − ${money(pf)} − ${money(pt)} − ${money(tax)} = ${money(yearly)} a year`,
+    `per month = ${money(yearly)} ÷ 12 = ${money(monthly)}`,
+  ];
+  return { ...moneyOrNumber(monthly, ctc), steps: ihSteps, display: `${money(monthly)}/month`, note: `in hand ${money(yearly)} per year · CTC ${money(ctc.value)} − employer PF ${money(pf)} − employee PF ${money(pf)} − professional tax ${money(pt)} − income tax ${money(tax)} (new regime) · assumes basic = 50% of CTC` };
 }
 
 /** SIP future value with monthly compounding, instalment at the start of each month */
@@ -240,7 +250,7 @@ function intentDeposit(p: Parsed, ctx: EvalContext): Quantity | null {
   const depSteps = fd
     ? [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `quarters = ${formatNumber(years)} × 4 = ${formatNumber(years.mul(4))}`, `maturity = P × (1 + q)^quarters = ${fq(amount.value)} × ${formatNumber(D(1).plus(q).pow(years.mul(4).toNumber()), { maxDecimals: 4 })} = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`]
     : [`quarterly rate = ${formatNumber(rate)}% ÷ 4 = ${formatNumber(q.mul(100), { maxDecimals: 4 })}%`, `each instalment compounds quarterly for its remaining months (bank method)`, `invested = ${fq(amount.value)} × ${Math.round(years.mul(12).toNumber())} = ${fq(invested)}`, `maturity = ${fq(maturity)}`, `interest = ${fq(maturity)} − ${fq(invested)} = ${fq(interest)}`];
-  const tds = interest.gt(40000) ? ` · interest above ₹40,000: bank deducts 10% TDS (₹50,000 for seniors)` : '';
+  const tds = interest.gt(50000) ? ` · interest above ₹50,000 a year: bank deducts 10% TDS (₹1 lakh for seniors, FY 2025-26)` : '';
   return { ...moneyOrNumber(maturity, amount), steps: depSteps, note: `${fd ? 'FD' : 'RD'} ${formatQuantity(amount)}${rd ? '/month' : ''} at ${formatNumber(rate)}% for ${yrs(years)}, quarterly compounding · interest ${formatQuantity(moneyOrNumber(interest, amount))} on ${formatQuantity(moneyOrNumber(invested, amount))}${tds}` };
 }
 
@@ -278,7 +288,14 @@ function intentPrepay(p: Parsed, ctx: EvalContext): Quantity | null {
   const baseInterest = emi.mul(n).minus(principal.value);
   const saved = baseInterest.minus(interest);
   const m = (v: Decimal) => formatQuantity(moneyOrNumber(money2(v), principal));
-  return { kind: 'unit', value: D(months).div(12), unit: 'year', display: yrs(D(months).div(12)), note: `EMI ${m(emi)} stays · loan closes ${n - months} months early · interest ${m(interest)} instead of ${m(baseInterest)}, saving ${m(saved)} · prepayment ${m(prepayQ.value)} after ${afterMonths} months` };
+  const preSteps = [
+    `EMI for ${m(principal.value)} at ${formatNumber(rate)}% over ${n} months = ${m(emi)}`,
+    `balance runs month by month: balance + interest (balance × ${formatNumber(rate)}% ÷ 12) − EMI`,
+    `after ${afterMonths} months the prepayment of ${m(prepayQ.value)} is taken off the balance`,
+    `the same EMI then clears the loan in ${months} months instead of ${n}`,
+    `interest paid ${m(interest)} instead of ${m(baseInterest)}: saving ${m(saved)}`,
+  ];
+  return { kind: 'unit', value: D(months).div(12), unit: 'year', display: yrs(D(months).div(12)), steps: preSteps, note: `EMI ${m(emi)} stays · loan closes ${n - months} months early · interest ${m(interest)} instead of ${m(baseInterest)}, saving ${m(saved)} · prepayment ${m(prepayQ.value)} after ${afterMonths} months` };
 }
 
 /** rule of 72 and the exact doubling time */
@@ -288,7 +305,7 @@ function intentDoubling(p: Parsed): Quantity | null {
   if (rate.lte(0)) throw new CalcError('rate must be positive');
   const exact = D(Math.log(2) / Math.log(1 + rate.toNumber() / 100));
   const r72 = D(72).div(rate);
-  return { kind: 'unit', value: exact, unit: 'year', display: `${formatNumber(exact, { maxDecimals: 1 })} years`, note: `money doubles at ${formatNumber(rate)}% compounded yearly · rule of 72 says ${formatNumber(r72, { maxDecimals: 1 })} years` };
+  return { kind: 'unit', value: exact, unit: 'year', steps: [`rule of 72: 72 ÷ ${formatNumber(rate)} = ${formatNumber(r72, { maxDecimals: 1 })} years (quick estimate)`, `exact: ln(2) ÷ ln(1 + ${formatNumber(rate)}%) = ${formatNumber(exact, { maxDecimals: 2 })} years`], display: `${formatNumber(exact, { maxDecimals: 1 })} years`, note: `money doubles at ${formatNumber(rate)}% compounded yearly · rule of 72 says ${formatNumber(r72, { maxDecimals: 1 })} years` };
 }
 
 /** "10 lakh today in 10 years at 6% inflation" → future cost; "value of 10 lakh after 10 years at 6% inflation" → purchasing power */
@@ -307,7 +324,9 @@ function intentInflation(p: Parsed, ctx: EvalContext): Quantity | null {
   const f = D(1).plus(rate.div(100)).pow(years.toNumber());
   const power = /\b(value|worth|purchasing|buy|buys)\b/.test(RAW);
   const v = money2(power ? amount.value.div(f) : amount.value.mul(f));
-  return { ...moneyOrNumber(v, amount), note: power ? `what ${formatQuantity(amount)} buys after ${yrs(years)} at ${formatNumber(rate)}% inflation` : `${formatQuantity(amount)} today costs this after ${yrs(years)} at ${formatNumber(rate)}% inflation` };
+  const fm = (q: Decimal) => formatQuantity(moneyOrNumber(money2(q), amount));
+  const infSteps = [`factor = (1 + ${formatNumber(rate)}%)^${formatNumber(years)} = ${formatNumber(f, { maxDecimals: 4 })}`, power ? `value = ${fm(amount.value)} ÷ ${formatNumber(f, { maxDecimals: 4 })} = ${fm(v)}` : `future cost = ${fm(amount.value)} × ${formatNumber(f, { maxDecimals: 4 })} = ${fm(v)}`];
+  return { ...moneyOrNumber(v, amount), steps: infSteps, note: power ? `what ${formatQuantity(amount)} buys after ${yrs(years)} at ${formatNumber(rate)}% inflation` : `${formatQuantity(amount)} today costs this after ${yrs(years)} at ${formatNumber(rate)}% inflation` };
 }
 
 /** "rent 25000 with 10 months deposit", "rent 25000 increase 5% for 3 years" */
@@ -431,7 +450,7 @@ function intentFuelCost(p: Parsed, ctx: EvalContext): Quantity | null {
   const kmpl = evalWords([p.words[economy], p.words[economy + 1], 'in', 'km/l'], ctx).value;
   const litres = km.div(kmpl);
   const cost = money2(litres.mul(price.value));
-  return { ...moneyOrNumber(cost, price), note: `${formatNumber(km, { maxDecimals: 1 })} km ÷ ${formatNumber(kmpl)} km/l = ${formatNumber(litres, { maxDecimals: 2 })} l × ${formatQuantity(price)}/l${dist === undefined ? ' · straight-line distance; by road it is longer' : ''}` };
+  return { ...moneyOrNumber(cost, price), steps: [`fuel needed = ${formatNumber(km, { maxDecimals: 1 })} km ÷ ${formatNumber(kmpl)} km/l = ${formatNumber(litres, { maxDecimals: 2 })} l`, `cost = ${formatNumber(litres, { maxDecimals: 2 })} l × ${formatQuantity(price)} = ${formatQuantity(moneyOrNumber(cost, price))}`], note: `${formatNumber(km, { maxDecimals: 1 })} km ÷ ${formatNumber(kmpl)} km/l = ${formatNumber(litres, { maxDecimals: 2 })} l × ${formatQuantity(price)}/l${dist === undefined ? ' · straight-line distance; by road it is longer' : ''}` };
 }
 
 /** "1.5 ton ac 8 hours a day for 30 days at 8 per unit", "1500 watt heater 3 hours daily 30 days at 7 per unit" */
@@ -451,9 +470,10 @@ function intentElectricity(p: Parsed, ctx: EvalContext): Quantity | null {
   const pu = p.idx('perunit');
   const rateIdx = pu >= 0 ? (p.nums.includes(pu - 1) ? pu - 1 : p.nums.find((i) => i > pu)) : undefined;
   const rate = rateIdx !== undefined ? numberAt(p, rateIdx, ctx).q : null;
-  if (!rate) return { kind: 'unit', value: units, unit: 'kWh', display: `${formatNumber(units, { maxDecimals: 2 })} units`, note: `${formatNumber(kw, { maxDecimals: 2 })} kW × ${formatNumber(h)} h × ${formatNumber(d)} days${tonI !== undefined ? ' · 1 ton of AC ≈ 1.2 kW while running' : ''}` };
+  const elSteps = [`units = kW × hours × days = ${formatNumber(kw, { maxDecimals: 2 })} × ${formatNumber(h)} × ${formatNumber(d)} = ${formatNumber(units, { maxDecimals: 2 })} kWh`];
+  if (!rate) return { kind: 'unit', value: units, unit: 'kWh', steps: elSteps, display: `${formatNumber(units, { maxDecimals: 2 })} units`, note: `${formatNumber(kw, { maxDecimals: 2 })} kW × ${formatNumber(h)} h × ${formatNumber(d)} days${tonI !== undefined ? ' · 1 ton of AC ≈ 1.2 kW while running' : ''}` };
   const cost = money2(units.mul(rate.value));
-  return { ...moneyOrNumber(cost, rate), note: `${formatNumber(units, { maxDecimals: 2 })} units × ${formatQuantity(rate)} · ${formatNumber(kw, { maxDecimals: 2 })} kW × ${formatNumber(h)} h × ${formatNumber(d)} days${tonI !== undefined ? ' · 1 ton of AC ≈ 1.2 kW while running' : ''}` };
+  return { ...moneyOrNumber(cost, rate), steps: [...elSteps, `bill = ${formatNumber(units, { maxDecimals: 2 })} units × ${formatQuantity(rate)} = ${formatQuantity(moneyOrNumber(cost, rate))}`], note: `${formatNumber(units, { maxDecimals: 2 })} units × ${formatQuantity(rate)} · ${formatNumber(kw, { maxDecimals: 2 })} kW × ${formatNumber(h)} h × ${formatNumber(d)} days${tonI !== undefined ? ' · 1 ton of AC ≈ 1.2 kW while running' : ''}` };
 }
 
 /** Indian festival and holiday dates (Gregorian), 2026–2028 */
@@ -684,12 +704,15 @@ function intentHealth(p: Parsed, ctx: EvalContext): Quantity | null {
       bmr = D(10).mul(kg).plus(D(6.25).mul(cm)).minus(D(5).mul(a)).plus(female ? -161 : 5);
     } else if (p.has('tdee') && nums(p, ctx).length === 1 && nums(p, ctx)[0].kind === 'number') bmr = nums(p, ctx)[0].value;
     else throw new CalcError('weight, height and age?', 'e.g. bmr 70 kg 175 cm 30 male');
+    const bmrSteps = mass && height && age
+      ? [`Mifflin-St Jeor: BMR = 10 × kg + 6.25 × cm − 5 × age ${female ? '− 161' : '+ 5'}`, `= 10 × ${formatNumber(evalWords([`${mass.value.toString()} ${mass.unit}`, 'in', 'kg'], ctx).value)} + 6.25 × ${formatNumber(evalWords([`${height.value.toString()} ${height.unit}`, 'in', 'cm'], ctx).value)} − 5 × ${p.words[age.i].replace(/[^\d.]/g, '')} ${female ? '− 161' : '+ 5'} = ${formatNumber(bmr.toDecimalPlaces(0))} kcal/day`]
+      : [`BMR given as ${formatNumber(bmr)}`];
     if (p.has('tdee')) {
       const l = level ?? 'moderate';
       const tdee = bmr.mul(mult[l]);
-      return { kind: 'number', value: tdee.toDecimalPlaces(0), display: `${formatNumber(tdee.toDecimalPlaces(0))} kcal/day`, note: `TDEE = BMR ${formatNumber(bmr.toDecimalPlaces(0))} × ${mult[l]} (${l === 'very' ? 'very active' : l})${level ? '' : ' assumed'} · Mifflin-St Jeor` };
+      return { kind: 'number', value: tdee.toDecimalPlaces(0), steps: [...bmrSteps, `TDEE = BMR × ${mult[l]} (${l === 'very' ? 'very active' : l}) = ${formatNumber(bmr.toDecimalPlaces(0))} × ${mult[l]} = ${formatNumber(tdee.toDecimalPlaces(0))} kcal/day`], display: `${formatNumber(tdee.toDecimalPlaces(0))} kcal/day`, note: `TDEE = BMR ${formatNumber(bmr.toDecimalPlaces(0))} × ${mult[l]} (${l === 'very' ? 'very active' : l})${level ? '' : ' assumed'} · Mifflin-St Jeor` };
     }
-    return { kind: 'number', value: bmr.toDecimalPlaces(0), display: `${formatNumber(bmr.toDecimalPlaces(0))} kcal/day`, note: `BMR, Mifflin-St Jeor (${female ? 'female' : 'male'}) · TDEE ≈ ×1.2 sedentary, ×1.55 moderate, ×1.9 very active` };
+    return { kind: 'number', value: bmr.toDecimalPlaces(0), steps: bmrSteps, display: `${formatNumber(bmr.toDecimalPlaces(0))} kcal/day`, note: `BMR, Mifflin-St Jeor (${female ? 'female' : 'male'}) · TDEE ≈ ×1.2 sedentary, ×1.55 moderate, ×1.9 very active` };
   }
   if (p.has('calories') && p.has('lose')) {
     const m = nums(p, ctx).find((q) => q.kind === 'unit' && findUnit(q.unit!)?.dim === 'mass');
@@ -776,7 +799,10 @@ function intentProportion(p: Parsed, ctx: EvalContext): Quantity | null {
     const [a, b, c] = nums(p, ctx).map((q) => q.value);
     const inverse = p.has('workers') || p.has('people') || p.has('men') || p.has('machines') || p.has('pipes') || p.has('inverse');
     const v = inverse ? a.mul(b).div(c) : b.mul(c).div(a);
-    return { kind: 'number', value: v, display: `${formatNumber(v, { maxDecimals: 2 })}${labels[1] ? ' ' + labels[1] : ''}`, note: inverse ? `inverse proportion: ${formatNumber(a)} ${labels[0]} × ${formatNumber(b)} ${labels[1]} = ${formatNumber(c)} ${labels[0]} × ?` : `direct proportion: ${formatNumber(b)} ${labels[1]} ÷ ${formatNumber(a)} ${labels[0]} × ${formatNumber(c)} ${labels[0]}` };
+    const propSteps = inverse
+      ? [`inverse proportion: more ${labels[0]} means fewer ${labels[1]}`, `${formatNumber(a)} × ${formatNumber(b)} = ${formatNumber(c)} × ?`, `? = ${formatNumber(a)} × ${formatNumber(b)} ÷ ${formatNumber(c)} = ${formatNumber(v, { maxDecimals: 2 })}`]
+      : [`direct proportion: ${labels[1]} per ${labels[0]} = ${formatNumber(b)} ÷ ${formatNumber(a)} = ${formatNumber(b.div(a), { maxDecimals: 4 })}`, `? = ${formatNumber(b.div(a), { maxDecimals: 4 })} × ${formatNumber(c)} = ${formatNumber(v, { maxDecimals: 2 })}`];
+    return { kind: 'number', value: v, steps: propSteps, display: `${formatNumber(v, { maxDecimals: 2 })}${labels[1] ? ' ' + labels[1] : ''}`, note: inverse ? `inverse proportion: ${formatNumber(a)} ${labels[0]} × ${formatNumber(b)} ${labels[1]} = ${formatNumber(c)} ${labels[0]} × ?` : `direct proportion: ${formatNumber(b)} ${labels[1]} ÷ ${formatNumber(a)} ${labels[0]} × ${formatNumber(c)} ${labels[0]}` };
   }
   return null;
 }

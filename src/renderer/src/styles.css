@@ -1397,3 +1397,36 @@ body,
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
+/* ---- pinned ---- */
+.row .pin {
+  pointer-events: auto;
+  background: transparent;
+  border: 0;
+  font-size: 12px;
+  opacity: 0;
+  margin-right: 4px;
+  margin-top: 5px;
+  cursor: default;
+  filter: grayscale(1);
+  transition: opacity 160ms ease, filter 160ms ease, transform 160ms ease;
+}
+.row:hover .pin {
+  opacity: 0.6;
+}
+.row .pin:hover,
+.row .pin.on {
+  opacity: 1;
+  filter: none;
+  transform: scale(1.1);
+}
+.pin-row {
+  display: flex;
+  gap: 8px;
+}
+.pin-row input {
+  flex: 1;
+}
+.learn .muted.ok {
+  color: var(--result);
+}

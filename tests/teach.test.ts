@@ -71,3 +71,20 @@ describe('did you mean', () => {
     expect(suggest('emi loan interest tax gst 5 lakh').length).toBeLessThanOrEqual(3);
   });
 });
+
+describe('pinned values', () => {
+  it('pinned definitions are available on every line and do not appear in the results', () => {
+    const res = run(['salary - rent', '10% of salary'], { pinned: ['salary = 85000', 'rent = 15000'] });
+    expect(res).toHaveLength(2);
+    expect(res[0].display).toBe('70,000');
+    expect(res[1].display).toBe('8,500');
+  });
+  it('a line in the document can override a pinned name', () => {
+    const res = run(['salary = 1000', 'salary * 2'], { pinned: ['salary = 85000'] });
+    expect(res[1].display).toBe('2,000');
+  });
+  it('a broken pinned line is ignored', () => {
+    const res = run(['5 + 5'], { pinned: ['this is not a definition', 'x ='] });
+    expect(res[0].display).toBe('10');
+  });
+});

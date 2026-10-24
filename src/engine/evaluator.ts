@@ -507,13 +507,14 @@ export function evaluate(node: Node, ctx: EvalContext): Quantity {
       if (lv && rv) TRACE.push(`${show(lv)} ${SYM[node.op] ?? node.op} ${show(rv)} = ${show(q)}`);
     } else if (node.t === 'conv') {
       const inner = LAST.get((node as { e: Node }).e);
-      if (inner && show(inner) !== show(q)) TRACE.push(`${show(inner)} → ${show(q)}`);
+      if (inner && show(inner) !== show(q)) {
+        const factor = inner.value.isZero() || inner.kind === 'date' || inner.kind === 'time' || q.kind === 'date' || q.kind === 'time' ? null : q.value.div(inner.value);
+        const sameKind = inner.kind === q.kind && (inner.kind === 'unit' || inner.kind === 'money');
+        TRACE.push(sameKind && factor && !factor.eq(1) ? `${show(inner)} × ${formatNumber(factor, { maxDecimals: 6 })} = ${show(q)}` : `${show(inner)} → ${show(q)}`);
+      }
     } else if (node.t === 'call') {
       const args = (node as { args: Node[] }).args.map((a) => LAST.get(a)).filter((x): x is Quantity => !!x);
       TRACE.push(`${(node as { fn: string }).fn}(${args.map(show).join(', ')}) = ${show(q)}`);
-    } else if (node.t === 'scale') {
-      const inner = LAST.get((node as { e: Node }).e);
-      if (inner) TRACE.push(`${show(inner)} × ${(node as { mult: Decimal }).mult.toString()} = ${show(q)}`);
     }
     LAST.set(node, q);
   }

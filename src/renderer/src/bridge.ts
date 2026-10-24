@@ -22,6 +22,13 @@ function browserShim(): FataakApi {
       installUpdate: async () => ({ ok: false, status: 'updates install only in the installed app' }),
       onUpdateProgress: () => () => {},
     },
+    pinned: {
+      load: async () => (JSON.parse(localStorage.getItem('fataak.pinned') ?? '[]') as unknown[]).filter((x): x is string => typeof x === 'string'),
+      save: async (lines: string[]) => {
+        localStorage.setItem('fataak.pinned', JSON.stringify(lines));
+        return lines;
+      },
+    },
     teach: {
       load: async () => sanitizeRules(JSON.parse(localStorage.getItem('fataak.teach') ?? '[]')),
       save: async (rules: TeachRule[]) => {
@@ -96,7 +103,9 @@ function browserShim(): FataakApi {
     },
     window: { hide: () => {}, minimize: () => {}, close: () => {}, toggleMaximize: () => {}, quit: () => {} },
     clipboard: { write: (text) => void navigator.clipboard?.writeText(text) },
+    launcher: { hide: () => {}, openInMain: () => {}, record: () => {} },
     onShow: () => () => {},
+    onInsert: () => () => {},
   };
 }
 

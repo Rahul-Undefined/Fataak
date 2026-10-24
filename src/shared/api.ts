@@ -18,6 +18,10 @@ export interface Settings {
   /** keys from shared/fonts.ts */
   uiFont: string;
   editorFont: string;
+  /** start FATAAK with Windows (hidden in the tray) */
+  startup: boolean;
+  /** the hotkey opens the quick launcher (orb + one line) instead of the window */
+  launcher: boolean;
   /** the first-run tutorial has been watched or skipped */
   tutorialSeen: boolean;
   /** the version whose release notes were shown last; a newer app shows "What's new" once */
@@ -37,6 +41,8 @@ export const DEFAULT_SETTINGS: Settings = {
   tint: DEFAULT_TINT,
   uiFont: DEFAULT_UI_FONT,
   editorFont: DEFAULT_EDITOR_FONT,
+  startup: false,
+  launcher: false,
   tutorialSeen: false,
   lastSeenVersion: '',
   updateRepo: 'Rahul-Undefined/Fataak',
@@ -117,6 +123,11 @@ export interface FataakApi {
     installUpdate(url: string, version: string): Promise<UpdateInstall>;
     onUpdateProgress(cb: (p: UpdateProgress) => void): () => void;
   };
+  /** pinned definitions, stored in pinned.json; never expire */
+  pinned: {
+    load(): Promise<string[]>;
+    save(lines: string[]): Promise<string[]>;
+  };
   /** "Teach FATAAK" rules, stored in teach.json next to the settings */
   teach: {
     load(): Promise<TeachRule[]>;
@@ -156,8 +167,18 @@ export interface FataakApi {
   clipboard: {
     write(text: string): void;
   };
+  /** the quick launcher window */
+  launcher: {
+    hide(): void;
+    /** show the main window with this line added */
+    openInMain(text: string): void;
+    /** add this line to the main window's history without showing it */
+    record(text: string): void;
+  };
   /** fired when the window is shown via hotkey/tray; returns an unsubscribe function */
   onShow(cb: () => void): () => void;
+  /** main window: a line sent from the launcher */
+  onInsert(cb: (text: string) => void): () => void;
 }
 
 declare global {

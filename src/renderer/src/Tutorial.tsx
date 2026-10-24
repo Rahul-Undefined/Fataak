@@ -49,13 +49,36 @@ const SCENES: Scene[] = [
     ],
   },
   {
-    title: 'Lines remember each other.',
-    caption: '"name = value" or "name: value" defines a name for the lines below. "that" and "prev" refer to the nearest result above. Everything on screen is the context; nothing hidden.',
+    title: 'Build on the line above.',
+    caption: '"name = value" defines a name for the lines below. "that" or "prev" is the nearest answer above. "sum" and "average" take the block of lines above. Hover a definition and click 📌 to pin it: pinned names never expire.',
     lines: [
       { text: 'rent = 15000', result: '15,000' },
       { text: 'food = 8000', result: '8,000' },
       { text: 'rent + food', result: '23,000' },
       { text: '10% of that', result: '2,300' },
+      { text: 'that + 18% gst', result: '2,714' },
+      { text: 'sum', result: '51,014' },
+    ],
+  },
+  {
+    title: 'Ask in steps.',
+    caption: '"then", "after", "ke baad" and commas chain operations in the order you say them. Each step shows in the working. The same question works as separate lines.',
+    lines: [
+      { text: '25000 - 10% then + 18% gst', result: '26,550' },
+      { text: '1500 ka 20% discount ke baad 18% gst', result: '1,416' },
+      { text: 'rahul 150, rohit 250, total', result: '400' },
+      { text: 'bill 1200 + 15% tip split 4 ways', result: '345 each' },
+    ],
+  },
+  {
+    title: 'Tips & tricks.',
+    caption: 'Ask for the form you want: "in lakhs", "in hours", "old regime", "per month". Compare with "vs". Run one question over a range with "for 1 to 5 years". Solve for x. Ctrl+Enter copies the answer and starts a new line.',
+    lines: [
+      { text: '1 crore in lakhs', result: '100 lakh' },
+      { text: '5 kg at 450 vs 2 kg at 190', result: '5 kg at 450 is cheaper' },
+      { text: 'emi 5 lakh at 9% for 1 to 3 years', result: '1y 43,725.74 · 2y 22,842.37 · 3y 15,899.87' },
+      { text: '3x = 2x + 10', result: 'x = 10' },
+      { text: 'unit of electricity', result: 'kWh, billed as "units"' },
     ],
   },
   {

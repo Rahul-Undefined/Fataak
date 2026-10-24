@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.0',
+    date: '24 Oct 2026',
+    added: ['Quick launcher (Settings): the hotkey opens a small glass bar with a living orb on any screen; type one line, Enter copies the answer, Ctrl+Enter brings it into the window', 'Start with Windows (Settings): FATAAK waits in the tray from login', 'Pinned values: names that never expire (Settings → Pinned, or hover a definition and click 📌); every line can use them', 'Fixed answers: units of things ("unit of electricity"), full forms ("emi full form"), Indian finance constants ("80c limit", "gst rates", "tds on fd"), calendar facts, tola and quintal', 'Step by step for dates, conversions, inflation, prepayment, proportion, in-hand salary, health and time spans', 'Tutorial scenes on building on the line above and tips & tricks'],
+  },
+  {
     version: '1.2.4',
     date: '24 Oct 2026',
     added: ['Step by step: double-click a result and the card shows every operation in order (10 + 5 = 15, 15 × 0 = 0), slab-by-slab income tax, and the formulas with numbers for EMI, interest, SIP, lump sum, FD, RD and GST'],
@@ -69,15 +74,17 @@ export const CHANGELOG: ReleaseNote[] = [
   },
 ];
 
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
+  const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d) return d;
+  }
+  return 0;
+}
+
 export function notesSince(fromVersion: string | undefined, toVersion: string): ReleaseNote[] {
-  const cmp = (a: string, b: string) => {
-    const pa = a.split('.').map((x) => parseInt(x, 10) || 0);
-    const pb = b.split('.').map((x) => parseInt(x, 10) || 0);
-    for (let i = 0; i < 3; i++) {
-      const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-      if (d) return d;
-    }
-    return 0;
-  };
+  const cmp = compareVersions;
   return CHANGELOG.filter((n) => cmp(n.version, toVersion) <= 0 && (!fromVersion || cmp(n.version, fromVersion) > 0));
 }

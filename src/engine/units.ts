@@ -35,6 +35,9 @@ export const UNITS: UnitDef[] = [
   u('kg', 'mass', 1, 'kg', ['kg', 'kilogram', 'kilograms', 'kilo', 'kilos', 'kgs']),
   u('tonne', 'mass', 1000, 't', ['tonne', 'tonnes', 'ton', 'tons', 'metric ton']),
   u('lb', 'mass', '0.45359237', 'lb', ['lb', 'lbs', 'pound', 'pounds']),
+  u('tola', 'mass', '0.011664', 'tola', ['tola', 'tolas', 'tole']),
+  u('quintal', 'mass', 100, 'quintal', ['quintal', 'quintals', 'qtl']),
+  u('ratti', 'mass', '0.0001215', 'ratti', ['ratti', 'rattis']),
   u('oz', 'mass', '0.028349523125', 'oz', ['oz', 'ounce', 'ounces']),
   // volume (base: litre)
   u('ml', 'volume', '0.001', 'ml', ['ml', 'milliliter', 'milliliters', 'millilitre', 'millilitres']),

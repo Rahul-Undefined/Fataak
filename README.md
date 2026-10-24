@@ -6,7 +6,7 @@ A Windows 10/11 smart calculator: type a line, the answer appears on the right. 
 Hinglish, Indian finance and tax, currencies, units, dates and time zones, health and study maths. Deterministic,
 offline and free: no AI, no account, no data leaves the laptop.
 
-Built with Electron, React, TypeScript and Vite. Current version: **1.2.0**.
+Built with Electron, React, TypeScript and Vite. Current version: **1.3.0**.
 
 ## Download and install
 
@@ -21,6 +21,11 @@ downloads the next release and restarts on it. See *Updates* below.
 
 ## What's new
 
+- **1.3** — **Quick launcher** (Settings): the hotkey opens a small glass capsule with a living orb on any screen; type
+  one line, Enter copies the answer, Ctrl+Enter brings it into the window; answered lines land in the window's history
+  either way. **Pinned values** that never expire (Settings → Pinned, or 📌 on a definition). **Fixed answers**: units of
+  things, full forms, Indian finance constants, calendar facts. **Start with Windows**. Step-by-step working for every
+  calculator, and tutorial scenes on building on the line above and tips & tricks.
 - **1.2** — **Star** theme: tinted glass over the desktop (Windows 11 acrylic; a deep tinted surface on older Windows),
   with a tint picker; interface and editor **fonts** of your choice (Inter, Manrope, Outfit, Space Grotesk, Plus Jakarta
   Sans, Sora, DM Sans; JetBrains Mono, Fira Code, Geist Mono, IBM Plex Mono, Source Code Pro), bundled under the SIL
@@ -36,7 +41,7 @@ downloads the next release and restarts on it. See *Updates* below.
 ```bash
 npm install
 npm run dev        # Electron with hot reload
-npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,387 tests
+npm test           # vitest: engine/app tests, 974-case benchmark, 4,619 generated cases with a Python oracle (tests/gen), metamorphic suite; 6,418 tests
 npm run build      # bundles main / preload / renderer into out/
 npm run dist       # Windows installer + portable exe into release/
 ```
@@ -166,6 +171,20 @@ saves your own phrasing next to a form FATAAK knows: numbers in the phrase becom
 answers match before it saves; rules live in `%APPDATA%\FATAAK\teach.json` and can be deleted from the list. Every
 question FATAAK could not answer is kept locally (`unanswered.json`); Settings → **Unanswered** exports them as a CSV
 (with a column for the answer you expected) to send to Rahul, so the next version understands them for everyone.
+
+## Quick launcher, pinned values, fixed answers
+
+Settings → **Quick launcher** makes the hotkey open a capsule in the bottom-right corner instead of the window: the orb
+breathes while idle, ripples while you type, spins while a line is not understood, and swells when an answer lands.
+Enter copies the answer and closes; Ctrl+Enter opens the window with the line; Esc clears, then closes. Every line that
+got an answer is added to the window's history, so nothing typed in the launcher is lost.
+
+Settings → **Pinned** holds definitions that never expire (`salary = 85000`, `rate = 9%`): every line, every day, can
+use them. Hover a definition in the editor and click 📌 to pin it. Pins live in `%APPDATA%\FATAAK\pinned.json`.
+
+Questions whose answer is a fact get it directly: `unit of electricity`, `pani ka unit`, `emi full form`, `gst rates`,
+`80c limit`, `tds on fd`, `standard deduction`, `days in a leap year`, `1 tola in grams`, `normal bmi`. Year-specific
+figures say which financial year they are for.
 
 ## Updates
 
