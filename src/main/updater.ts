@@ -123,43 +123,55 @@ export async function installUpdate(url: string, version: string, win: BrowserWi
     } catch {
       return { ok: false, status: 'the update does not look like a FATAAK build' };
     }
-    // the apply script: wait for this process to end, copy, restart
-    const script = join(dir, 'apply-update.cmd');
+    // the apply script (PowerShell, started hidden through wscript so no console window ever shows): wait for
+    // THIS process id to end (child processes share the FATAAK.exe name, so a name check would wait forever),
+    // copy the new files over the install folder, clear the "from the internet" mark, start FATAAK again
+    const ps1 = join(dir, 'apply-update.ps1');
+    const vbs = join(dir, 'apply-update.vbs');
     const log = join(dir, 'apply-update.log');
-    const lines = [
-      '@echo off',
-      'setlocal',
-      `set "SRC=${extract}"`,
-      `set "DST=${installDir}"`,
-      `set "LOG=${log}"`,
-      'set /a tries=0',
-      ':wait',
-      'tasklist /fi "imagename eq FATAAK.exe" 2>nul | find /i "FATAAK.exe" >nul',
-      'if not errorlevel 1 (',
-      '  set /a tries+=1',
-      '  if %tries% geq 60 goto failed',
-      '  timeout /t 1 /nobreak >nul',
-      '  goto wait',
-      ')',
-      'robocopy "%SRC%" "%DST%" /E /R:5 /W:1 /NFL /NDL /NJH /NJS /NC /NS /NP > "%LOG%" 2>&1',
-      'if errorlevel 8 goto failed',
-      // files extracted from a downloaded zip may carry the "from the internet" mark; clear it (per-user, no admin)
-      'powershell -NoProfile -NonInteractive -Command "Get-ChildItem -LiteralPath \'%DST%\' -Recurse -File | Unblock-File -ErrorAction SilentlyContinue" >nul 2>&1',
-      'start "" "%DST%\\FATAAK.exe"',
-      'rmdir /s /q "%SRC%" >nul 2>&1',
-      `del /q "${zip}" >nul 2>&1`,
-      'exit /b 0',
-      ':failed',
-      'echo update could not be applied >> "%LOG%"',
-      'start "" "%DST%\\FATAAK.exe"',
-      'exit /b 1',
+    const q = (x: string) => `'${x.replace(/'/g, "''")}'`;
+    const script = [
+      `$src = ${q(extract)}`,
+      `$dst = ${q(installDir)}`,
+      `$log = ${q(log)}`,
+      `$oldPid = ${process.pid}`,
+      `"waiting for FATAAK (pid $oldPid) to exit" | Out-File -FilePath $log -Encoding utf8`,
+      'for ($i = 0; $i -lt 40; $i++) {',
+      '  if (-not (Get-Process -Id $oldPid -ErrorAction SilentlyContinue)) { break }',
+      '  Start-Sleep -Milliseconds 500',
+      '}',
+      'if (Get-Process -Id $oldPid -ErrorAction SilentlyContinue) {',
+      '  "still running after 20 s, ending it" | Out-File -FilePath $log -Append -Encoding utf8',
+      '  Stop-Process -Id $oldPid -Force -ErrorAction SilentlyContinue',
+      '  Start-Sleep -Seconds 2',
+      '}',
+      // any helper process of the old instance (gpu, renderer) ends with the main process; give them a moment
+      'Start-Sleep -Milliseconds 800',
+      '$r = Start-Process -FilePath robocopy.exe -ArgumentList @("`"$src`"", "`"$dst`"", "/E", "/R:5", "/W:1", "/NFL", "/NDL", "/NJH", "/NJS", "/NC", "/NS", "/NP") -Wait -PassThru -WindowStyle Hidden',
+      '"robocopy exit $($r.ExitCode)" | Out-File -FilePath $log -Append -Encoding utf8',
+      'if ($r.ExitCode -ge 8) {',
+      '  "update could not be applied" | Out-File -FilePath $log -Append -Encoding utf8',
+      '  Start-Process -FilePath (Join-Path $dst "FATAAK.exe")',
+      '  exit 1',
+      '}',
+      'Get-ChildItem -LiteralPath $dst -Recurse -File -ErrorAction SilentlyContinue | Unblock-File -ErrorAction SilentlyContinue',
+      'Start-Process -FilePath (Join-Path $dst "FATAAK.exe")',
+      'Remove-Item -LiteralPath $src -Recurse -Force -ErrorAction SilentlyContinue',
+      `Remove-Item -LiteralPath ${q(zip)} -Force -ErrorAction SilentlyContinue`,
+      '"done" | Out-File -FilePath $log -Append -Encoding utf8',
       '',
-    ];
-    await writeFile(script, lines.join('\r\n'), 'utf8');
+    ].join('\r\n');
+    await writeFile(ps1, '\ufeff' + script, 'utf8');
+    const launcher = `CreateObject("WScript.Shell").Run "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File ""${ps1}""", 0, False\r\n`;
+    await writeFile(vbs, launcher, 'utf8');
     progress(size, size, 'restarting');
-    const child = spawn('cmd.exe', ['/c', script], { detached: true, stdio: 'ignore', windowsHide: true, cwd: dir });
+    const child = spawn('wscript.exe', ['//B', '//Nologo', vbs], { detached: true, stdio: 'ignore', windowsHide: true, cwd: dir });
     child.unref();
-    setTimeout(quit, 400);
+    // leave the event loop: quit normally, and if anything holds the process open, exit outright
+    setTimeout(() => {
+      quit();
+      setTimeout(() => app.exit(0), 1500);
+    }, 400);
     return { ok: true, status: `installing ${version}; FATAAK will restart` };
   } catch (e) {
     return { ok: false, status: `update failed: ${(e as Error).message}` };
