@@ -78,7 +78,7 @@ const SCENES: Scene[] = [
   },
   {
     title: 'Keys.',
-    caption: 'Alt+Space shows or hides FATAAK from anywhere. Esc hides. Ctrl+Shift+C copies the current result, Ctrl+Alt+C copies everything with answers. The bar at the bottom pins the window on top, turns widget mode on, and switches the theme.',
+    caption: 'Alt+Space shows or hides FATAAK from anywhere. Esc hides. Ctrl+Shift+C copies the current result, Ctrl+Alt+C copies everything with answers. The bar at the bottom pins the window on top, turns widget mode on, and switches between the Moon (dark) and Sun (light) themes.',
     lines: [
       { text: 'Alt+Space', result: 'show / hide' },
       { text: 'Esc', result: 'hide' },

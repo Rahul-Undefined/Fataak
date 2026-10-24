@@ -134,7 +134,7 @@ litres` → 15 km/l, `fuel for 600 km at 15 km/l`, `6 lakh per year in month`, `
 `3 dozen`, `time difference between india and london`, `450 km at 60 km/h` → 7.5 h, `age in days if born 1 jan 2000`.
 In the app: double-click a result to see the working (every step, rate and source) and copy it; the bar at the bottom has
 labelled toggles for **On top**, **Widget** mode (pinned to the desktop, no taskbar entry, cannot be moved, minimised or
-closed until turned off) and the **theme** (dark/light); **? Help** replays the animated tutorial that autoplays on first
+closed until turned off) and the **Moon/Sun** theme (dark/light); **? Help** replays the animated tutorial that autoplays on first
 run; **Settings** shows the version and build date and can check an update URL you set (a JSON file with `version` and
 `url`); nothing is downloaded or installed automatically.
 

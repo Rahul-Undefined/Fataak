@@ -428,8 +428,8 @@ export function App() {
             <span className="knob" />
             <span className="lbl">Widget</span>
           </button>
-          <button className="toggle plain" title={settings.theme === 'dark' ? 'Switch to the light theme' : 'Switch to the dark theme'} onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })} tabIndex={-1}>
-            <span className="lbl">{settings.theme === 'dark' ? '☾ Dark' : '☀ Light'}</span>
+          <button className="toggle plain" title={settings.theme === 'dark' ? 'Moon theme is on (dark). Click for Sun (light)' : 'Sun theme is on (light). Click for Moon (dark)'} onClick={() => void updateSettings({ theme: settings.theme === 'dark' ? 'light' : 'dark' })} tabIndex={-1}>
+            <span className="lbl">{settings.theme === 'dark' ? '☾ Moon' : '☀ Sun'}</span>
           </button>
         </div>
         <div className="bar-right">
@@ -468,8 +468,8 @@ export function App() {
           <div className="srow">
             <span>Theme</span>
             <select value={settings.theme} onChange={(e) => void updateSettings({ theme: e.target.value as Settings['theme'] })}>
-              <option value="dark">dark</option>
-              <option value="light">light</option>
+              <option value="dark">☾ Moon (dark)</option>
+              <option value="light">☀ Sun (light)</option>
             </select>
           </div>
           <div className="srow sep">
