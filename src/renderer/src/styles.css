@@ -234,12 +234,23 @@ body,
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-.doc::-webkit-scrollbar {
-  width: 8px;
+/* one thin scrollbar everywhere, in the theme's colours */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-.doc::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--muted) 75%, transparent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 .editor {
   position: relative;
@@ -360,7 +371,7 @@ body,
   font-weight: 700;
 }
 .row .value {
-  animation: fade-up 140ms ease-out both;
+  animation: fade-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
   color: var(--result);
   pointer-events: auto;
   cursor: default;
@@ -460,6 +471,7 @@ body,
   flex: 0 0 auto;
   height: 26px;
   margin: 6px 12px 0;
+  padding: 0 8px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -468,6 +480,27 @@ body,
   color: var(--note);
   white-space: nowrap;
   overflow: hidden;
+  border-radius: 8px;
+  cursor: default;
+  transition: height 220ms cubic-bezier(0.22, 1, 0.36, 1), margin 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 180ms ease, background 160ms ease;
+}
+.status:hover {
+  background: var(--surface-2);
+}
+.status.empty {
+  height: 0;
+  margin-top: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.status .status-more {
+  flex: 0 0 auto;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+.status:hover .status-more {
+  opacity: 1;
 }
 .status .status-k {
   color: var(--result);
@@ -573,7 +606,7 @@ body,
   -webkit-app-region: no-drag;
 }
 .settings {
-  animation: pop-in 150ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: pop-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
   transform-origin: bottom right;
   position: absolute;
   right: 12px;
@@ -817,8 +850,8 @@ body,
   border-radius: 999px;
   padding: 3px 10px;
   cursor: default;
-  animation: chip-in 220ms ease-out both;
-  transition: border-color 120ms, background 120ms, transform 120ms;
+  animation: chip-in 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .chip-btn:hover:not(:disabled) {
   border-color: var(--accent);
@@ -870,7 +903,7 @@ body,
   padding: 16px 18px 14px;
   color: var(--text);
   font-size: 12.5px;
-  animation: chip-in 180ms ease-out both;
+  animation: pop-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .learn-head {
   display: flex;
@@ -1216,7 +1249,7 @@ body,
 @keyframes fade-up {
   from {
     opacity: 0;
-    transform: translateY(3px);
+    transform: translateY(4px) scale(0.985);
   }
   to {
     opacity: 1;
@@ -1226,7 +1259,7 @@ body,
 @keyframes pop-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.98);
+    transform: translateY(8px) scale(0.97);
   }
   to {
     opacity: 1;
@@ -1235,10 +1268,32 @@ body,
 }
 .status .status-v,
 .status .status-k {
-  animation: fade-up 160ms ease-out both;
+  animation: fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 .row .note.pill {
-  animation: fade-up 140ms ease-out both;
+  animation: fade-up 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.modal {
+  animation: fade-in 200ms ease both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.toggle,
+.mini,
+.link,
+.segb,
+.swatch,
+.primary {
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+}
+.toggle .knob::after {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), background 160ms ease;
 }
 .settings .learning {
   margin-top: 6px;

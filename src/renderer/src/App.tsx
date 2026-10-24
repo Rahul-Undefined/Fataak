@@ -531,14 +531,17 @@ export function App() {
       {statusRes && !statusRes.ok && !statusRes.isText && (texts[statusIdx]?.trim().length ?? 0) >= 3 && hoverLine === null ? (
         <SuggestChips line={texts[statusIdx]} onPick={(t) => replaceLine(statusIdx, t)} onTeach={() => setTeachFor(texts[statusIdx])} />
       ) : null}
-      <div className="status" title={statusNote ?? ''}>
-        {statusNote ? (
+      <div
+        className={`status${statusNote ? '' : ' empty'}`}
+        title={statusNote ? 'click to see every step' : ''}
+        onClick={() => statusNote && lines[statusIdx] && setOpenId((cur) => (cur === lines[statusIdx].id ? null : lines[statusIdx].id))}
+      >
+        {statusNote && (
           <>
             <span className="status-k">{statusLabel}</span>
             <span className="status-v">{statusNote}</span>
+            <span className="status-more">▸</span>
           </>
-        ) : (
-          <span className="status-k muted">{texts.length > 1 || texts[0] ? 'double-click a result for the working · FATAAK is still learning and can make mistakes' : ''}</span>
         )}
       </div>
 
@@ -676,9 +679,6 @@ export function App() {
             </button>
             <button className="link" onClick={() => setShowTutorial(true)}>
               Tutorial
-            </button>
-            <button className="link" onClick={() => (setShowSettings(false), setWhatsNew({}))}>
-              What's new
             </button>
             {isElectron && !widget && (
               <button className="link" onClick={() => api.window.quit()}>

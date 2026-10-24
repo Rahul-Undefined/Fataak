@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.2.3',
+    date: '24 Oct 2026',
+    changed: ['The strip under the editor appears only when a line has a working to show; click it to open every step', 'Scrollbars are thin and follow the theme', 'Softer, slightly longer motion curves', 'This panel appears once per new version and then stays away'],
+  },
+  {
     version: '1.2.2',
     date: '24 Oct 2026',
     fixed: ['Narrow windows: the bottom bar keeps its icons and drops the words, the status strip trims with an ellipsis, and the placeholder shortens instead of breaking mid-word'],
