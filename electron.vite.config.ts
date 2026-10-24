@@ -16,6 +16,6 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     resolve: { alias: { '@engine': resolve(__dirname, 'src/engine') } },
     plugins: [react()],
-    build: { outDir: resolve(__dirname, 'out/renderer'), rollupOptions: { input: { index: resolve(__dirname, 'src/renderer/index.html'), launcher: resolve(__dirname, 'src/renderer/launcher.html'), orb: resolve(__dirname, 'src/renderer/orb.html') } } },
+    build: { outDir: resolve(__dirname, 'out/renderer'), rollupOptions: { input: { index: resolve(__dirname, 'src/renderer/index.html'), launcher: resolve(__dirname, 'src/renderer/launcher.html') } } },
   },
 });

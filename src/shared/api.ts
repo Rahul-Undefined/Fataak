@@ -22,10 +22,6 @@ export interface Settings {
   startup: boolean;
   /** the hotkey opens the quick launcher (orb + one line) instead of the window */
   launcher: boolean;
-  /** a small orb stays on the desktop; hovering or clicking it opens the quick launcher */
-  desktopOrb: boolean;
-  /** where the desktop orb was last left */
-  orbPos?: { x: number; y: number };
   /** the first-run tutorial has been watched or skipped */
   tutorialSeen: boolean;
   /** the version whose release notes were shown last; a newer app shows "What's new" once */
@@ -47,7 +43,6 @@ export const DEFAULT_SETTINGS: Settings = {
   editorFont: DEFAULT_EDITOR_FONT,
   startup: false,
   launcher: false,
-  desktopOrb: false,
   tutorialSeen: false,
   lastSeenVersion: '',
   updateRepo: 'Rahul-Undefined/Fataak',
@@ -171,10 +166,6 @@ export interface FataakApi {
   };
   clipboard: {
     write(text: string): void;
-  };
-  /** the desktop orb window */
-  orb: {
-    open(): void;
   };
   /** the quick launcher window */
   launcher: {

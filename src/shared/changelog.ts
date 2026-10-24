@@ -9,9 +9,9 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
-    version: '1.3.2',
+    version: '1.3.3',
     date: '24 Oct 2026',
-    added: ['Desktop orb (Settings): a small orb stays on the desktop; hover or click it to open the quick launcher. Drag it anywhere; it never takes focus'],
+    changed: ['The desktop orb from 1.3.2 is gone: the widget and the quick launcher are the two ways to use FATAAK'],
   },
   {
     version: '1.3.1',

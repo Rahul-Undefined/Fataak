@@ -38,7 +38,6 @@ type StoredSettings = Settings & { bounds?: Bounds };
 
 let win: BrowserWindow | null = null;
 let launcher: BrowserWindow | null = null;
-let orb: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let quitting = false;
 let settings: StoredSettings = { ...DEFAULT_SETTINGS };
@@ -67,9 +66,7 @@ function validateSettings(raw: unknown): StoredSettings {
   if (typeof o.lastSeenVersion === 'string' && /^\d+(\.\d+){0,3}$/.test(o.lastSeenVersion)) out.lastSeenVersion = o.lastSeenVersion;
   if (typeof o.uiFont === 'string' && FONTS.some((f) => f.key === o.uiFont && f.kind === 'ui')) out.uiFont = o.uiFont;
   if (typeof o.editorFont === 'string' && FONTS.some((f) => f.key === o.editorFont && f.kind === 'mono')) out.editorFont = o.editorFont;
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher', 'desktopOrb'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
-  const op = o.orbPos as Record<string, unknown> | undefined;
-  if (op && Number.isFinite(op.x) && Number.isFinite(op.y)) out.orbPos = { x: op.x as number, y: op.y as number };
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   const b = o.bounds as Record<string, unknown> | undefined;
   if (b && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]))) {
     out.bounds = { x: b.x as number, y: b.y as number, width: Math.max(320, b.width as number), height: Math.max(220, b.height as number) };
@@ -270,76 +267,6 @@ function toggleLauncher(): void {
   else show();
 }
 
-// ---------------------------------------------------------------- desktop orb
-const ORB_SIZE = 64;
-
-function createOrb(): BrowserWindow {
-  const wa = screen.getPrimaryDisplay().workArea;
-  const pos = settings.orbPos ?? { x: wa.x + wa.width - ORB_SIZE - 24, y: wa.y + wa.height - ORB_SIZE - 24 };
-  const onScreen = screen.getAllDisplays().some((d) => pos.x >= d.workArea.x - 10 && pos.y >= d.workArea.y - 10 && pos.x < d.workArea.x + d.workArea.width && pos.y < d.workArea.y + d.workArea.height);
-  const o = new BrowserWindow({
-    width: ORB_SIZE,
-    height: ORB_SIZE,
-    x: onScreen ? pos.x : wa.x + wa.width - ORB_SIZE - 24,
-    y: onScreen ? pos.y : wa.y + wa.height - ORB_SIZE - 24,
-    frame: false,
-    transparent: true,
-    backgroundColor: '#00000000',
-    hasShadow: false,
-    resizable: false,
-    minimizable: false,
-    maximizable: false,
-    fullscreenable: false,
-    focusable: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    show: false,
-    title: 'FATAAK orb',
-    icon: process.platform === 'win32' ? ICON_ICO : ICON_PNG,
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-      spellcheck: false,
-      devTools: isDev,
-    },
-  });
-  o.setMenuBarVisibility(false);
-  o.setAlwaysOnTop(true, 'floating');
-  o.webContents.on('will-navigate', (e) => e.preventDefault());
-  o.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  let t: NodeJS.Timeout | undefined;
-  o.on('moved', () => {
-    clearTimeout(t);
-    t = setTimeout(() => {
-      if (o.isDestroyed()) return;
-      const [x, y] = o.getPosition();
-      settings = { ...settings, orbPos: { x, y } };
-      void settingsStore.write(settings);
-    }, 400);
-  });
-  o.on('closed', () => {
-    orb = null;
-  });
-  o.once('ready-to-show', () => o.showInactive());
-  if (isDev) void o.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/orb.html`);
-  else void o.loadFile(join(__dirname, '../renderer/orb.html'));
-  return o;
-}
-
-function applyOrb(): void {
-  if (settings.desktopOrb) {
-    if (!orb || orb.isDestroyed()) orb = createOrb();
-    else orb.webContents.send('app:show');
-  } else if (orb && !orb.isDestroyed()) {
-    orb.close();
-    orb = null;
-  }
-}
-
 function toggleWindow(): void {
   if (settings.launcher) {
     toggleLauncher();
@@ -488,7 +415,6 @@ function applyStartup(): void {
 function applySettings(): SettingsResult {
   const hotkeyError = registerHotkeyWithFallback();
   applyStartup();
-  applyOrb();
   updateTray();
   if (win && !win.isDestroyed()) {
     applyWidgetMode(win);
@@ -518,13 +444,10 @@ function checkUpdate(): Promise<UpdateCheck> {
 
 // ---------------------------------------------------------------- IPC (all inputs validated)
 function fromWindow(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
-  return (!!win && e.sender === win.webContents) || (!!launcher && !launcher.isDestroyed() && e.sender === launcher.webContents) || (!!orb && !orb.isDestroyed() && e.sender === orb.webContents);
+  return (!!win && e.sender === win.webContents) || (!!launcher && !launcher.isDestroyed() && e.sender === launcher.webContents);
 }
 function fromLauncher(e: Electron.IpcMainEvent): boolean {
   return !!launcher && !launcher.isDestroyed() && e.sender === launcher.webContents;
-}
-function fromOrb(e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent): boolean {
-  return !!orb && !orb.isDestroyed() && e.sender === orb.webContents;
 }
 
 ipcMain.handle('history:load', async (e) => {
@@ -621,10 +544,6 @@ ipcMain.on('app:quit', (e) => {
   if (!fromWindow(e) || settings.widgetMode) return;
   quitting = true;
   app.quit();
-});
-ipcMain.on('orb:open', (e) => {
-  if (!fromOrb(e)) return;
-  if (!launcher || launcher.isDestroyed() || !launcher.isVisible()) toggleLauncher();
 });
 ipcMain.on('launcher:hide', (e) => {
   if (fromLauncher(e)) launcher?.hide();

@@ -639,10 +639,6 @@ export function App() {
             <input type="checkbox" checked={settings.launcher} onChange={(e) => void updateSettings({ launcher: e.target.checked })} title="the hotkey opens a small bar with an orb instead of this window; Enter copies the answer, Ctrl+Enter brings it here" />
           </div>
           <div className="srow">
-            <span>Desktop orb</span>
-            <input type="checkbox" checked={settings.desktopOrb} onChange={(e) => void updateSettings({ desktopOrb: e.target.checked })} title="a small orb stays on the desktop; hover or click it to ask. Drag it anywhere." />
-          </div>
-          <div className="srow">
             <span>Start with Windows</span>
             <input type="checkbox" checked={settings.startup} onChange={(e) => void updateSettings({ startup: e.target.checked })} title="opens in the tray at login; Alt+Space brings it up" />
           </div>

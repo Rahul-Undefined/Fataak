@@ -103,7 +103,6 @@ function browserShim(): FataakApi {
     },
     window: { hide: () => {}, minimize: () => {}, close: () => {}, toggleMaximize: () => {}, quit: () => {} },
     clipboard: { write: (text) => void navigator.clipboard?.writeText(text) },
-    orb: { open: () => {} },
     launcher: { hide: () => {}, openInMain: () => {}, record: () => {} },
     onShow: () => () => {},
     onInsert: () => () => {},
