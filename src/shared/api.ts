@@ -22,6 +22,8 @@ export interface Settings {
   startup: boolean;
   /** the hotkey opens the quick launcher (orb + one line) instead of the window */
   launcher: boolean;
+  /** keep the window and the launcher out of screen shares, recordings and screenshots (Windows content protection) */
+  hideFromCapture: boolean;
   /** the first-run tutorial has been watched or skipped */
   tutorialSeen: boolean;
   /** the version whose release notes were shown last; a newer app shows "What's new" once */
@@ -43,6 +45,7 @@ export const DEFAULT_SETTINGS: Settings = {
   editorFont: DEFAULT_EDITOR_FONT,
   startup: false,
   launcher: false,
+  hideFromCapture: false,
   tutorialSeen: false,
   lastSeenVersion: '',
   updateRepo: 'Rahul-Undefined/Fataak',

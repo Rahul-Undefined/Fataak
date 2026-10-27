@@ -40,7 +40,7 @@ function validateSettingsPatch(v: unknown): Partial<Settings> {
       out[k] = f;
     }
   }
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher'] as const) {
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher', 'hideFromCapture'] as const) {
     if (k in o) {
       if (typeof o[k] !== 'boolean') throw new TypeError(`${k} must be boolean`);
       out[k] = o[k] as boolean;

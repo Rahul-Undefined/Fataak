@@ -68,7 +68,7 @@ function validateSettings(raw: unknown): StoredSettings {
   if (typeof o.lastSeenVersion === 'string' && /^\d+(\.\d+){0,3}$/.test(o.lastSeenVersion)) out.lastSeenVersion = o.lastSeenVersion;
   if (typeof o.uiFont === 'string' && FONTS.some((f) => f.key === o.uiFont && f.kind === 'ui')) out.uiFont = o.uiFont;
   if (typeof o.editorFont === 'string' && FONTS.some((f) => f.key === o.editorFont && f.kind === 'mono')) out.editorFont = o.editorFont;
-  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
+  for (const k of ['tray', 'closeToTray', 'alwaysOnTop', 'widgetMode', 'tutorialSeen', 'startup', 'launcher', 'hideFromCapture'] as const) if (typeof o[k] === 'boolean') out[k] = o[k] as boolean;
   const b = o.bounds as Record<string, unknown> | undefined;
   if (b && ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(b[k]))) {
     out.bounds = { x: b.x as number, y: b.y as number, width: Math.max(320, b.width as number), height: Math.max(220, b.height as number) };
@@ -114,6 +114,7 @@ function createWindow(): BrowserWindow {
     },
   });
   w.setMenuBarVisibility(false);
+  w.setContentProtection(settings.hideFromCapture);
 
   // never navigate away or open windows
   w.webContents.on('will-navigate', (e) => e.preventDefault());
@@ -231,6 +232,7 @@ function createLauncher(): BrowserWindow {
   });
   l.setMenuBarVisibility(false);
   l.setAlwaysOnTop(true, 'pop-up-menu');
+  l.setContentProtection(settings.hideFromCapture);
   l.webContents.on('will-navigate', (e) => e.preventDefault());
   l.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   if (process.env['FATAAK_LAUNCHER_TEST']) {
@@ -434,7 +436,10 @@ function applySettings(): SettingsResult {
     applyWidgetMode(win);
     win.setBackgroundColor(BG[settings.theme]);
     if (GLASS) win.setBackgroundMaterial(settings.theme === 'star' ? 'acrylic' : 'none');
+    // Windows content protection: the window is left out of screen shares, recordings and screenshots
+    win.setContentProtection(settings.hideFromCapture);
   }
+  if (launcher && !launcher.isDestroyed()) launcher.setContentProtection(settings.hideFromCapture);
   return { settings, hotkeyError };
 }
 

@@ -28,11 +28,26 @@ export class JsonStore<T> {
 
   write(value: T): Promise<void> {
     const text = JSON.stringify(value);
-    this.queue = this.queue.then(async () => {
+    // a failed write must not block the ones after it, so the chain continues past a rejection
+    this.queue = this.queue.catch(() => undefined).then(async () => {
       await fs.mkdir(join(this.path, '..'), { recursive: true });
       await fs.writeFile(this.tmp, text, 'utf8');
-      await fs.rename(this.tmp, this.path);
+      await renameWithRetry(this.tmp, this.path);
     });
     return this.queue;
+  }
+}
+
+/** Windows refuses a rename while an antivirus or indexer briefly holds the target (EPERM/EBUSY); wait and try again. */
+async function renameWithRetry(from: string, to: string): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await fs.rename(from, to);
+      return;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (attempt >= 5 || (code !== 'EPERM' && code !== 'EBUSY' && code !== 'EACCES')) throw e;
+      await new Promise((r) => setTimeout(r, 40 * (attempt + 1)));
+    }
   }
 }

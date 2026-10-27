@@ -643,6 +643,10 @@ export function App() {
             <input type="checkbox" checked={settings.startup} onChange={(e) => void updateSettings({ startup: e.target.checked })} title="opens in the tray at login; Alt+Space brings it up" />
           </div>
           <div className="srow">
+            <span>Hide from screen share</span>
+            <input type="checkbox" checked={settings.hideFromCapture} onChange={(e) => void updateSettings({ hideFromCapture: e.target.checked })} title="others in Teams, Zoom or a recording do not see FATAAK; you still do" />
+          </div>
+          <div className="srow">
             <span>Close hides to tray</span>
             <input type="checkbox" checked={settings.closeToTray} disabled={!settings.tray} onChange={(e) => void updateSettings({ closeToTray: e.target.checked })} />
           </div>

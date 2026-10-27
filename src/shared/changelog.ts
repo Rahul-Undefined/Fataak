@@ -9,6 +9,12 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.6',
+    date: '27 Oct 2026',
+    added: ['Hide from screen share (Settings): while it is on, the window and the quick launcher are left out of Teams, Zoom, recordings and screenshots; you still see them normally'],
+    fixed: ['Saving settings or history retries when Windows briefly refuses the write (antivirus, indexer), and one failed save no longer blocks the ones after it'],
+  },
+  {
     version: '1.3.5',
     date: '24 Oct 2026',
     fixed: ['Hotkey: when the chosen key was busy at start (another app held it), the spare key FATAAK used was saved over your choice for good, so Alt+Space stopped opening the launcher. The spare key is now used for that run only, the chosen key is tried again at every start, and a saved spare key from older versions goes back to Alt+Space once it is free'],
