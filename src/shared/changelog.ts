@@ -9,6 +9,11 @@ export interface ReleaseNote {
 
 export const CHANGELOG: ReleaseNote[] = [
   {
+    version: '1.3.7',
+    date: '27 Oct 2026',
+    changed: ['Settings fit every window size: in a small window or the widget they open as a page of their own with a Settings header, a close button and scrolling; in a large window the popover stays and scrolls instead of being cut off'],
+  },
+  {
     version: '1.3.6',
     date: '27 Oct 2026',
     added: ['Hide from screen share (Settings): while it is on, the window and the quick launcher are left out of Teams, Zoom, recordings and screenshots; you still see them normally'],

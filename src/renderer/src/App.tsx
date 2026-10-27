@@ -625,6 +625,12 @@ export function App() {
       {showSettings && <div className="backdrop" onMouseDown={() => setShowSettings(false)} />}
       {showSettings && (
         <div className="settings" onKeyDown={(e) => e.key === 'Escape' && setShowSettings(false)} onClick={(e) => e.stopPropagation()}>
+          <div className="shead">
+            <span>Settings</span>
+            <button className="link" onClick={() => setShowSettings(false)} title="close">
+              ✕
+            </button>
+          </div>
           <div className="srow">
             <span>Global hotkey</span>
             <input type="text" value={hotkeyDraft} onKeyDown={onHotkeyKeyDown} onChange={() => {}} title="press a key combination" />
